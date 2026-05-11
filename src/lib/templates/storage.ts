@@ -8,7 +8,7 @@ export async function loadTemplates(): Promise<Template[]> {
   const stored: Template[] = result[KEY] ?? []
   const storedById = new Map(stored.map(t => [t.id, t]))
 
-  const builtIns = DEFAULT_TEMPLATES.map(t => storedById.get(t.id) ?? t)
+  const builtIns = DEFAULT_TEMPLATES.map(t => ({ ...t, ...storedById.get(t.id) }))
   const userDefined = stored.filter(t => !t.isBuiltIn)
 
   return [...builtIns, ...userDefined]
