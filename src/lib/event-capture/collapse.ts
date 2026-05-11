@@ -1,0 +1,43 @@
+import type { CapturedEvent, ClickEvent, KeyboardInputEvent, ApiEvent } from './types'
+
+export function collapse(events: CapturedEvent[]): CapturedEvent[] {
+  const result: CapturedEvent[] = []
+
+  for (const event of events) {
+    const last = result[result.length - 1]
+    if (last && canCollapse(last, event)) {
+      result[result.length - 1] = merged(last, event)
+    } else {
+      result.push({ ...event })
+    }
+  }
+
+  return result
+}
+
+function canCollapse(a: CapturedEvent, b: CapturedEvent): boolean {
+  if (a.type !== b.type) return false
+  switch (a.type) {
+    case 'click':
+      return (a as ClickEvent).selector === (b as ClickEvent).selector
+    case 'keyboard':
+      return (a as KeyboardInputEvent).selector === (b as KeyboardInputEvent).selector
+    case 'api': {
+      const aa = a as ApiEvent, bb = b as ApiEvent
+      return aa.method === bb.method && aa.url === bb.url && aa.status === bb.status
+    }
+    case 'navigation':
+      return false
+  }
+}
+
+function merged(a: CapturedEvent, b: CapturedEvent): CapturedEvent {
+  switch (a.type) {
+    case 'click':
+      return { ...a, count: (a as ClickEvent).count + 1, timestamp: b.timestamp }
+    case 'keyboard':
+      return { ...a, count: (a as KeyboardInputEvent).count + 1, timestamp: b.timestamp }
+    default:
+      return { ...b }
+  }
+}
