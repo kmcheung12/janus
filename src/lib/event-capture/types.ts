@@ -18,7 +18,7 @@ export interface ClickEvent extends BaseEvent {
   count: number
 }
 
-export interface KeyboardEvent extends BaseEvent {
+export interface KeyboardInputEvent extends BaseEvent {
   type: 'keyboard'
   selector: string
   inputType: string
@@ -36,4 +36,4 @@ export interface ApiEvent extends BaseEvent {
   duration: number | null
 }
 
-export type CapturedEvent = NavigationEvent | ClickEvent | KeyboardEvent | ApiEvent
+export type CapturedEvent = NavigationEvent | ClickEvent | KeyboardInputEvent | ApiEvent
