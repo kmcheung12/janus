@@ -37,7 +37,9 @@ function merged(a: CapturedEvent, b: CapturedEvent): CapturedEvent {
       return { ...a, count: (a as ClickEvent).count + 1, timestamp: b.timestamp }
     case 'keyboard':
       return { ...a, count: (a as KeyboardInputEvent).count + 1, timestamp: b.timestamp }
-    default:
+    case 'api':
+      return { ...a, timestamp: b.timestamp }
+    case 'navigation':
       return { ...b }
   }
 }

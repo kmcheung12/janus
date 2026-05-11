@@ -17,6 +17,7 @@ export function getEvents(): CapturedEvent[] {
 
 export function clearEvents(): void {
   events = []
+  listeners.clear()
 }
 
 export function subscribe(fn: (events: CapturedEvent[]) => void): () => void {
