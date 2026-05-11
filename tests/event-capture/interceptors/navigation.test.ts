@@ -32,4 +32,10 @@ describe('attachNavigationInterceptor', () => {
     expect(captured).toHaveLength(1)
     expect(captured[0].type).toBe('navigation')
   })
+
+  it('detach stops capturing pushState events', () => {
+    detach()
+    history.pushState({}, '', '/after-detach')
+    expect(captured).toHaveLength(0)
+  })
 })
