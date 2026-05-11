@@ -63,12 +63,14 @@
 
   <div class="main">
     {#if selected}
-      <TemplateEditor
-        template={selected}
-        onSave={handleSave}
-        onDelete={!selected.isBuiltIn ? () => handleDelete(selected!.id) : undefined}
-        onReset={selected.isBuiltIn ? () => handleReset(selected!.id) : undefined}
-      />
+      {#key selected.id}
+        <TemplateEditor
+          template={selected}
+          onSave={handleSave}
+          onDelete={!selected.isBuiltIn ? () => handleDelete(selected!.id) : undefined}
+          onReset={selected.isBuiltIn ? () => handleReset(selected!.id) : undefined}
+        />
+      {/key}
     {:else}
       <p class="empty">Select a template or create a new one.</p>
     {/if}
