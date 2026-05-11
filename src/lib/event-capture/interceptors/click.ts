@@ -5,6 +5,7 @@ export function attachClickInterceptor(onEvent: (e: CapturedEvent) => void): () 
   function handler(e: MouseEvent) {
     const target = e.target as Element
     if (!target) return
+    if (target.closest('#janus-root')) return
 
     const event: ClickEvent = {
       id: crypto.randomUUID(),

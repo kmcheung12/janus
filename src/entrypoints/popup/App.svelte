@@ -1,14 +1,14 @@
 <script lang="ts">
   async function activate() {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+    const [tab] = await browser.tabs.query({ active: true, currentWindow: true })
     if (tab.id) {
-      await chrome.tabs.sendMessage(tab.id, { type: 'JANUS_ACTIVATE' })
+      await browser.tabs.sendMessage(tab.id, { type: 'JANUS_ACTIVATE' })
       window.close()
     }
   }
 
   function openTemplates() {
-    chrome.tabs.create({ url: chrome.runtime.getURL('/templates.html') })
+    browser.tabs.create({ url: browser.runtime.getURL('/templates.html') })
   }
 </script>
 

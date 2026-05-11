@@ -7,8 +7,9 @@
   import type { Template } from '../../lib/templates/types'
   import type { CapturedEvent } from '../../lib/event-capture/types'
 
-  let { selectedSelector, selectedEvent, events, pageUrl, onBack, onDone }: {
+  let { selectedSelector, selectedSource, selectedEvent, events, pageUrl, onBack, onDone }: {
     selectedSelector?: string
+    selectedSource?: 'page' | 'extension'
     selectedEvent?: CapturedEvent
     events: CapturedEvent[]
     pageUrl: string
@@ -73,6 +74,7 @@
     <div class="selection-info">
       {#if selectedSelector}
         <span class="chip">{selectedSelector}</span>
+        {#if selectedSource}<span class="source-badge source-{selectedSource}">{selectedSource}</span>{/if}
       {:else if selectedEvent}
         <span class="chip">{selectedEvent.type}: {(selectedEvent as any).url ?? (selectedEvent as any).selector ?? ''}</span>
       {/if}
@@ -130,6 +132,9 @@
   .hint { font-size: 10px; color: #45475a; text-transform: none; letter-spacing: 0; }
   .selection-info { font-size: 12px; }
   .chip { background: #313244; border-radius: 3px; padding: 2px 6px; font-family: monospace; }
+  .source-badge { font-size: 9px; font-weight: 600; text-transform: uppercase; border-radius: 2px; padding: 1px 5px; vertical-align: middle; }
+  .source-page { background: #313244; color: #6c7086; }
+  .source-extension { background: #cba6f7; color: #1e1e2e; }
   .tags { display: flex; flex-wrap: wrap; gap: 6px; }
   .tag-btn { background: #313244; border: 1px solid transparent; color: #cdd6f4; border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
   .tag-btn.active { border-color: #cba6f7; color: #cba6f7; }

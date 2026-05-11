@@ -1,4 +1,4 @@
-import { addEvent, getEvents, subscribe } from '../lib/event-capture/store'
+import { addEvent } from '../lib/event-capture/store'
 import { attachClickInterceptor } from '../lib/event-capture/interceptors/click'
 import { attachKeyboardInterceptor } from '../lib/event-capture/interceptors/keyboard'
 import { attachNavigationInterceptor } from '../lib/event-capture/interceptors/navigation'
@@ -42,7 +42,6 @@ export default defineContentScript({
     // Annotation mode
     let overlayHost: HTMLElement | null = null
     let overlayInstance: Record<string, unknown> | null = null
-    let unsubscribe: (() => void) | null = null
 
     function openAnnotationMode() {
       if (overlayHost) return
@@ -51,23 +50,13 @@ export default defineContentScript({
       overlayHost.id = 'janus-root'
       document.body.appendChild(overlayHost)
 
-      let currentEvents = getEvents()
-      unsubscribe = subscribe(updated => {
-        currentEvents = updated
-      })
-
       overlayInstance = mount(Overlay, {
         target: overlayHost,
-        props: {
-          get events() { return currentEvents },
-          onClose: closeAnnotationMode,
-        },
+        props: { onClose: closeAnnotationMode },
       })
     }
 
     function closeAnnotationMode() {
-      unsubscribe?.()
-      unsubscribe = null
       if (overlayInstance) {
         unmount(overlayInstance)
         overlayInstance = null
@@ -77,13 +66,13 @@ export default defineContentScript({
     }
 
     // Listen for activate message from popup
-    chrome.runtime.onMessage.addListener((msg: { type: string }) => {
+    browser.runtime.onMessage.addListener((msg: { type: string }) => {
       if (msg.type === 'JANUS_ACTIVATE') openAnnotationMode()
     })
 
     // Keyboard shortcut: Alt+Shift+J
     document.addEventListener('keydown', (e: KeyboardEvent) => {
-      if (e.altKey && e.shiftKey && e.key === 'J') {
+      if (e.altKey && e.shiftKey && e.code === 'KeyJ') {
         overlayHost ? closeAnnotationMode() : openAnnotationMode()
       }
     })

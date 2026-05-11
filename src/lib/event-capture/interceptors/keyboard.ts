@@ -5,6 +5,7 @@ export function attachKeyboardInterceptor(onEvent: (e: CapturedEvent) => void): 
   function handler(e: Event) {
     const target = e.target as HTMLInputElement | HTMLTextAreaElement
     if (!target) return
+    if (target.closest('#janus-root')) return
     if ((target as HTMLInputElement).type === 'password') return
 
     const inputType = (target as HTMLInputElement).type ?? 'text'

@@ -1,25 +1,29 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import ElementPicker from './ElementPicker.svelte'
   import EventSidebar from './EventSidebar.svelte'
   import AnnotationPanel from './AnnotationPanel.svelte'
   import type { CapturedEvent } from '../../lib/event-capture/types'
+  import { getEvents, subscribe } from '../../lib/event-capture/store'
 
-  let {
-    events,
-    onClose,
-  }: {
-    events: CapturedEvent[]
-    onClose: () => void
-  } = $props()
+  let { onClose }: { onClose: () => void } = $props()
+
+  let events = $state<CapturedEvent[]>(getEvents())
+
+  onMount(() => {
+    return subscribe(updated => { events = updated })
+  })
 
   type Mode = 'picking' | 'sidebar' | 'panel'
 
   let mode = $state<Mode>('picking')
   let selectedSelector = $state<string | undefined>(undefined)
+  let selectedSource = $state<'page' | 'extension' | undefined>(undefined)
   let selectedEvent = $state<CapturedEvent | undefined>(undefined)
 
-  function onElementPicked(selector: string) {
+  function onElementPicked(selector: string, src: 'page' | 'extension') {
     selectedSelector = selector
+    selectedSource = src
     selectedEvent = undefined
     mode = 'panel'
   }
@@ -33,6 +37,7 @@
   function onBack() {
     mode = 'picking'
     selectedSelector = undefined
+    selectedSource = undefined
     selectedEvent = undefined
   }
 </script>
@@ -54,6 +59,7 @@
   {:else if mode === 'panel'}
     <AnnotationPanel
       {selectedSelector}
+      {selectedSource}
       {selectedEvent}
       {events}
       pageUrl={window.location.href}

@@ -1,9 +1,13 @@
 <script lang="ts">
   import { resolveSelector } from '../../lib/element-selector'
 
-  let { onSelect }: { onSelect: (selector: string, el: Element) => void } = $props()
+  let { onSelect }: { onSelect: (selector: string, source: 'page' | 'extension') => void } = $props()
 
   let hovered = $state<Element | null>(null)
+
+  function source(el: Element): 'page' | 'extension' {
+    return el.closest('#janus-root') !== null ? 'extension' : 'page'
+  }
 
   function handleMouseOver(e: MouseEvent) {
     e.stopPropagation()
@@ -14,7 +18,7 @@
     e.preventDefault()
     e.stopPropagation()
     const target = e.target as Element
-    onSelect(resolveSelector(target), target)
+    onSelect(resolveSelector(target), source(target))
   }
 
   function handleMouseOut() {
@@ -32,18 +36,13 @@
   {@const rect = hovered.getBoundingClientRect()}
   <div
     class="janus-highlight"
-    style="
-      top: {rect.top + window.scrollY}px;
-      left: {rect.left + window.scrollX}px;
-      width: {rect.width}px;
-      height: {rect.height}px;
-    "
+    style="top:{rect.top}px;left:{rect.left}px;width:{rect.width}px;height:{rect.height}px"
   />
 {/if}
 
 <style>
   .janus-highlight {
-    position: absolute;
+    position: fixed;
     pointer-events: none;
     outline: 2px solid #6366f1;
     background: rgba(99, 102, 241, 0.1);

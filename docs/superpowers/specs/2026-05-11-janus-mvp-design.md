@@ -1,7 +1,7 @@
 # Janus MVP — Design Spec
 
 **Date:** 2026-05-11
-**Status:** Approved for implementation planning
+**Status:** Implemented — post-testing amendments in §10
 
 ---
 
@@ -188,6 +188,59 @@ A dedicated extension page (`/templates`) accessible from the extension popup.
 - API request/response bodies are truncated to 500 characters to avoid capturing large payloads or sensitive data.
 - Password fields (`input[type=password]`) are never captured.
 - All data lives in extension memory for the current tab session only. Nothing is persisted to disk or sent over the network.
+
+---
+
+## 10. Post-Implementation Findings
+
+Discovered during real testing in Firefox. These are decisions and constraints not visible at design time.
+
+### 10.1 Browser API: always use `browser.*`, never `chrome.*`
+
+WXT provides a `browser` global that is always Promise-based on both Chrome and Firefox. The `chrome.*` namespace is not Promise-based in Firefox MV2 — `await chrome.tabs.query()` returns `undefined` instead of an array, causing a `Symbol.iterator` TypeError. All API calls must use `browser.*`.
+
+### 10.2 Manifest permissions must be declared explicitly
+
+WXT does not auto-detect which browser APIs the extension uses. The following permissions must be declared in `wxt.config.ts`:
+
+```ts
+manifest: {
+  permissions: ['storage', 'tabs'],
+}
+```
+
+- `storage` — required for `browser.storage.local` in both content scripts (AnnotationPanel loads templates) and extension pages (Template Manager).
+- `tabs` — required for `browser.tabs.query` and `browser.tabs.sendMessage` in the popup.
+
+### 10.3 Keyboard shortcut: use `e.code`, not `e.key`
+
+The Alt modifier changes `e.key` on Firefox/Mac (e.g., Alt+Shift+J produces `e.key = 'Ô'` instead of `'J'`). Use `e.code === 'KeyJ'` which is layout-independent and unaffected by modifiers.
+
+### 10.4 Element picker highlight: `position: fixed`, not `position: absolute`
+
+The highlight div is rendered inside the overlay, which is `position: fixed`. Using `position: absolute` positions the highlight relative to the overlay panel (i.e., inside the sidebar). The correct positioning is `position: fixed`, using `getBoundingClientRect()` values directly without adding scroll offsets.
+
+### 10.5 Templates page requires an explicit `main.ts` mount
+
+The templates page (`/templates.html`) must have a `main.ts` that calls `mount(App, { target: ... })`. Svelte 5 components do not self-mount — loading `App.svelte` directly as a module script renders nothing.
+
+### 10.6 Extension sidebar interactions must not be captured as page events
+
+The click and keyboard interceptors run at the document level and capture all interactions, including clicks on the sidebar toolbar, typing in the note textarea, clicking Generate Prompt, etc. These must be filtered out:
+
+```ts
+if (target.closest('#janus-root')) return
+```
+
+Applied in both `click.ts` and `keyboard.ts` interceptors.
+
+### 10.7 Element picker can select extension sidebar elements
+
+This is intentional — Janus is used to annotate its own UI during development. When an element inside `#janus-root` is selected, the Annotation Panel displays an `extension` source badge alongside the selector chip (vs. `page` for elements from the host site). The event interceptors still exclude sidebar interactions from the event log (§10.6) regardless of which element is selected.
+
+### 10.8 Overlay event reactivity requires subscription inside the component
+
+Passing events as a prop from `content.ts` via `mount()` is not reactive in Svelte 5 — reassigning a plain JS variable does not trigger re-renders. The `Overlay` component subscribes to the event store directly using `$state` + `onMount`, and the store's `subscribe` unsubscribe function is returned from `onMount` for automatic cleanup.
 
 ---
 
