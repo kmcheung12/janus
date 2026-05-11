@@ -16,14 +16,19 @@ export function patchNetwork(doc: Document): () => void {
   const originalFetch = window.fetch
 
   const wrapper = async function (input: RequestInfo | URL, init?: RequestInit) {
-    const method = init?.method ?? 'GET'
+    const isRequest = typeof input === 'object' && !(input instanceof URL) && 'method' in input
+    const method = init?.method ?? (isRequest ? (input as Request).method : 'GET')
     const url =
       typeof input === 'string'
         ? input
         : input instanceof URL
           ? input.href
           : (input as Request).url
-    const requestBody = truncate(init?.body ? String(init.body) : null)
+    // Clone Request to read body without consuming the stream
+    const reqBodyText = isRequest && !(init?.body)
+      ? await (input as Request).clone().text().catch(() => null)
+      : (init?.body ? String(init.body) : null)
+    const requestBody = truncate(reqBodyText)
     const start = Date.now()
 
     try {
