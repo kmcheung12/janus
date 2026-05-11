@@ -1,42 +1,39 @@
 <script lang="ts">
-  import svelteLogo from '../../assets/svelte.svg'
-  import Counter from '../../lib/Counter.svelte'
+  async function activate() {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+    if (tab.id) {
+      await chrome.tabs.sendMessage(tab.id, { type: 'JANUS_ACTIVATE' })
+      window.close()
+    }
+  }
+
+  function openTemplates() {
+    chrome.tabs.create({ url: chrome.runtime.getURL('/templates.html') })
+  }
 </script>
 
-<main>
-  <div>
-    <a href="https://wxt.dev" target="_blank" rel="noreferrer">
-      <img src="/wxt.svg" class="logo" alt="WXT Logo" />
-    </a>
-    <a href="https://svelte.dev" target="_blank" rel="noreferrer">
-      <img src={svelteLogo} class="logo svelte" alt="Svelte Logo" />
-    </a>
+<div class="popup">
+  <div class="header">
+    <span class="logo">Janus</span>
+    <span class="tagline">Annotate. Prompt. Iterate.</span>
   </div>
-  <h1>WXT + Svelte</h1>
-
-  <div class="card">
-    <Counter />
-  </div>
-
-  <p class="read-the-docs">
-    Click on the WXT and Svelte logos to learn more
-  </p>
-</main>
+  <button class="primary" onclick={activate}>
+    Annotate this page
+    <kbd>Alt+Shift+J</kbd>
+  </button>
+  <button class="secondary" onclick={openTemplates}>
+    Manage templates
+  </button>
+</div>
 
 <style>
-  .logo {
-    height: 6em;
-    padding: 1.5em;
-    will-change: filter;
-    transition: filter 300ms;
-  }
-  .logo:hover {
-    filter: drop-shadow(0 0 2em #54bc4ae0);
-  }
-  .logo.svelte:hover {
-    filter: drop-shadow(0 0 2em #ff3e00aa);
-  }
-  .read-the-docs {
-    color: #888;
-  }
+  .popup { width: 220px; padding: 16px; background: #1e1e2e; color: #cdd6f4; font-family: system-ui, sans-serif; display: flex; flex-direction: column; gap: 10px; }
+  .header { display: flex; flex-direction: column; gap: 2px; }
+  .logo { font-weight: 700; font-size: 16px; color: #cba6f7; }
+  .tagline { font-size: 11px; color: #6c7086; }
+  .primary { background: #cba6f7; color: #1e1e2e; border: none; border-radius: 6px; padding: 10px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+  .primary:hover { background: #d6b9fa; }
+  .secondary { background: #313244; color: #cdd6f4; border: none; border-radius: 6px; padding: 8px; cursor: pointer; font-size: 12px; }
+  .secondary:hover { background: #45475a; }
+  kbd { font-size: 10px; background: rgba(0,0,0,0.2); border-radius: 3px; padding: 2px 4px; font-family: monospace; }
 </style>
