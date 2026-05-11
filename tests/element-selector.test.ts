@@ -22,15 +22,13 @@ describe('resolveSelector', () => {
   })
 
   it('uses visible text content when no aria-label', () => {
-    expect(resolveSelector(el('button', {}, 'Buy Now'))).toContain('Buy Now')
+    expect(resolveSelector(el('button', {}, 'Buy Now'))).toBe('button:contains("Buy Now")')
   })
 
   it('falls back to tag+class, filtering hashed class names', () => {
     const b = el('button')
     b.classList.add('btn', 'sc-ab12cd')  // sc-ab12cd looks like a hash
-    const result = resolveSelector(b)
-    expect(result).toContain('btn')
-    expect(result).not.toContain('sc-ab12cd')
+    expect(resolveSelector(b)).toBe('button.btn')
   })
 
   it('falls back to tag name alone when no useful class', () => {
