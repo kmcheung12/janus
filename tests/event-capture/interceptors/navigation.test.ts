@@ -20,6 +20,13 @@ describe('attachNavigationInterceptor', () => {
     expect(captured[0].url).toContain('/new-page')
   })
 
+  it('captures replaceState navigation', () => {
+    history.replaceState({}, '', '/replaced-page')
+    expect(captured).toHaveLength(1)
+    expect(captured[0].type).toBe('navigation')
+    expect(captured[0].url).toContain('/replaced-page')
+  })
+
   it('captures popstate events', () => {
     window.dispatchEvent(new PopStateEvent('popstate'))
     expect(captured).toHaveLength(1)
