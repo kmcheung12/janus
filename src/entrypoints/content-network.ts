@@ -1,4 +1,3 @@
-import { defineContentScript } from 'wxt/sandbox'
 import { patchNetwork } from '../lib/event-capture/interceptors/network'
 
 export default defineContentScript({
