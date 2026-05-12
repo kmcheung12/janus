@@ -1,9 +1,14 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import { resolveSelector } from '../../lib/element-selector'
 
-  let { onSelect }: { onSelect: (selector: string, source: 'page' | 'extension') => void } = $props()
+  let { onSelect }: {
+    onSelect: (selector: string, source: 'page' | 'extension') => void
+  } = $props()
 
   let hovered = $state<Element | null>(null)
+  let ready = false
+  onMount(() => { setTimeout(() => { ready = true }, 0) })
 
   function source(el: Element): 'page' | 'extension' {
     return el.closest('#janus-root') !== null ? 'extension' : 'page'
@@ -15,6 +20,7 @@
   }
 
   function handleClick(e: MouseEvent) {
+    if (!ready) return
     e.preventDefault()
     e.stopPropagation()
     const target = e.target as Element
@@ -24,6 +30,7 @@
   function handleMouseOut() {
     hovered = null
   }
+
 </script>
 
 <svelte:document
@@ -37,7 +44,7 @@
   <div
     class="janus-highlight"
     style="top:{rect.top}px;left:{rect.left}px;width:{rect.width}px;height:{rect.height}px"
-  />
+  ></div>
 {/if}
 
 <style>

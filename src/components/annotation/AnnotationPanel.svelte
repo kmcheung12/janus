@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { loadTemplates } from '../../lib/templates/storage'
-  import { resolveSlots, renderTemplate } from '../../lib/templates/engine'
+  import { loadTemplates } from '../../lib/prompts/storage'
+  import { resolveSlots, renderTemplate } from '../../lib/prompts/engine'
   import { copyToClipboard } from '../../lib/clipboard'
-  import { AUTO_FILL_SLOTS } from '../../lib/templates/types'
-  import type { Template } from '../../lib/templates/types'
+  import { AUTO_FILL_SLOTS } from '../../lib/prompts/types'
+  import type { Template } from '../../lib/prompts/types'
   import type { CapturedEvent } from '../../lib/event-capture/types'
 
   let { selectedSelector, selectedSource, selectedEvent, events, pageUrl, onBack, onDone }: {
@@ -22,12 +22,15 @@
   let userText = $state('')
   let extraInputs = $state<Record<string, string>>({})
   let copied = $state(false)
-  let copyFailed = $state(false)
-  let generatedPrompt = $state<string | null>(null)
+  let editablePrompt = $state('')
 
   onMount(async () => {
     templates = await loadTemplates()
     selected = templates[0] ?? null
+  })
+
+  $effect(() => {
+    editablePrompt = prompt
   })
 
   const autoFillKeys = new Set(AUTO_FILL_SLOTS.map(s => s.key))
@@ -41,9 +44,8 @@
     )]
   }
 
-  async function generate() {
-    if (!selected) return
-
+  let prompt = $derived.by(() => {
+    if (!selected) return ''
     const slots = resolveSlots({
       url: pageUrl,
       elementSelector: selectedSelector,
@@ -51,17 +53,14 @@
       selectedEvent,
       userText,
     })
+    return renderTemplate(selected.body, { ...slots, ...extraInputs })
+  })
 
-    const allSlots = { ...slots, ...extraInputs }
-    const prompt = renderTemplate(selected.body, allSlots)
-    generatedPrompt = prompt
-
-    const ok = await copyToClipboard(prompt)
+  async function copy() {
+    const ok = await copyToClipboard(editablePrompt)
     if (ok) {
       copied = true
       setTimeout(() => { copied = false; onDone() }, 1200)
-    } else {
-      copyFailed = true
     }
   }
 </script>
@@ -70,7 +69,7 @@
   <button class="back" onclick={onBack}>← Back</button>
 
   <div class="section">
-    <label>Selection</label>
+    <p class="label">Selection</p>
     <div class="selection-info">
       {#if selectedSelector}
         <span class="chip">{selectedSelector}</span>
@@ -82,7 +81,7 @@
   </div>
 
   <div class="section">
-    <label>Tag</label>
+    <p class="label">Tag</p>
     <div class="tags">
       {#each templates as t (t.id)}
         <button
@@ -96,31 +95,24 @@
 
   {#if selected}
     <div class="section">
-      <label>Note <span class="hint">(your judgment)</span></label>
-      <textarea bind:value={userText} rows={3} placeholder="What's wrong or what should change?"></textarea>
+      <label for="panel-note">Note <span class="hint">(your judgment)</span></label>
+      <textarea id="panel-note" bind:value={userText} rows={3} placeholder="What's wrong or what should change?"></textarea>
     </div>
 
     {#each userSlots(selected) as key}
       <div class="section">
-        <label>{key}</label>
-        <input type="text" bind:value={extraInputs[key]} placeholder={key} />
+        <label for="slot-{key}">{key}</label>
+        <input id="slot-{key}" type="text" bind:value={extraInputs[key]} placeholder={key} />
       </div>
     {/each}
 
-    <button class="generate-btn" onclick={generate}>
-      {#if copied}
-        Copied!
-      {:else}
-        Generate Prompt
-      {/if}
-    </button>
-
-    {#if copyFailed && generatedPrompt}
-      <div class="fallback">
-        <label>Clipboard unavailable — copy manually:</label>
-        <textarea readonly value={generatedPrompt} rows={8}></textarea>
-      </div>
-    {/if}
+    <div class="section prompt-section">
+      <p class="label">Prompt</p>
+      <textarea bind:value={editablePrompt} rows={8}></textarea>
+      <button class="copy-btn" onclick={copy}>
+        {copied ? 'Copied!' : 'Copy to clipboard'}
+      </button>
+    </div>
   {/if}
 </div>
 
@@ -128,7 +120,7 @@
   .panel { display: flex; flex-direction: column; gap: 12px; padding: 12px; overflow-y: auto; flex: 1; }
   .back { background: none; border: none; color: #89b4fa; cursor: pointer; font-size: 12px; text-align: left; padding: 0; }
   .section { display: flex; flex-direction: column; gap: 4px; }
-  label { font-size: 11px; color: #6c7086; text-transform: uppercase; letter-spacing: 0.05em; }
+  label, .label { font-size: 11px; color: #6c7086; text-transform: uppercase; letter-spacing: 0.05em; margin: 0; }
   .hint { font-size: 10px; color: #45475a; text-transform: none; letter-spacing: 0; }
   .selection-info { font-size: 12px; }
   .chip { background: #313244; border-radius: 3px; padding: 2px 6px; font-family: monospace; }
@@ -139,7 +131,7 @@
   .tag-btn { background: #313244; border: 1px solid transparent; color: #cdd6f4; border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
   .tag-btn.active { border-color: #cba6f7; color: #cba6f7; }
   textarea, input { background: #181825; border: 1px solid #313244; border-radius: 4px; color: #cdd6f4; padding: 6px 8px; font-size: 12px; font-family: inherit; resize: vertical; width: 100%; box-sizing: border-box; }
-  .generate-btn { background: #cba6f7; color: #1e1e2e; border: none; border-radius: 4px; padding: 10px; font-weight: 700; cursor: pointer; font-size: 13px; }
-  .generate-btn:hover { background: #d6b9fa; }
-  .fallback { display: flex; flex-direction: column; gap: 4px; }
+  .prompt-section textarea { font-family: monospace; font-size: 11px; color: #a6adc8; resize: vertical; }
+  .copy-btn { background: #cba6f7; color: #1e1e2e; border: none; border-radius: 4px; padding: 8px; font-weight: 700; cursor: pointer; font-size: 12px; }
+  .copy-btn:hover { background: #d6b9fa; }
 </style>

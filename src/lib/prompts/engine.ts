@@ -1,4 +1,4 @@
-import type { CapturedEvent, ApiEvent, ClickEvent, KeyboardInputEvent, NavigationEvent } from '../event-capture/types'
+import type { CapturedEvent, ApiEvent, ClickEvent, KeyboardInputEvent, NavigationEvent, ScrollEvent, ConsoleEvent } from '../event-capture/types'
 
 export interface PromptContext {
   url: string
@@ -63,6 +63,15 @@ function formatEvents(events: CapturedEvent[]): string {
       case 'api': {
         const a = e as ApiEvent
         return `${i + 1}. ${a.method} ${a.url} → ${a.status ?? 'pending'}`
+      }
+      case 'scroll': {
+        const s = e as ScrollEvent
+        const target = s.selector === 'window' ? 'page' : s.selector
+        return `${i + 1}. Scrolled ${s.direction} on ${target}${s.count > 1 ? ` (×${s.count})` : ''}`
+      }
+      case 'console': {
+        const c = e as ConsoleEvent
+        return `${i + 1}. Console ${c.level}: ${c.message}`
       }
     }
   }).join('\n')

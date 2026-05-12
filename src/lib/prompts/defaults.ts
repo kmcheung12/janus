@@ -9,10 +9,11 @@ export const DEFAULT_TEMPLATES: Template[] = [
     isBuiltIn: true,
     body: `Fix the following bug in {element_selector}:
 
-User action: {interaction_description}
+User action:
+{interaction_description}
 API call: {method} {url} → {status}
 Error: {error_details}
-User note: {user_text}
+{user_text}
 
 Current page: {url}`,
   },
@@ -24,6 +25,6 @@ Current page: {url}`,
     isBuiltIn: true,
     body: `Improve the UX of {element_selector} on {url}.
 
-User note: {user_text}`,
+{user_text}`,
   },
 ]

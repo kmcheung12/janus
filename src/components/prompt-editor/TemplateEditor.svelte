@@ -1,7 +1,7 @@
 <script lang="ts">
   import SlotReference from './SlotReference.svelte'
-  import type { Template } from '../../lib/templates/types'
-  import { AUTO_FILL_SLOTS } from '../../lib/templates/types'
+  import type { Template } from '../../lib/prompts/types'
+  import { AUTO_FILL_SLOTS } from '../../lib/prompts/types'
 
   let { template, onSave, onDelete, onReset }: {
     template: Template
@@ -10,10 +10,16 @@
     onReset?: () => void
   } = $props()
 
-  let name = $state(template.name)
-  let description = $state(template.description)
-  let body = $state(template.body)
+  let name = $state('')
+  let description = $state('')
+  let body = $state('')
   let bodyEl = $state<HTMLTextAreaElement | undefined>(undefined)
+
+  $effect(() => {
+    name = template.name
+    description = template.description
+    body = template.body
+  })
 
   const AUTO_KEYS = new Set([...AUTO_FILL_SLOTS.map(s => s.key), 'user_text'])
 
@@ -42,22 +48,22 @@
 
 <div class="editor">
   <div class="field">
-    <label>Name</label>
-    <input bind:value={name} placeholder="Template name" />
+    <label for="tpl-name">Name</label>
+    <input id="tpl-name" bind:value={name} placeholder="Template name" />
   </div>
   <div class="field">
-    <label>Description</label>
-    <input bind:value={description} placeholder="One-line description" />
+    <label for="tpl-description">Description</label>
+    <input id="tpl-description" bind:value={description} placeholder="One-line description" />
   </div>
   <div class="body-row">
     <div class="field body-field">
-      <label>Template body</label>
+      <label for="tpl-body">Template body</label>
       {#if unknownSlots.length > 0}
         <div class="warn">
           Unknown slots (will prompt user for input): {unknownSlots.map(s => `{${s}}`).join(', ')}
         </div>
       {/if}
-      <textarea bind:this={bodyEl} bind:value={body} rows={12}></textarea>
+      <textarea id="tpl-body" bind:this={bodyEl} bind:value={body} rows={12}></textarea>
     </div>
     <div class="slot-ref-col">
       <SlotReference onInsert={insertSlot} />

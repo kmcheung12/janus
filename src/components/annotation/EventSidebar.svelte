@@ -5,7 +5,10 @@
 
   function label(e: CapturedEvent): string {
     switch (e.type) {
-      case 'navigation': return `→ ${(e as NavigationEvent).url}`
+      case 'navigation': {
+        const n = e as NavigationEvent
+        return `→ ${n.title || n.url}`
+      }
       case 'click': {
         const c = e as ClickEvent
         return `Click: ${c.label || c.selector}${c.count > 1 ? ` ×${c.count}` : ''}`

@@ -1,12 +1,14 @@
 import type { NavigationEvent, CapturedEvent } from '../types'
+import { uuid } from '../../uuid'
 
 export function attachNavigationInterceptor(onEvent: (e: CapturedEvent) => void): () => void {
   function emit(url?: string) {
     const event: NavigationEvent = {
-      id: crypto.randomUUID(),
+      id: uuid(),
       type: 'navigation',
       timestamp: Date.now(),
       url: url ?? window.location.href,
+      title: document.title,
     }
     onEvent(event)
   }

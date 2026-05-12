@@ -7,7 +7,7 @@ function truncate(s: string | null): string | null {
 }
 
 function dispatch(doc: Document, detail: Record<string, unknown>) {
-  doc.dispatchEvent(new CustomEvent(NETWORK_EVENT_NAME, { detail }))
+  doc.dispatchEvent(new CustomEvent(NETWORK_EVENT_NAME, { detail: JSON.stringify(detail) }))
 }
 
 const JANUS_FETCH_WRAPPER = Symbol('janusNetworkWrapper')

@@ -1,5 +1,6 @@
 import type { KeyboardInputEvent, CapturedEvent } from '../types'
 import { resolveSelector } from '../../element-selector'
+import { uuid } from '../../uuid'
 
 export function attachKeyboardInterceptor(onEvent: (e: CapturedEvent) => void): () => void {
   function handler(e: Event) {
@@ -11,7 +12,7 @@ export function attachKeyboardInterceptor(onEvent: (e: CapturedEvent) => void): 
     const inputType = (target as HTMLInputElement).type ?? 'text'
 
     const event: KeyboardInputEvent = {
-      id: crypto.randomUUID(),
+      id: uuid(),
       type: 'keyboard',
       timestamp: Date.now(),
       selector: resolveSelector(target),

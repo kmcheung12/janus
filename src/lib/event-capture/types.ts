@@ -1,4 +1,4 @@
-export type EventType = 'navigation' | 'click' | 'keyboard' | 'api'
+export type EventType = 'navigation' | 'click' | 'keyboard' | 'api' | 'scroll' | 'console'
 
 interface BaseEvent {
   id: string
@@ -9,6 +9,7 @@ interface BaseEvent {
 export interface NavigationEvent extends BaseEvent {
   type: 'navigation'
   url: string
+  title: string
 }
 
 export interface ClickEvent extends BaseEvent {
@@ -36,4 +37,17 @@ export interface ApiEvent extends BaseEvent {
   duration: number | null
 }
 
-export type CapturedEvent = NavigationEvent | ClickEvent | KeyboardInputEvent | ApiEvent
+export interface ScrollEvent extends BaseEvent {
+  type: 'scroll'
+  selector: string
+  direction: 'up' | 'down' | 'left' | 'right'
+  count: number
+}
+
+export interface ConsoleEvent extends BaseEvent {
+  type: 'console'
+  level: 'error' | 'warn'
+  message: string
+}
+
+export type CapturedEvent = NavigationEvent | ClickEvent | KeyboardInputEvent | ApiEvent | ScrollEvent | ConsoleEvent

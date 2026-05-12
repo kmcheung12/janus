@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import TemplateEditor from '../../components/templates/TemplateEditor.svelte'
-  import { loadTemplates, saveTemplate, deleteTemplate, resetTemplate } from '../../lib/templates/storage'
-  import type { Template } from '../../lib/templates/types'
+  import TemplateEditor from '../../components/prompt-editor/TemplateEditor.svelte'
+  import { loadTemplates, saveTemplate, deleteTemplate, resetTemplate } from '../../lib/prompts/storage'
+  import type { Template } from '../../lib/prompts/types'
+  import { uuid } from '../../lib/uuid'
 
   let templates = $state<Template[]>([])
   let selected = $state<Template | null>(null)
@@ -32,7 +33,7 @@
 
   function newTemplate() {
     const t: Template = {
-      id: crypto.randomUUID(),
+      id: uuid(),
       name: 'New Template',
       description: '',
       body: 'Describe the change:\n\n{user_text}\n\nCurrent page: {url}',

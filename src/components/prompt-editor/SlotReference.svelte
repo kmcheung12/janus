@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { AUTO_FILL_SLOTS } from '../../lib/templates/types'
+  import { AUTO_FILL_SLOTS } from '../../lib/prompts/types'
 
   let { onInsert }: { onInsert: (slot: string) => void } = $props()
 </script>

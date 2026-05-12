@@ -6,11 +6,15 @@
   import type { CapturedEvent } from '../../lib/event-capture/types'
   import { getEvents, subscribe } from '../../lib/event-capture/store'
 
-  let { onClose }: { onClose: () => void } = $props()
+  let { onClose, onPickingRef }: {
+    onClose: () => void
+    onPickingRef?: (fn: () => void) => void
+  } = $props()
 
   let events = $state<CapturedEvent[]>(getEvents())
 
   onMount(() => {
+    onPickingRef?.(() => { mode = 'picking' })
     return subscribe(updated => { events = updated })
   })
 
@@ -40,7 +44,15 @@
     selectedSource = undefined
     selectedEvent = undefined
   }
+
+  function handleKeyDown(e: KeyboardEvent) {
+    if (e.key !== 'Escape') return
+    if (mode === 'picking') mode = 'sidebar'
+    else if (mode === 'sidebar') onClose()
+  }
 </script>
+
+<svelte:window onkeydown={handleKeyDown} />
 
 <div class="janus-overlay">
   <div class="janus-toolbar">
