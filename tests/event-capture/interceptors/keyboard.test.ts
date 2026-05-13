@@ -99,4 +99,59 @@ describe('attachKeyboardInterceptor', () => {
     document.body.removeChild(el)
     expect(captured).toHaveLength(0)
   })
+
+  it('does NOT emit Enter event for textarea (input event captures the newline)', () => {
+    const el = document.createElement('textarea')
+    document.body.appendChild(el)
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    document.body.removeChild(el)
+    expect(captured).toHaveLength(0)
+  })
+
+  it('does NOT emit Enter event for date input (input event captures the value)', () => {
+    const el = document.createElement('input')
+    el.type = 'date'
+    document.body.appendChild(el)
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    document.body.removeChild(el)
+    expect(captured).toHaveLength(0)
+  })
+
+  it('does NOT emit Enter event for time input', () => {
+    const el = document.createElement('input')
+    el.type = 'time'
+    document.body.appendChild(el)
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    document.body.removeChild(el)
+    expect(captured).toHaveLength(0)
+  })
+
+  it('does NOT emit Enter event for color input', () => {
+    const el = document.createElement('input')
+    el.type = 'color'
+    document.body.appendChild(el)
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    document.body.removeChild(el)
+    expect(captured).toHaveLength(0)
+  })
+
+  it('does NOT emit Enter event for contenteditable (input event captures the line break)', () => {
+    const el = document.createElement('div')
+    el.contentEditable = 'true'
+    document.body.appendChild(el)
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    document.body.removeChild(el)
+    expect(captured).toHaveLength(0)
+  })
+
+  it('DOES emit Enter event for text input (Enter does not fire an input event)', () => {
+    const el = document.createElement('input')
+    el.type = 'text'
+    el.id = 'search-field'
+    document.body.appendChild(el)
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    document.body.removeChild(el)
+    expect(captured).toHaveLength(1)
+    expect(captured[0].key).toBe('Enter')
+  })
 })
