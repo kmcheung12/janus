@@ -48,7 +48,6 @@ export function attachKeyboardInterceptor(onEvent: (e: CapturedEvent) => void): 
   }
 
   function keydownHandler(e: KeyboardEvent) {
-    console.log(e)
     if (e.key !== 'Enter') return
     const target = e.target as Element
     if (!target) return
@@ -59,7 +58,6 @@ export function attachKeyboardInterceptor(onEvent: (e: CapturedEvent) => void): 
   }
 
   function keyupHandler(e: KeyboardEvent) {
-    console.log(e)
     if (e.key !== 'Enter') return
     const target = e.target as Element
     if (!target) return
