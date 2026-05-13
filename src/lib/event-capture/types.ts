@@ -24,6 +24,7 @@ export interface KeyboardInputEvent extends BaseEvent {
   selector: string
   inputType: string
   count: number
+  key?: string
 }
 
 export interface ApiEvent extends BaseEvent {
@@ -42,6 +43,8 @@ export interface ScrollEvent extends BaseEvent {
   selector: string
   direction: 'up' | 'down' | 'left' | 'right'
   count: number
+  deltaX: number
+  deltaY: number
 }
 
 export interface ConsoleEvent extends BaseEvent {

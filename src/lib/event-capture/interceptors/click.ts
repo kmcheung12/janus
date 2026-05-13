@@ -17,6 +17,7 @@ function resolveLabel(el: Element): string {
 
 export function attachClickInterceptor(onEvent: (e: CapturedEvent) => void): () => void {
   function handler(e: MouseEvent) {
+    console.log(e)
     const target = e.target as Element
     if (!target) return
     if (target.closest('#janus-root')) return

@@ -58,7 +58,10 @@ export function formatEvents(events: CapturedEvent[]): string {
       }
       case 'keyboard': {
         const k = e as KeyboardInputEvent
-        return `${i + 1}. Typed in ${k.selector} (${k.inputType})${k.count > 1 ? ` (×${k.count})` : ''}`
+        if (k.key === 'Enter') {
+          return `${i + 1}. Pressed Enter in ${k.selector}${k.count > 1 ? ` (×${k.count})` : ''}`
+        }
+        return `${i + 1}. Typed ${k.count} characters in ${k.selector} (${k.inputType})`
       }
       case 'api': {
         const a = e as ApiEvent
@@ -67,7 +70,8 @@ export function formatEvents(events: CapturedEvent[]): string {
       case 'scroll': {
         const s = e as ScrollEvent
         const target = s.selector === 'window' ? 'page' : s.selector
-        return `${i + 1}. Scrolled ${s.direction} on ${target}${s.count > 1 ? ` (×${s.count})` : ''}`
+        const px = Math.abs(s.deltaX) >= Math.abs(s.deltaY) ? Math.abs(s.deltaX) : Math.abs(s.deltaY)
+        return `${i + 1}. Scrolled ${s.direction} ${px}px on ${target}${s.count > 1 ? ` (×${s.count})` : ''}`
       }
       case 'console': {
         const c = e as ConsoleEvent

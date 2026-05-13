@@ -20,8 +20,10 @@ function canCollapse(a: CapturedEvent, b: CapturedEvent): boolean {
   switch (a.type) {
     case 'click':
       return (a as ClickEvent).selector === (b as ClickEvent).selector
-    case 'keyboard':
-      return (a as KeyboardInputEvent).selector === (b as KeyboardInputEvent).selector
+    case 'keyboard': {
+      const ka = a as KeyboardInputEvent, kb = b as KeyboardInputEvent
+      return ka.selector === kb.selector && ka.key === kb.key
+    }
     case 'api': {
       const aa = a as ApiEvent, bb = b as ApiEvent
       return aa.method === bb.method && aa.url === bb.url && aa.status === bb.status

@@ -9,7 +9,7 @@ export function attachScrollInterceptor(onEvent: (e: CapturedEvent) => void): ()
   const timers = new WeakMap<Element | Window, ReturnType<typeof setTimeout>>()
   let windowTimer: ReturnType<typeof setTimeout> | null = null
 
-  function emit(selector: string, direction: ScrollEvent['direction']) {
+  function emit(selector: string, direction: ScrollEvent['direction'], deltaX: number, deltaY: number) {
     const event: ScrollEvent = {
       id: uuid(),
       type: 'scroll',
@@ -17,6 +17,8 @@ export function attachScrollInterceptor(onEvent: (e: CapturedEvent) => void): ()
       selector,
       direction,
       count: 1,
+      deltaX,
+      deltaY,
     }
     onEvent(event)
   }
@@ -34,7 +36,7 @@ export function attachScrollInterceptor(onEvent: (e: CapturedEvent) => void): ()
         const direction = Math.abs(dy) >= Math.abs(dx)
           ? (dy >= 0 ? 'down' : 'up')
           : (dx >= 0 ? 'right' : 'left')
-        emit('window', direction)
+        emit('window', direction, dx, dy)
         windowTimer = null
       }, 200)
       return
@@ -55,7 +57,7 @@ export function attachScrollInterceptor(onEvent: (e: CapturedEvent) => void): ()
       const direction = Math.abs(dy) >= Math.abs(dx)
         ? (dy >= 0 ? 'down' : 'up')
         : (dx >= 0 ? 'right' : 'left')
-      emit(resolveSelector(el), direction)
+      emit(resolveSelector(el), direction, dx, dy)
     }, 200))
 
     prevScroll.set(el, prev)

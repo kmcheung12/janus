@@ -1,23 +1,14 @@
 export default defineContentScript({
   matches: ['<all_urls>'],
   runAt: 'document_start',
+  world: 'MAIN',
   main() {
     // Skip iframes — the isolated-world listener in content.ts also skips them,
     // so events dispatched inside iframes would be lost anyway.
     if (window !== window.top) return
 
-    const script = document.createElement('script')
-    script.textContent = `(${inject.toString()})()`
-    ;(document.head ?? document.documentElement).appendChild(script)
-    script.remove()
-  },
-})
-
-// Self-contained: runs as serialised string in the page's MAIN world.
-// No imports — all constants and helpers are defined inline.
-function inject() {
-  const NETWORK_EVENT = 'janus:api-event'
-  const CONSOLE_EVENT = 'janus:console-event'
+    const NETWORK_EVENT = 'janus:api-event'
+    const CONSOLE_EVENT = 'janus:console-event'
   const BODY_MAX = 500
   const JANUS_MARKER = '__janusWrapper__'
 
@@ -122,4 +113,5 @@ function inject() {
     origWarn(...args)
     emitConsole('warn', args)
   }
-}
+  },
+})
