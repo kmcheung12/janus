@@ -2,6 +2,12 @@ import type { KeyboardInputEvent, CapturedEvent } from '../types'
 import { resolveSelector } from '../../element-selector'
 import { uuid } from '../../uuid'
 
+// Input types where an input event is a side-effect of a click (already captured
+// by the click interceptor), or where there is no meaningful user text input.
+const INPUT_SKIP_TYPES = new Set([
+  'checkbox', 'radio', 'select-one', 'select-multiple', 'range', 'hidden',
+])
+
 export function attachKeyboardInterceptor(onEvent: (e: CapturedEvent) => void): () => void {
   function inputHandler(e: Event) {
     const target = e.target as HTMLInputElement | HTMLTextAreaElement
@@ -10,6 +16,7 @@ export function attachKeyboardInterceptor(onEvent: (e: CapturedEvent) => void): 
     if ((target as HTMLInputElement).type === 'password') return
 
     const inputType = (target as HTMLInputElement).type ?? 'text'
+    if (INPUT_SKIP_TYPES.has(inputType)) return
 
     const event: KeyboardInputEvent = {
       id: uuid(),

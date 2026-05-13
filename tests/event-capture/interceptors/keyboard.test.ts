@@ -46,4 +46,48 @@ describe('attachKeyboardInterceptor', () => {
 
     expect(JSON.stringify(captured)).not.toContain('secret')
   })
+
+  it('does NOT capture input events on checkbox', () => {
+    const el = document.createElement('input')
+    el.type = 'checkbox'
+    document.body.appendChild(el)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+    document.body.removeChild(el)
+    expect(captured).toHaveLength(0)
+  })
+
+  it('does NOT capture input events on radio', () => {
+    const el = document.createElement('input')
+    el.type = 'radio'
+    document.body.appendChild(el)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+    document.body.removeChild(el)
+    expect(captured).toHaveLength(0)
+  })
+
+  it('does NOT capture input events on range', () => {
+    const el = document.createElement('input')
+    el.type = 'range'
+    document.body.appendChild(el)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+    document.body.removeChild(el)
+    expect(captured).toHaveLength(0)
+  })
+
+  it('does NOT capture input events on hidden', () => {
+    const el = document.createElement('input')
+    el.type = 'hidden'
+    document.body.appendChild(el)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+    document.body.removeChild(el)
+    expect(captured).toHaveLength(0)
+  })
+
+  it('does NOT capture input events on select', () => {
+    const el = document.createElement('select')
+    document.body.appendChild(el)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+    document.body.removeChild(el)
+    expect(captured).toHaveLength(0)
+  })
 })
