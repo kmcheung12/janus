@@ -60,4 +60,21 @@ describe('resolveSelector', () => {
     const target = document.querySelectorAll('li')[1]
     expect(resolveSelector(target)).toBe('body > ul > li:nth-child(2)')
   })
+
+  it('escapes CSS-special characters in id', () => {
+    const el = detached('div', { id: 'foo.bar' })
+    expect(resolveSelector(el)).toBe('#foo\\.bar')
+  })
+
+  it('uses nth-child on ancestors when needed to disambiguate repeated structures', () => {
+    document.body.innerHTML = `
+      <div><ul><li>A</li></ul></div>
+      <div><ul><li>B</li></ul></div>
+    `
+    const target = document.querySelector('li')!
+    const selector = resolveSelector(target)
+    const matches = document.querySelectorAll(selector)
+    expect(matches.length).toBe(1)
+    expect(matches[0]).toBe(target)
+  })
 })

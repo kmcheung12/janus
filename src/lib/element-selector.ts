@@ -1,13 +1,24 @@
 const HASHED_CLASS = /^[a-zA-Z]{2,4}-[a-z0-9]{4,}$|^css-[a-z0-9]+$/
 
+// Polyfill-safe CSS identifier escaping (mirrors CSS.escape spec)
+function cssEscapeId(value: string): string {
+  if (typeof CSS !== 'undefined' && CSS.escape) return CSS.escape(value)
+  // Minimal implementation: escape non-word characters
+  return value.replace(/([^\w-])/g, '\\$1')
+}
+
+function escapeAttrValue(v: string): string {
+  return v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+}
+
 function segmentFor(el: Element): string {
   const testId = el.getAttribute('data-testid')
-  if (testId) return `[data-testid="${testId}"]`
+  if (testId) return `[data-testid="${escapeAttrValue(testId)}"]`
 
-  if (el.id) return `#${el.id}`
+  if (el.id) return `#${cssEscapeId(el.id)}`
 
   const ariaLabel = el.getAttribute('aria-label')
-  if (ariaLabel) return `[aria-label="${ariaLabel}"]`
+  if (ariaLabel) return `[aria-label="${escapeAttrValue(ariaLabel)}"]`
 
   const classes = Array.from(el.classList)
     .filter(c => !HASHED_CLASS.test(c))
@@ -42,11 +53,17 @@ export function resolveSelector(el: Element): string {
 
   if (isUnique(segments.join(' > '), el)) return segments.join(' > ')
 
-  // Last resort: nth-child index within immediate parent
-  const parent = el.parentElement
-  if (parent) {
-    const index = Array.from(parent.children).indexOf(el) + 1
-    segments[segments.length - 1] = `${el.tagName.toLowerCase()}:nth-child(${index})`
+  // Last resort: apply nth-child progressively up the ancestor chain until unique
+  let segIdx = segments.length - 1
+  let current: Element | null = el
+  while (current?.parentElement) {
+    const parent = current.parentElement
+    const index = Array.from(parent.children).indexOf(current) + 1
+    segments[segIdx] = `${current.tagName.toLowerCase()}:nth-child(${index})`
+    if (isUnique(segments.join(' > '), el)) return segments.join(' > ')
+    segIdx--
+    current = parent
+    if (segIdx < 0) break
   }
   return segments.join(' > ')
 }
