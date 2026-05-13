@@ -90,4 +90,13 @@ describe('attachKeyboardInterceptor', () => {
     document.body.removeChild(el)
     expect(captured).toHaveLength(0)
   })
+
+  it('does NOT capture input events on select-multiple', () => {
+    const el = document.createElement('select')
+    el.multiple = true
+    document.body.appendChild(el)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+    document.body.removeChild(el)
+    expect(captured).toHaveLength(0)
+  })
 })
