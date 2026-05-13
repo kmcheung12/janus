@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { CapturedEvent, ClickEvent, KeyboardInputEvent, ApiEvent, NavigationEvent } from '../../lib/event-capture/types'
+  import type { CapturedEvent, ClickEvent, KeyboardInputEvent, ApiEvent, NavigationEvent, ConsoleEvent } from '../../lib/event-capture/types'
 
   let { events, onSelect }: { events: CapturedEvent[], onSelect: (e: CapturedEvent) => void } = $props()
 
@@ -21,6 +21,10 @@
         const a = e as ApiEvent
         return `${a.method} ${a.url} → ${a.status ?? '…'}`
       }
+      case 'console': {
+        const c = e as ConsoleEvent
+        return `console.${c.level}: ${c.message}`
+      }
     }
   }
 
@@ -30,6 +34,9 @@
       if (a.status === null || a.status >= 500) return 'error'
       if (a.status >= 400) return 'warn'
       return 'ok'
+    }
+    if (e.type === 'console') {
+      return `console-${(e as ConsoleEvent).level}`
     }
     return e.type
   }
@@ -63,6 +70,8 @@
     font-weight: 600; flex-shrink: 0; text-transform: uppercase;
   }
   .badge-click, .badge-keyboard, .badge-navigation { background: #313244; color: #cdd6f4; }
+  .badge-console-error { background: #f38ba8; color: #1e1e2e; }
+  .badge-console-warn { background: #fab387; color: #1e1e2e; }
   .badge-ok { background: #a6e3a1; color: #1e1e2e; }
   .badge-warn { background: #fab387; color: #1e1e2e; }
   .badge-error { background: #f38ba8; color: #1e1e2e; }
