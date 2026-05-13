@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { loadShortcuts, saveShortcuts, formatShortcut, matchesShortcut } from '../../lib/shortcuts'
-  import type { StoredShortcuts, Shortcut } from '../../lib/shortcuts'
+  import { loadShortcuts, saveShortcuts, formatShortcut, matchesShortcut } from '../../lib/shortcuts.svelte'
+  import type { StoredShortcuts, Shortcut } from '../../lib/shortcuts.svelte'
 
   let shortcuts = $state<StoredShortcuts>({
     record: { key: 'KeyK', ctrl: false, alt: true, shift: true, meta: false },
@@ -12,8 +12,6 @@
   let configuringFor = $state<keyof StoredShortcuts | null>(null)
   let isRecording = $state(false)
 
-  // Modifier tracking for shortcut configuration (keydown tracks, keyup commits)
-  let modsDown = $state({ ctrl: false, alt: false, shift: false, meta: false })
   let capturedShortcut: { code: string; mods: { ctrl: boolean; alt: boolean; shift: boolean; meta: boolean } } | null = null
   const MODIFIER_KEYS = new Set(['Control', 'Alt', 'Shift', 'Meta'])
 
@@ -69,11 +67,6 @@
   }
 
   function handleKeyDown(e: KeyboardEvent) {
-    if (e.key === 'Control') modsDown.ctrl = true
-    if (e.key === 'Alt') modsDown.alt = true
-    if (e.key === 'Shift') modsDown.shift = true
-    if (e.key === 'Meta') modsDown.meta = true
-
     if (!configuringFor) {
       if (shortcuts.record && matchesShortcut(e, shortcuts.record)) {
         e.preventDefault()
@@ -98,19 +91,21 @@
       return
     }
 
-    if (!MODIFIER_KEYS.has(e.key) && !capturedShortcut && (modsDown.ctrl || modsDown.alt || modsDown.meta)) {
-      capturedShortcut = { code: e.code, mods: { ...modsDown } }
+    if (!MODIFIER_KEYS.has(e.key) && !capturedShortcut && (e.ctrlKey || e.altKey || e.metaKey)) {
+      capturedShortcut = {
+        code: e.code,
+        mods: { ctrl: e.ctrlKey, alt: e.altKey, shift: e.shiftKey, meta: e.metaKey },
+      }
     }
   }
 
   async function handleKeyUp(e: KeyboardEvent) {
-    if (e.key === 'Control') modsDown.ctrl = false
-    if (e.key === 'Alt') modsDown.alt = false
-    if (e.key === 'Shift') modsDown.shift = false
-    if (e.key === 'Meta') modsDown.meta = false
-
     if (!configuringFor || !capturedShortcut) return
-    if (e.code !== capturedShortcut.code) return
+    // Commit when the captured key is released, OR when any modifier is released.
+    // On macOS, keyup for keys pressed while Cmd is held may not fire, so releasing
+    // a modifier is used as a fallback commit trigger.
+    const isModifier = MODIFIER_KEYS.has(e.key)
+    if (!isModifier && e.code !== capturedShortcut.code) return
 
     const { mods } = capturedShortcut
     if (mods.ctrl || mods.alt || mods.meta) {

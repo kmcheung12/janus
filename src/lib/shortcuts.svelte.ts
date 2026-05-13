@@ -28,7 +28,7 @@ export async function loadShortcuts(): Promise<StoredShortcuts> {
 }
 
 export async function saveShortcuts(shortcuts: StoredShortcuts): Promise<void> {
-  await browser.storage.local.set({ [STORAGE_KEY]: shortcuts })
+  await browser.storage.local.set({ [STORAGE_KEY]: $state.snapshot(shortcuts) })
 }
 
 function codeToDisplay(code: string): string {
