@@ -17,7 +17,7 @@ import { uuid } from '../../uuid'
 // contenteditable  | yes                  | no — Enter inserts line break, input captures it
 // date             | yes                  | no — Enter confirms picker, input captures it
 // time             | yes                  | no — Enter confirms picker, input captures it
-// color            | yes                  | no — Enter confirms picker, input captures it
+// color            | yes                  | no — Enter may confirm picker (browser-dependent)
 // range            | no — click captures  | n/a
 // checkbox         | no — click captures  | n/a
 // radio            | no — click captures  | n/a
@@ -34,13 +34,14 @@ const INPUT_SKIP_TYPES = new Set([
 
 // Input types where pressing Enter fires an input event that captures the value
 // change. Emitting a separate Enter keyboard event would duplicate it.
-const ENTER_SKIP_TYPES = new Set(['textarea', 'date', 'time', 'color'])
+const ENTER_SKIP_TYPES = new Set(['date', 'time', 'color'])
 
 function shouldSkipEnter(target: Element): boolean {
   const inputType = (target as HTMLInputElement).type
-  const el = target as HTMLElement
-  const isEditable = el.isContentEditable || el.contentEditable === 'true'
-  return ENTER_SKIP_TYPES.has(inputType) || isEditable
+  return target.tagName === 'TEXTAREA'
+    || ENTER_SKIP_TYPES.has(inputType)
+    || (target as HTMLElement).isContentEditable
+    || (target as HTMLElement).contentEditable === 'true'
 }
 
 export function attachKeyboardInterceptor(onEvent: (e: CapturedEvent) => void): () => void {
