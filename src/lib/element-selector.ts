@@ -3,8 +3,10 @@ const HASHED_CLASS = /^[a-zA-Z]{2,4}-[a-z0-9]{4,}$|^css-[a-z0-9]+$/
 // Polyfill-safe CSS identifier escaping (mirrors CSS.escape spec)
 function cssEscapeId(value: string): string {
   if (typeof CSS !== 'undefined' && CSS.escape) return CSS.escape(value)
-  // Minimal implementation: escape non-word characters
-  return value.replace(/([^\w-])/g, '\\$1')
+  // Minimal implementation: escape non-word characters, then handle leading digit
+  return value
+    .replace(/([^\w-])/g, '\\$1')
+    .replace(/^(\d)/, (_, d) => `\\3${d} `)
 }
 
 function escapeAttrValue(v: string): string {

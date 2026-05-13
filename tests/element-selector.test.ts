@@ -66,6 +66,15 @@ describe('resolveSelector', () => {
     expect(resolveSelector(el)).toBe('#foo\\.bar')
   })
 
+  it('produces a valid selector for an id starting with a digit', () => {
+    const el = document.createElement('div')
+    el.id = '1foo'
+    document.body.appendChild(el)
+    const selector = resolveSelector(el)
+    expect(document.querySelectorAll(selector).length).toBe(1)
+    expect(document.querySelectorAll(selector)[0]).toBe(el)
+  })
+
   it('uses nth-child on ancestors when needed to disambiguate repeated structures', () => {
     document.body.innerHTML = `
       <div><ul><li>A</li></ul></div>
