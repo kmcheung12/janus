@@ -11,7 +11,6 @@ export const DEFAULT_TEMPLATES: Template[] = [
 
 User action:
 {interaction_description}
-API call: {method} {url} → {status}
 Error: {error_details}
 {user_text}
 

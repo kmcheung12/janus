@@ -47,7 +47,7 @@ export function renderTemplate(body: string, slots: SlotValues): string {
     .trim()
 }
 
-function formatEvents(events: CapturedEvent[]): string {
+export function formatEvents(events: CapturedEvent[]): string {
   return events.map((e, i) => {
     switch (e.type) {
       case 'navigation':

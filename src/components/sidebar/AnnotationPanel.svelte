@@ -2,8 +2,8 @@
   import { onMount } from 'svelte'
   import { loadTemplates } from '../../lib/prompts/storage'
   import { resolveSlots, renderTemplate } from '../../lib/prompts/engine'
-  import { copyToClipboard } from '../../lib/clipboard'
   import { AUTO_FILL_SLOTS } from '../../lib/prompts/types'
+  import PromptBox from './PromptBox.svelte'
   import type { Template } from '../../lib/prompts/types'
   import type { CapturedEvent } from '../../lib/event-capture/types'
 
@@ -21,16 +21,10 @@
   let selected = $state<Template | null>(null)
   let userText = $state('')
   let extraInputs = $state<Record<string, string>>({})
-  let copied = $state(false)
-  let editablePrompt = $state('')
 
   onMount(async () => {
     templates = await loadTemplates()
     selected = templates[0] ?? null
-  })
-
-  $effect(() => {
-    editablePrompt = prompt
   })
 
   const autoFillKeys = new Set(AUTO_FILL_SLOTS.map(s => s.key))
@@ -56,13 +50,6 @@
     return renderTemplate(selected.body, { ...slots, ...extraInputs })
   })
 
-  async function copy() {
-    const ok = await copyToClipboard(editablePrompt)
-    if (ok) {
-      copied = true
-      setTimeout(() => { copied = false; onDone() }, 1200)
-    }
-  }
 </script>
 
 <div class="panel">
@@ -108,10 +95,7 @@
 
     <div class="section prompt-section">
       <p class="label">Prompt</p>
-      <textarea bind:value={editablePrompt} rows={8}></textarea>
-      <button class="copy-btn" onclick={copy}>
-        {copied ? 'Copied!' : 'Copy to clipboard'}
-      </button>
+      <PromptBox value={prompt} onCopy={onDone} rows={8} />
     </div>
   {/if}
 </div>
@@ -131,7 +115,4 @@
   .tag-btn { background: #313244; border: 1px solid transparent; color: #cdd6f4; border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
   .tag-btn.active { border-color: #cba6f7; color: #cba6f7; }
   textarea, input { background: #181825; border: 1px solid #313244; border-radius: 4px; color: #cdd6f4; padding: 6px 8px; font-size: 12px; font-family: inherit; resize: vertical; width: 100%; box-sizing: border-box; }
-  .prompt-section textarea { font-family: monospace; font-size: 11px; color: #a6adc8; resize: vertical; }
-  .copy-btn { background: #cba6f7; color: #1e1e2e; border: none; border-radius: 4px; padding: 8px; font-weight: 700; cursor: pointer; font-size: 12px; }
-  .copy-btn:hover { background: #d6b9fa; }
 </style>

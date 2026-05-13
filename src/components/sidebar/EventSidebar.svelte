@@ -1,7 +1,11 @@
 <script lang="ts">
   import type { CapturedEvent, ClickEvent, KeyboardInputEvent, ApiEvent, NavigationEvent, ConsoleEvent } from '../../lib/event-capture/types'
+  import { formatEvents } from '../../lib/prompts/engine'
+  import PromptBox from './PromptBox.svelte'
 
   let { events, onSelect }: { events: CapturedEvent[], onSelect: (e: CapturedEvent) => void } = $props()
+
+  let interactionText = $derived(formatEvents(events))
 
   function label(e: CapturedEvent): string {
     switch (e.type) {
@@ -42,21 +46,33 @@
   }
 </script>
 
-<div class="sidebar">
-  {#if events.length === 0}
-    <p class="empty">No interactions captured yet.</p>
-  {:else}
-    {#each [...events].reverse() as event (event.id)}
-      <button class="entry" onclick={() => onSelect(event)}>
-        <span class="badge badge-{badge(event)}">{event.type}</span>
-        <span class="entry-label">{label(event)}</span>
-      </button>
-    {/each}
+<div class="sidebar-wrapper">
+  <div class="events-list">
+    {#if events.length === 0}
+      <p class="empty">No interactions captured yet.</p>
+    {:else}
+      {#each [...events].reverse() as event (event.id)}
+        <button class="entry" onclick={() => onSelect(event)}>
+          <span class="badge badge-{badge(event)}">{event.type}</span>
+          <span class="entry-label">{label(event)}</span>
+        </button>
+      {/each}
+    {/if}
+  </div>
+
+  {#if events.length > 0}
+    <div class="prompt-area">
+      <p class="label">Interactions</p>
+      <PromptBox value={interactionText} rows={5} />
+    </div>
   {/if}
 </div>
 
 <style>
-  .sidebar { overflow-y: auto; flex: 1; padding: 4px 0; }
+  .sidebar-wrapper { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+  .events-list { overflow-y: auto; flex: 1; padding: 4px 0; }
+  .prompt-area { padding: 8px 12px; border-top: 1px solid #313244; }
+  .label { font-size: 11px; color: #6c7086; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px; }
   .empty { padding: 12px; color: #6c7086; font-size: 12px; }
   .entry {
     display: flex; align-items: center; gap: 8px;

@@ -46,6 +46,7 @@
             onclick={() => toggle(k)}
             role="switch"
             aria-checked={config[k]}
+          aria-label={label}
           >
             <span class="knob"></span>
           </button>
