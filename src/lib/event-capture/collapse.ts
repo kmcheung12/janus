@@ -18,11 +18,15 @@ export function collapse(events: CapturedEvent[]): CapturedEvent[] {
 function canCollapse(a: CapturedEvent, b: CapturedEvent): boolean {
   if (a.type !== b.type) return false
   switch (a.type) {
-    case 'click':
-      return (a as ClickEvent).selector === (b as ClickEvent).selector
+    case 'click': {
+      const ca = a as ClickEvent, cb = b as ClickEvent
+      return ca.selector === cb.selector && ca.x === cb.x && ca.y === cb.y
+    }
     case 'keyboard': {
       const ka = a as KeyboardInputEvent, kb = b as KeyboardInputEvent
-      return ka.selector === kb.selector && ka.key === kb.key
+      if (ka.selector !== kb.selector) return false
+      if (ka.keys !== undefined && kb.keys !== undefined) return true  // keystroke mode: collapse all into sequence
+      return ka.key === kb.key  // count mode: only collapse same key (Enter with Enter)
     }
     case 'api': {
       const aa = a as ApiEvent, bb = b as ApiEvent
@@ -42,8 +46,13 @@ function merged(a: CapturedEvent, b: CapturedEvent): CapturedEvent {
   switch (a.type) {
     case 'click':
       return { ...a, count: (a as ClickEvent).count + 1, timestamp: b.timestamp }
-    case 'keyboard':
-      return { ...a, count: (a as KeyboardInputEvent).count + 1, timestamp: b.timestamp }
+    case 'keyboard': {
+      const ka = a as KeyboardInputEvent, kb = b as KeyboardInputEvent
+      if (ka.keys !== undefined && kb.keys !== undefined) {
+        return { ...a, keys: [...ka.keys, ...kb.keys], count: ka.count + kb.count, timestamp: b.timestamp }
+      }
+      return { ...a, count: ka.count + 1, timestamp: b.timestamp }
+    }
     case 'api':
       return { ...a, timestamp: b.timestamp }
     case 'scroll':

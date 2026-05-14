@@ -42,6 +42,7 @@ export interface KeyboardInputEvent extends BaseEvent {
   inputType: string
   count: number
   key?: string
+  keys?: string[]
 }
 
 export interface ApiEvent extends BaseEvent {

@@ -33,7 +33,7 @@ export default defineContentScript({
     if (window !== window.top) return
 
     let captureConfig: CaptureConfig = {
-      click: true, keyboard: true, navigation: true, api: true,
+      click: true, keyboard: true, keyboard_keystrokes: false, navigation: true, api: true,
       scroll: true, drag: true, console_error: true, console_warn: true,
     }
 
@@ -55,7 +55,7 @@ export default defineContentScript({
     // dispatched by the MAIN world script during storage reads are not lost
     const cleanups = [
       attachClickInterceptor(filteredAddEvent),
-      attachKeyboardInterceptor(filteredAddEvent),
+      attachKeyboardInterceptor(filteredAddEvent, () => captureConfig.keyboard_keystrokes),
       attachNavigationInterceptor(filteredAddEvent),
       attachScrollInterceptor(filteredAddEvent),
       attachDragInterceptor(filteredAddEvent),

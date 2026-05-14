@@ -36,6 +36,12 @@ const INPUT_SKIP_TYPES = new Set([
 // change. Emitting a separate Enter keyboard event would duplicate it.
 const ENTER_SKIP_TYPES = new Set(['date', 'time', 'color'])
 
+// Keys that have no standalone meaning for replay (pure modifiers)
+const MODIFIER_KEYS = new Set([
+  'Shift', 'Control', 'Alt', 'Meta', 'AltGraph',
+  'CapsLock', 'NumLock', 'ScrollLock', 'Fn', 'FnLock',
+])
+
 function shouldSkipEnter(target: Element): boolean {
   const inputType = (target as HTMLInputElement).type
   return target.tagName === 'TEXTAREA'
@@ -44,8 +50,12 @@ function shouldSkipEnter(target: Element): boolean {
     || (target as HTMLElement).contentEditable === 'true'
 }
 
-export function attachKeyboardInterceptor(onEvent: (e: CapturedEvent) => void): () => void {
+export function attachKeyboardInterceptor(
+  onEvent: (e: CapturedEvent) => void,
+  getCaptureKeystrokes: () => boolean = () => false,
+): () => void {
   function inputHandler(e: Event) {
+    if (getCaptureKeystrokes()) return  // keydown handler covers all keys in this mode
     const target = e.target as HTMLInputElement | HTMLTextAreaElement
     if (!target) return
     if (target.closest('#janus-root')) return
@@ -84,17 +94,34 @@ export function attachKeyboardInterceptor(onEvent: (e: CapturedEvent) => void): 
   }
 
   function keydownHandler(e: KeyboardEvent) {
-    if (e.key !== 'Enter') return
     const target = e.target as Element
     if (!target) return
     if (target.closest('#janus-root')) return
     if ((target as HTMLInputElement).type === 'password') return
+
+    if (getCaptureKeystrokes()) {
+      if (MODIFIER_KEYS.has(e.key)) return
+      const inputType = (target as HTMLInputElement).type ?? 'text'
+      onEvent({
+        id: uuid(),
+        type: 'keyboard',
+        timestamp: Date.now(),
+        selector: resolveSelector(target),
+        inputType,
+        count: 1,
+        keys: [e.key],
+      })
+      return
+    }
+
+    if (e.key !== 'Enter') return
     if (shouldSkipEnter(target)) return
     pendingEnter.add(target)
     emitEnter(target)
   }
 
   function keyupHandler(e: KeyboardEvent) {
+    if (getCaptureKeystrokes()) return  // keydown handles all keys in this mode
     if (e.key !== 'Enter') return
     const target = e.target as Element
     if (!target) return

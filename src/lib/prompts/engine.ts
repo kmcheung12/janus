@@ -62,6 +62,10 @@ export function formatEvents(events: CapturedEvent[]): string {
       }
       case 'keyboard': {
         const k = e as KeyboardInputEvent
+        if (k.keys !== undefined) {
+          const seq = k.keys.map(key => key.length === 1 ? key : `[${key}]`).join('')
+          return `${i + 1}. Typed "${seq}" in ${k.selector}`
+        }
         if (k.key === 'Enter') {
           return `${i + 1}. Pressed Enter in ${k.selector}${k.count > 1 ? ` (×${k.count})` : ''}`
         }

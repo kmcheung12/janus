@@ -1,6 +1,7 @@
 export interface CaptureConfig {
   click: boolean
   keyboard: boolean
+  keyboard_keystrokes: boolean
   navigation: boolean
   api: boolean
   scroll: boolean
@@ -12,6 +13,7 @@ export interface CaptureConfig {
 export const CAPTURE_CONFIG_LABELS: Record<keyof CaptureConfig, string> = {
   click: 'Click',
   keyboard: 'Keyboard input',
+  keyboard_keystrokes: 'Capture actual keystrokes',
   navigation: 'Navigation',
   api: 'API / Network',
   scroll: 'Scroll',
@@ -25,6 +27,7 @@ const STORAGE_KEY = 'janus_capture_config'
 const DEFAULTS: CaptureConfig = {
   click: true,
   keyboard: true,
+  keyboard_keystrokes: false,
   navigation: true,
   api: true,
   scroll: true,
