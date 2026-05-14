@@ -1,9 +1,8 @@
 import { addEvent, loadPersistedEvents, clearEvents } from '../lib/event-capture/store'
-import { attachClickInterceptor } from '../lib/event-capture/interceptors/click'
+import { attachPointerInterceptor } from '../lib/event-capture/interceptors/pointer'
 import { attachKeyboardInterceptor } from '../lib/event-capture/interceptors/keyboard'
 import { attachNavigationInterceptor } from '../lib/event-capture/interceptors/navigation'
 import { attachScrollInterceptor } from '../lib/event-capture/interceptors/scroll'
-import { attachDragInterceptor } from '../lib/event-capture/interceptors/drag'
 import { CONSOLE_EVENT_NAME } from '../lib/event-capture/interceptors/console'
 import { NETWORK_EVENT_NAME } from '../lib/event-capture/interceptors/network'
 import type { ApiEvent, CapturedEvent, ConsoleEvent, SessionEvent } from '../lib/event-capture/types'
@@ -54,11 +53,10 @@ export default defineContentScript({
     // All DOM listeners registered synchronously before any await — events
     // dispatched by the MAIN world script during storage reads are not lost
     const cleanups = [
-      attachClickInterceptor(filteredAddEvent),
+      attachPointerInterceptor(filteredAddEvent),
       attachKeyboardInterceptor(filteredAddEvent, () => captureConfig.keyboard_keystrokes),
       attachNavigationInterceptor(filteredAddEvent),
       attachScrollInterceptor(filteredAddEvent),
-      attachDragInterceptor(filteredAddEvent),
     ]
 
     document.addEventListener(NETWORK_EVENT_NAME, (e: Event) => {

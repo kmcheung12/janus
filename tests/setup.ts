@@ -16,3 +16,5 @@ global.chrome = {
 ;(global as Record<string, unknown>).browser = {
   storage: { local: storageFns },
 }
+
+document.elementFromPoint = vi.fn().mockReturnValue(null)
