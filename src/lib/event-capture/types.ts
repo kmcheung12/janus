@@ -1,9 +1,15 @@
-export type EventType = 'navigation' | 'click' | 'keyboard' | 'api' | 'scroll' | 'console' | 'drag'
+export type EventType = 'session' | 'navigation' | 'click' | 'keyboard' | 'api' | 'scroll' | 'console' | 'drag'
 
 interface BaseEvent {
   id: string
   type: EventType
   timestamp: number
+}
+
+export interface SessionEvent extends BaseEvent {
+  type: 'session'
+  viewport: { width: number; height: number }
+  dpr: number
 }
 
 export interface NavigationEvent extends BaseEvent {
@@ -64,4 +70,4 @@ export interface ConsoleEvent extends BaseEvent {
   message: string
 }
 
-export type CapturedEvent = NavigationEvent | ClickEvent | KeyboardInputEvent | ApiEvent | ScrollEvent | ConsoleEvent | DragEvent
+export type CapturedEvent = SessionEvent | NavigationEvent | ClickEvent | KeyboardInputEvent | ApiEvent | ScrollEvent | ConsoleEvent | DragEvent

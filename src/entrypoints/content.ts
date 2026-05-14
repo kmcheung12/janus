@@ -6,7 +6,7 @@ import { attachScrollInterceptor } from '../lib/event-capture/interceptors/scrol
 import { attachDragInterceptor } from '../lib/event-capture/interceptors/drag'
 import { CONSOLE_EVENT_NAME } from '../lib/event-capture/interceptors/console'
 import { NETWORK_EVENT_NAME } from '../lib/event-capture/interceptors/network'
-import type { ApiEvent, CapturedEvent, ConsoleEvent } from '../lib/event-capture/types'
+import type { ApiEvent, CapturedEvent, ConsoleEvent, SessionEvent } from '../lib/event-capture/types'
 import { mount, unmount } from 'svelte'
 import Overlay from '../components/sidebar/Overlay.svelte'
 import { loadShortcuts, matchesShortcut } from '../lib/shortcuts.svelte'
@@ -14,6 +14,16 @@ import type { StoredShortcuts } from '../lib/shortcuts.svelte'
 import { loadCaptureConfig } from '../lib/capture-config'
 import type { CaptureConfig } from '../lib/capture-config'
 import { uuid } from '../lib/uuid'
+
+function sessionEvent(): SessionEvent {
+  return {
+    id: uuid(),
+    type: 'session',
+    timestamp: Date.now(),
+    viewport: { width: window.innerWidth, height: window.innerHeight },
+    dpr: window.devicePixelRatio,
+  }
+}
 
 export default defineContentScript({
   matches: ['<all_urls>'],
@@ -86,6 +96,7 @@ export default defineContentScript({
     // Anchor the session with the current page — covers hard navigations and
     // the case where recording was already active when this page loaded.
     if (isRecording) {
+      addEvent(sessionEvent())
       addEvent({
         id: uuid(), type: 'navigation', timestamp: Date.now(),
         url: window.location.href, title: document.title,
@@ -136,6 +147,7 @@ export default defineContentScript({
         isRecording = msg.recording ?? false
         if (isRecording) {
           clearEvents()
+          addEvent(sessionEvent())
           addEvent({
             id: uuid(), type: 'navigation', timestamp: Date.now(),
             url: window.location.href, title: document.title,

@@ -1,4 +1,4 @@
-import type { CapturedEvent, ApiEvent, ClickEvent, KeyboardInputEvent, NavigationEvent, ScrollEvent, ConsoleEvent, DragEvent } from '../event-capture/types'
+import type { CapturedEvent, SessionEvent, ApiEvent, ClickEvent, KeyboardInputEvent, NavigationEvent, ScrollEvent, ConsoleEvent, DragEvent } from '../event-capture/types'
 
 export interface PromptContext {
   url: string
@@ -50,6 +50,10 @@ export function renderTemplate(body: string, slots: SlotValues): string {
 export function formatEvents(events: CapturedEvent[]): string {
   return events.map((e, i) => {
     switch (e.type) {
+      case 'session': {
+        const s = e as SessionEvent
+        return `${i + 1}. Session started — viewport ${s.viewport.width}×${s.viewport.height}, dpr ${s.dpr}`
+      }
       case 'navigation':
         return `${i + 1}. Navigated to ${(e as NavigationEvent).url}`
       case 'click': {
@@ -75,13 +79,9 @@ export function formatEvents(events: CapturedEvent[]): string {
       }
       case 'drag': {
         const d = e as DragEvent
-        const start = d.path[0]
-        const end = d.path[d.path.length - 1]
-        const xs = d.path.map(p => p.x)
-        const ys = d.path.map(p => p.y)
-        const bbox = `(${Math.min(...xs)},${Math.min(...ys)})→(${Math.max(...xs)},${Math.max(...ys)})`
         const target = d.targetSelector ? ` onto ${d.targetSelector}` : ''
-        return `${i + 1}. Dragged ${d.sourceSelector}${target}: ${d.path.length} points from (${start.x},${start.y}) to (${end.x},${end.y}), bbox ${bbox}`
+        const path = d.path.map(p => `(${p.x},${p.y})`).join('→')
+        return `${i + 1}. Dragged ${d.sourceSelector}${target}: ${path}`
       }
       case 'console': {
         const c = e as ConsoleEvent
