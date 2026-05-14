@@ -5,7 +5,8 @@
 
   let shortcuts = $state<StoredShortcuts>({
     record: { key: 'KeyK', ctrl: false, alt: true, shift: true, meta: false },
-    annotate: { key: 'KeyJ', ctrl: false, alt: true, shift: true, meta: false },
+    sidebar: { key: 'KeyJ', ctrl: false, alt: true, shift: true, meta: false },
+    annotate: null,
     templates: null,
     settings: null,
   })
@@ -41,6 +42,15 @@
     }
   }
 
+  async function openSidebar() {
+    if (configuringFor) return
+    const [tab] = await browser.tabs.query({ active: true, currentWindow: true })
+    if (tab?.id) {
+      await browser.tabs.sendMessage(tab.id, { type: 'JANUS_OPEN_SIDEBAR' })
+      window.close()
+    }
+  }
+
   async function activate() {
     if (configuringFor) return
     const [tab] = await browser.tabs.query({ active: true, currentWindow: true })
@@ -71,6 +81,10 @@
       if (shortcuts.record && matchesShortcut(e, shortcuts.record)) {
         e.preventDefault()
         toggleRecording()
+      }
+      if (shortcuts.sidebar && matchesShortcut(e, shortcuts.sidebar)) {
+        e.preventDefault()
+        openSidebar()
       }
       return
     }
@@ -144,6 +158,16 @@
       role="button"
       tabindex="0"
     >{configuringFor === 'record' ? '…' : shortcuts.record ? formatShortcut(shortcuts.record) : '+'}</kbd>
+  </button>
+  <button class="primary" onclick={openSidebar}>
+    Open sidebar
+    <kbd
+      class:configuring={configuringFor === 'sidebar'}
+      onclick={(e) => startConfiguring(e, 'sidebar')}
+      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') startConfiguring(e, 'sidebar') }}
+      role="button"
+      tabindex="0"
+    >{configuringFor === 'sidebar' ? '…' : shortcuts.sidebar ? formatShortcut(shortcuts.sidebar) : '+'}</kbd>
   </button>
   <button class="primary" onclick={activate}>
     Annotate this page

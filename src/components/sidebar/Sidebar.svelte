@@ -6,21 +6,24 @@
   import type { CapturedEvent } from '../../lib/event-capture/types'
   import { getEvents, subscribe } from '../../lib/event-capture/store'
 
-  let { onClose, onPickingRef }: {
+  let { onClose, onPickingRef, onSidebarRef, initialMode }: {
     onClose: () => void
     onPickingRef?: (fn: () => void) => void
+    onSidebarRef?: (fn: () => void) => void
+    initialMode?: 'picking' | 'sidebar'
   } = $props()
 
   let events = $state<CapturedEvent[]>(getEvents())
 
   onMount(() => {
     onPickingRef?.(() => { mode = 'picking' })
+    onSidebarRef?.(() => { mode = 'sidebar' })
     return subscribe(updated => { events = updated })
   })
 
   type Mode = 'picking' | 'sidebar' | 'panel'
 
-  let mode = $state<Mode>('picking')
+  let mode = $state<Mode>(initialMode ?? 'picking')
   let selectedSelector = $state<string | undefined>(undefined)
   let selectedSource = $state<'page' | 'extension' | undefined>(undefined)
   let selectedEvent = $state<CapturedEvent | undefined>(undefined)
@@ -54,7 +57,7 @@
 
 <svelte:window onkeydown={handleKeyDown} />
 
-<div class="janus-overlay">
+<div class="janus-sidebar">
   <div class="janus-toolbar">
     <span class="janus-logo">Janus</span>
     <button onclick={() => mode = mode === 'sidebar' ? 'picking' : 'sidebar'}>
@@ -82,7 +85,7 @@
 </div>
 
 <style>
-  .janus-overlay {
+  .janus-sidebar {
     position: fixed;
     top: 0;
     right: 0;

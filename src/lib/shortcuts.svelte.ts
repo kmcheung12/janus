@@ -8,6 +8,7 @@ export interface Shortcut {
 
 export interface StoredShortcuts {
   record: Shortcut | null
+  sidebar: Shortcut | null
   annotate: Shortcut | null
   templates: Shortcut | null
   settings: Shortcut | null
@@ -17,7 +18,8 @@ const STORAGE_KEY = 'janus_shortcuts'
 
 const DEFAULTS: StoredShortcuts = {
   record: { key: 'KeyK', ctrl: false, alt: true, shift: true, meta: false },
-  annotate: { key: 'KeyJ', ctrl: false, alt: true, shift: true, meta: false },
+  sidebar: { key: 'KeyJ', ctrl: false, alt: true, shift: true, meta: false },
+  annotate: null,
   templates: null,
   settings: null,
 }

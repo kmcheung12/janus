@@ -7,7 +7,7 @@ import { CONSOLE_EVENT_NAME } from '../lib/event-capture/interceptors/console'
 import { NETWORK_EVENT_NAME } from '../lib/event-capture/interceptors/network'
 import type { ApiEvent, CapturedEvent, ConsoleEvent, SessionEvent } from '../lib/event-capture/types'
 import { mount, unmount } from 'svelte'
-import Overlay from '../components/sidebar/Overlay.svelte'
+import Sidebar from '../components/sidebar/Sidebar.svelte'
 import { loadShortcuts, matchesShortcut } from '../lib/shortcuts.svelte'
 import type { StoredShortcuts } from '../lib/shortcuts.svelte'
 import { loadCaptureConfig } from '../lib/capture-config'
@@ -101,44 +101,56 @@ export default defineContentScript({
       })
     }
 
-    // Annotation mode
-    let overlayHost: HTMLElement | null = null
-    let overlayInstance: Record<string, unknown> | null = null
+    // Sidebar
+    let sidebarHost: HTMLElement | null = null
+    let sidebarInstance: Record<string, unknown> | null = null
     let enterPickingMode: (() => void) | null = null
+    let enterEventsMode: (() => void) | null = null
 
-    function openAnnotationMode() {
-      if (overlayHost) {
-        enterPickingMode?.()
+    function openSidebar(initialMode: 'picking' | 'sidebar') {
+      if (sidebarHost) {
+        if (initialMode === 'picking') enterPickingMode?.()
+        else enterEventsMode?.()
         return
       }
 
-      overlayHost = document.createElement('div')
-      overlayHost.id = 'janus-root'
-      document.body.appendChild(overlayHost)
+      sidebarHost = document.createElement('div')
+      sidebarHost.id = 'janus-root'
+      document.body.appendChild(sidebarHost)
 
-      overlayInstance = mount(Overlay, {
-        target: overlayHost,
+      sidebarInstance = mount(Sidebar, {
+        target: sidebarHost,
         props: {
-          onClose: closeAnnotationMode,
+          initialMode,
+          onClose: closeSidebar,
           onPickingRef: (fn) => { enterPickingMode = fn },
+          onSidebarRef: (fn) => { enterEventsMode = fn },
         },
       })
     }
 
-    function closeAnnotationMode() {
-      if (overlayInstance) {
-        unmount(overlayInstance)
-        overlayInstance = null
+    function openAnnotationSidebar() { openSidebar('picking') }
+    function openEventsSidebar() { openSidebar('sidebar') }
+
+    function closeSidebar() {
+      if (sidebarInstance) {
+        unmount(sidebarInstance)
+        sidebarInstance = null
       }
-      overlayHost?.remove()
-      overlayHost = null
+      sidebarHost?.remove()
+      sidebarHost = null
       enterPickingMode = null
+      enterEventsMode = null
     }
 
     // Listen for messages from popup / background
     browser.runtime.onMessage.addListener((msg: { type: string; recording?: boolean }) => {
       if (msg.type === 'JANUS_ACTIVATE') {
-        openAnnotationMode()
+        openAnnotationSidebar()
+        return
+      }
+      if (msg.type === 'JANUS_OPEN_SIDEBAR') {
+        openEventsSidebar()
         return
       }
       if (msg.type === 'JANUS_RECORDING_CHANGED') {
@@ -157,8 +169,11 @@ export default defineContentScript({
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (shortcuts.sidebar && matchesShortcut(e, shortcuts.sidebar)) {
+        openEventsSidebar()
+      }
       if (shortcuts.annotate && matchesShortcut(e, shortcuts.annotate)) {
-        openAnnotationMode()
+        openAnnotationSidebar()
       }
       if (shortcuts.templates && matchesShortcut(e, shortcuts.templates)) {
         browser.tabs.create({ url: browser.runtime.getURL('/prompt-manager.html') })
