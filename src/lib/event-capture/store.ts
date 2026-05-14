@@ -40,7 +40,7 @@ export async function loadPersistedEvents(): Promise<void> {
       events = stored
       listeners.forEach(fn => fn(events))
     }
-  } catch {
-    // background not ready yet — fine, start with empty store
+  } catch (e) {
+    console.error('Failed to load persisted events from background:', e)
   }
 }

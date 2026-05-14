@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onMount, untrack } from 'svelte'
   import ElementPicker from './ElementPicker.svelte'
   import EventSidebar from './EventSidebar.svelte'
   import AnnotationPanel from './AnnotationPanel.svelte'
@@ -23,7 +23,7 @@
 
   type Mode = 'picking' | 'sidebar' | 'panel'
 
-  let mode = $state<Mode>(initialMode ?? 'picking')
+  let mode = $state<Mode>(untrack(() => initialMode ?? 'picking'))
   let selectedSelector = $state<string | undefined>(undefined)
   let selectedSource = $state<'page' | 'extension' | undefined>(undefined)
   let selectedEvent = $state<CapturedEvent | undefined>(undefined)

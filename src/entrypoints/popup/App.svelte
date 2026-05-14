@@ -23,8 +23,8 @@
       try {
         const res = await browser.runtime.sendMessage({ type: 'JANUS_GET_RECORDING_STATE', tabId: tab.id })
         isRecording = res?.recording ?? false
-      } catch {
-        // background not available
+      } catch (e) {
+        console.error('Failed to get recording state:', e)
       }
     }
   })
@@ -36,8 +36,8 @@
       try {
         const res = await browser.runtime.sendMessage({ type: 'JANUS_TOGGLE_RECORDING', tabId: tab.id })
         isRecording = res?.recording ?? false
-      } catch {
-        // background not available
+      } catch (e) {
+        console.error('Failed to toggle recording:', e)
       }
     }
   }

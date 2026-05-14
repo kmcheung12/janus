@@ -36,7 +36,8 @@ function isUnique(selector: string, el: Element): boolean {
   try {
     const matches = document.querySelectorAll(selector)
     return matches.length === 1 && matches[0] === el
-  } catch {
+  } catch (e) {
+    console.error('querySelectorAll failed for selector:', selector, e)
     return false
   }
 }

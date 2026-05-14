@@ -83,34 +83,51 @@ export default defineContentScript({
       if ('janus_capture_config' in changes) captureConfig = changes['janus_capture_config'].newValue
     })
 
-    // Restore recording state from background (persists across reloads / navigation)
-    try {
-      const res = await browser.runtime.sendMessage({ type: 'JANUS_GET_RECORDING_STATE' })
-      isRecording = res?.recording ?? false
-    } catch {
-      // background not ready yet
-    }
-
-    // Anchor the session with the current page — covers hard navigations and
-    // the case where recording was already active when this page loaded.
-    if (isRecording) {
-      addEvent(sessionEvent())
-      addEvent({
-        id: uuid(), type: 'navigation', timestamp: Date.now(),
-        url: window.location.href, title: document.title,
-      })
-    }
-
     // Sidebar
     let sidebarHost: HTMLElement | null = null
     let sidebarInstance: Record<string, unknown> | null = null
     let enterPickingMode: (() => void) | null = null
     let enterEventsMode: (() => void) | null = null
 
+    // Restore recording and sidebar state from background (persists across reloads / navigation)
+    try {
+      const res = await browser.runtime.sendMessage({ type: 'JANUS_GET_RECORDING_STATE' })
+      isRecording = res?.recording ?? false
+      if (res?.sidebarOpen) openEventsSidebar()
+    } catch (e) {
+      console.error('Failed to restore state from background:', e)
+    }
+
+    // Anchor the current page in the event log when recording is already active.
+    // Only a navigation event is added here — session events are only emitted
+    // when recording is explicitly started via JANUS_RECORDING_CHANGED.
+    if (isRecording) {
+      addEvent({
+        id: uuid(), type: 'navigation', timestamp: Date.now(),
+        url: window.location.href, title: document.title,
+      })
+    }
+
     function openSidebar(initialMode: 'picking' | 'sidebar') {
+      // SPA navigation can detach sidebarHost from the DOM without calling closeSidebar;
+      // treat a disconnected host as if the sidebar was never opened.
+      console.log("openSidebar", initialMode);
+      if (sidebarHost && !sidebarHost.isConnected) {
+        if (sidebarInstance) { unmount(sidebarInstance); sidebarInstance = null }
+        sidebarHost = null
+        enterPickingMode = null
+        enterEventsMode = null
+      }
+
+      console.log("sidebarHost", sidebarHost)
       if (sidebarHost) {
         if (initialMode === 'picking') enterPickingMode?.()
         else enterEventsMode?.()
+        return
+      }
+
+      if (!document.body) {
+        document.addEventListener('DOMContentLoaded', () => openSidebar(initialMode), { once: true })
         return
       }
 
@@ -127,6 +144,8 @@ export default defineContentScript({
           onSidebarRef: (fn) => { enterEventsMode = fn },
         },
       })
+
+      browser.runtime.sendMessage({ type: 'JANUS_SIDEBAR_OPENED' }).catch(() => {})
     }
 
     function openAnnotationSidebar() { openSidebar('picking') }
@@ -141,6 +160,7 @@ export default defineContentScript({
       sidebarHost = null
       enterPickingMode = null
       enterEventsMode = null
+      browser.runtime.sendMessage({ type: 'JANUS_SIDEBAR_CLOSED' }).catch(() => {})
     }
 
     // Listen for messages from popup / background
@@ -170,7 +190,8 @@ export default defineContentScript({
     // Keyboard shortcuts
     document.addEventListener('keydown', (e: KeyboardEvent) => {
       if (shortcuts.sidebar && matchesShortcut(e, shortcuts.sidebar)) {
-        openEventsSidebar()
+        if (sidebarHost) closeSidebar()
+        else openEventsSidebar()
       }
       if (shortcuts.annotate && matchesShortcut(e, shortcuts.annotate)) {
         openAnnotationSidebar()
