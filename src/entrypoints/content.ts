@@ -58,6 +58,7 @@ export default defineContentScript({
       attachNavigationInterceptor(filteredAddEvent),
       attachScrollInterceptor(filteredAddEvent),
     ]
+    window.addEventListener('pagehide', () => cleanups.forEach(fn => fn()), { once: true })
 
     document.addEventListener(NETWORK_EVENT_NAME, (e: Event) => {
       const detail = JSON.parse((e as CustomEvent<string>).detail)

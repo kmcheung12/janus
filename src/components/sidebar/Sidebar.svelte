@@ -38,6 +38,7 @@
   function onEventSelected(event: CapturedEvent) {
     selectedEvent = event
     selectedSelector = undefined
+    selectedSource = 'page'
     mode = 'panel'
   }
 

@@ -1,4 +1,4 @@
-import type { CapturedEvent, ClickEvent, KeyboardInputEvent, ApiEvent, ScrollEvent, DragEvent, SessionEvent } from './types'
+import type { CapturedEvent, ClickEvent, KeyboardInputEvent, ApiEvent, ScrollEvent } from './types'
 
 export function collapse(events: CapturedEvent[]): CapturedEvent[] {
   const result: CapturedEvent[] = []

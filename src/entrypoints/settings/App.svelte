@@ -4,8 +4,8 @@
   import type { CaptureConfig } from '../../lib/capture-config'
 
   let config = $state<CaptureConfig>({
-    click: true, keyboard: true, navigation: true, api: true,
-    scroll: true, console_error: true, console_warn: true,
+    click: true, keyboard: true, keyboard_keystrokes: false, navigation: true, api: true,
+    scroll: true, drag: true, console_error: true, console_warn: true,
   })
   let saved = $state(false)
 

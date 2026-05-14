@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { CapturedEvent, ClickEvent, KeyboardInputEvent, ApiEvent, NavigationEvent, ConsoleEvent } from '../../lib/event-capture/types'
+  import type { CapturedEvent, ClickEvent, KeyboardInputEvent, ApiEvent, NavigationEvent, ConsoleEvent, ScrollEvent, DragEvent, SessionEvent } from '../../lib/event-capture/types'
   import { formatEvents } from '../../lib/prompts/engine'
   import PromptBox from './PromptBox.svelte'
 
@@ -28,6 +28,18 @@
       case 'console': {
         const c = e as ConsoleEvent
         return `console.${c.level}: ${c.message}`
+      }
+      case 'scroll': {
+        const s = e as ScrollEvent
+        return `Scroll ${s.direction} on ${s.selector === 'window' ? 'page' : s.selector}${s.count > 1 ? ` ×${s.count}` : ''}`
+      }
+      case 'drag': {
+        const d = e as DragEvent
+        return `Drag ${d.sourceSelector}${d.targetSelector ? ` → ${d.targetSelector}` : ''}`
+      }
+      case 'session': {
+        const s = e as SessionEvent
+        return `Session started ${s.viewport.width}×${s.viewport.height}`
       }
     }
   }
@@ -85,7 +97,7 @@
     padding: 2px 5px; border-radius: 3px; font-size: 10px;
     font-weight: 600; flex-shrink: 0; text-transform: uppercase;
   }
-  .badge-click, .badge-keyboard, .badge-navigation { background: #313244; color: #cdd6f4; }
+  .badge-click, .badge-keyboard, .badge-navigation, .badge-scroll, .badge-drag, .badge-session { background: #313244; color: #cdd6f4; }
   .badge-console-error { background: #f38ba8; color: #1e1e2e; }
   .badge-console-warn { background: #fab387; color: #1e1e2e; }
   .badge-ok { background: #a6e3a1; color: #1e1e2e; }
