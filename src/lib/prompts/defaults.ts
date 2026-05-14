@@ -26,4 +26,16 @@ Current page: {url}`,
 
 {user_text}`,
   },
+  {
+    id: 'playwright',
+    name: 'Playwright',
+    description: 'Generate a Playwright TypeScript test that reproduces the recorded interaction',
+    contextScope: 'both',
+    isBuiltIn: true,
+    body: `Write a playwright test script in typescript with the following instruction: 
+
+{interaction_description}.
+
+Save a screenshot at the end in the current working directory`,
+  },
 ]
