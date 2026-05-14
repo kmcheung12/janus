@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { loadTemplates, saveTemplate, deleteTemplate, resetTemplate } from '../../src/lib/templates/storage'
-import { DEFAULT_TEMPLATES } from '../../src/lib/templates/defaults'
-import type { Template } from '../../src/lib/templates/types'
+import { loadTemplates, saveTemplate, deleteTemplate, resetTemplate } from '../../src/lib/prompts/storage'
+import { DEFAULT_TEMPLATES } from '../../src/lib/prompts/defaults'
+import type { Template } from '../../src/lib/prompts/types'
 
 describe('template storage', () => {
   beforeEach(() => {

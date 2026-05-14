@@ -28,6 +28,8 @@ export function attachClickInterceptor(onEvent: (e: CapturedEvent) => void): () 
       selector: resolveSelector(target),
       label: resolveLabel(target),
       count: 1,
+      x: e.clientX,
+      y: e.clientY,
     }
     onEvent(event)
   }

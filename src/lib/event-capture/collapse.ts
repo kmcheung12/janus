@@ -1,4 +1,4 @@
-import type { CapturedEvent, ClickEvent, KeyboardInputEvent, ApiEvent, ScrollEvent } from './types'
+import type { CapturedEvent, ClickEvent, KeyboardInputEvent, ApiEvent, ScrollEvent, DragEvent } from './types'
 
 export function collapse(events: CapturedEvent[]): CapturedEvent[] {
   const result: CapturedEvent[] = []
@@ -30,6 +30,7 @@ function canCollapse(a: CapturedEvent, b: CapturedEvent): boolean {
     }
     case 'scroll':
       return (a as ScrollEvent).selector === (b as ScrollEvent).selector
+    case 'drag':
     case 'console':
     case 'navigation':
       return false
@@ -46,6 +47,8 @@ function merged(a: CapturedEvent, b: CapturedEvent): CapturedEvent {
       return { ...a, timestamp: b.timestamp }
     case 'scroll':
       return { ...b, count: (a as ScrollEvent).count + 1 }
+    case 'drag':
+    case 'console':
     case 'navigation':
       return { ...b }
   }

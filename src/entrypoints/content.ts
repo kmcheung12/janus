@@ -3,6 +3,7 @@ import { attachClickInterceptor } from '../lib/event-capture/interceptors/click'
 import { attachKeyboardInterceptor } from '../lib/event-capture/interceptors/keyboard'
 import { attachNavigationInterceptor } from '../lib/event-capture/interceptors/navigation'
 import { attachScrollInterceptor } from '../lib/event-capture/interceptors/scroll'
+import { attachDragInterceptor } from '../lib/event-capture/interceptors/drag'
 import { CONSOLE_EVENT_NAME } from '../lib/event-capture/interceptors/console'
 import { NETWORK_EVENT_NAME } from '../lib/event-capture/interceptors/network'
 import type { ApiEvent, CapturedEvent, ConsoleEvent } from '../lib/event-capture/types'
@@ -23,7 +24,7 @@ export default defineContentScript({
 
     let captureConfig: CaptureConfig = {
       click: true, keyboard: true, navigation: true, api: true,
-      scroll: true, console_error: true, console_warn: true,
+      scroll: true, drag: true, console_error: true, console_warn: true,
     }
 
     let isRecording = false
@@ -47,6 +48,7 @@ export default defineContentScript({
       attachKeyboardInterceptor(filteredAddEvent),
       attachNavigationInterceptor(filteredAddEvent),
       attachScrollInterceptor(filteredAddEvent),
+      attachDragInterceptor(filteredAddEvent),
     ]
 
     document.addEventListener(NETWORK_EVENT_NAME, (e: Event) => {

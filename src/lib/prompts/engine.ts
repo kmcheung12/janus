@@ -1,4 +1,4 @@
-import type { CapturedEvent, ApiEvent, ClickEvent, KeyboardInputEvent, NavigationEvent, ScrollEvent, ConsoleEvent } from '../event-capture/types'
+import type { CapturedEvent, ApiEvent, ClickEvent, KeyboardInputEvent, NavigationEvent, ScrollEvent, ConsoleEvent, DragEvent } from '../event-capture/types'
 
 export interface PromptContext {
   url: string
@@ -54,7 +54,7 @@ export function formatEvents(events: CapturedEvent[]): string {
         return `${i + 1}. Navigated to ${(e as NavigationEvent).url}`
       case 'click': {
         const c = e as ClickEvent
-        return `${i + 1}. Clicked ${c.label || c.selector}${c.count > 1 ? ` (×${c.count})` : ''}`
+        return `${i + 1}. Clicked ${c.label || c.selector} at (${c.x}, ${c.y})${c.count > 1 ? ` (×${c.count})` : ''}`
       }
       case 'keyboard': {
         const k = e as KeyboardInputEvent
@@ -72,6 +72,16 @@ export function formatEvents(events: CapturedEvent[]): string {
         const target = s.selector === 'window' ? 'page' : s.selector
         const px = Math.abs(s.deltaX) >= Math.abs(s.deltaY) ? Math.abs(s.deltaX) : Math.abs(s.deltaY)
         return `${i + 1}. Scrolled ${s.direction} ${px}px on ${target}${s.count > 1 ? ` (×${s.count})` : ''}`
+      }
+      case 'drag': {
+        const d = e as DragEvent
+        const start = d.path[0]
+        const end = d.path[d.path.length - 1]
+        const xs = d.path.map(p => p.x)
+        const ys = d.path.map(p => p.y)
+        const bbox = `(${Math.min(...xs)},${Math.min(...ys)})→(${Math.max(...xs)},${Math.max(...ys)})`
+        const target = d.targetSelector ? ` onto ${d.targetSelector}` : ''
+        return `${i + 1}. Dragged ${d.sourceSelector}${target}: ${d.path.length} points from (${start.x},${start.y}) to (${end.x},${end.y}), bbox ${bbox}`
       }
       case 'console': {
         const c = e as ConsoleEvent

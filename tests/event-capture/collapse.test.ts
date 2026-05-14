@@ -3,11 +3,11 @@ import { collapse } from '../../src/lib/event-capture/collapse'
 import type { CapturedEvent } from '../../src/lib/event-capture/types'
 
 function clickEvent(selector: string, count = 1): CapturedEvent {
-  return { id: crypto.randomUUID(), type: 'click', timestamp: Date.now(), selector, label: selector, count }
+  return { id: crypto.randomUUID(), type: 'click', timestamp: Date.now(), selector, label: selector, count, x: 0, y: 0 }
 }
 
 function navEvent(url: string): CapturedEvent {
-  return { id: crypto.randomUUID(), type: 'navigation', timestamp: Date.now(), url }
+  return { id: crypto.randomUUID(), type: 'navigation', timestamp: Date.now(), url, title: '' }
 }
 
 function apiEvent(method: string, url: string, status: number | null): CapturedEvent {

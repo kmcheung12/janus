@@ -1,4 +1,4 @@
-export type EventType = 'navigation' | 'click' | 'keyboard' | 'api' | 'scroll' | 'console'
+export type EventType = 'navigation' | 'click' | 'keyboard' | 'api' | 'scroll' | 'console' | 'drag'
 
 interface BaseEvent {
   id: string
@@ -17,6 +17,17 @@ export interface ClickEvent extends BaseEvent {
   selector: string
   label: string
   count: number
+  x: number
+  y: number
+}
+
+export interface DragEvent extends BaseEvent {
+  type: 'drag'
+  sourceSelector: string
+  targetSelector: string | null
+  path: Array<{ x: number; y: number }>
+  deltaX: number
+  deltaY: number
 }
 
 export interface KeyboardInputEvent extends BaseEvent {
@@ -53,4 +64,4 @@ export interface ConsoleEvent extends BaseEvent {
   message: string
 }
 
-export type CapturedEvent = NavigationEvent | ClickEvent | KeyboardInputEvent | ApiEvent | ScrollEvent | ConsoleEvent
+export type CapturedEvent = NavigationEvent | ClickEvent | KeyboardInputEvent | ApiEvent | ScrollEvent | ConsoleEvent | DragEvent

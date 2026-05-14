@@ -4,6 +4,7 @@ export interface CaptureConfig {
   navigation: boolean
   api: boolean
   scroll: boolean
+  drag: boolean
   console_error: boolean
   console_warn: boolean
 }
@@ -14,6 +15,7 @@ export const CAPTURE_CONFIG_LABELS: Record<keyof CaptureConfig, string> = {
   navigation: 'Navigation',
   api: 'API / Network',
   scroll: 'Scroll',
+  drag: 'Drag',
   console_error: 'Console errors',
   console_warn: 'Console warnings',
 }
@@ -26,6 +28,7 @@ const DEFAULTS: CaptureConfig = {
   navigation: true,
   api: true,
   scroll: true,
+  drag: true,
   console_error: true,
   console_warn: true,
 }

@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { resolveSlots, renderTemplate } from '../../src/lib/templates/engine'
+import { resolveSlots, renderTemplate } from '../../src/lib/prompts/engine'
 import type { CapturedEvent } from '../../src/lib/event-capture/types'
 
-const navEvent: CapturedEvent = { id: '1', type: 'navigation', timestamp: 0, url: '/checkout' }
-const clickEvent: CapturedEvent = { id: '2', type: 'click', timestamp: 1, selector: '#pay-btn', label: 'Pay Now', count: 1 }
+const navEvent: CapturedEvent = { id: '1', type: 'navigation', timestamp: 0, url: '/checkout', title: '' }
+const clickEvent: CapturedEvent = { id: '2', type: 'click', timestamp: 1, selector: '#pay-btn', label: 'Pay Now', count: 1, x: 0, y: 0 }
 const apiEvent: CapturedEvent = {
   id: '3', type: 'api', timestamp: 2, method: 'POST', url: '/api/payment',
   status: 422, requestBody: '{"card":"4111"}', responseBody: '{"error":"Insufficient funds"}',
