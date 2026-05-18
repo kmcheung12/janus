@@ -79,9 +79,25 @@ The existing `onSelect(selector, source)` callback on `ElementPicker` is replace
 
 New function in `engine.ts`. Returns a flat string map of all fields for any event type. For `element_pick`, attributes and styles are merged directly into the top-level map (no namespace prefix). For other event types, returns the fields listed in the table above.
 
+### `defaultNoteTemplate(event: CapturedEvent): string`
+
+New function in `engine.ts`. Returns the event's default representation as a `{field}` template string — the same text `formatEvents` would produce, but with tokens instead of resolved values:
+
+| Event type     | Default template |
+|----------------|-----------------|
+| `click`        | `Clicked {label} at ({x}, {y})` |
+| `navigation`   | `Navigated to {url}` |
+| `api`          | `{method} {url} → {status}` |
+| `keyboard`     | `Typed {count} characters in {selector}` |
+| `scroll`       | `Scrolled {direction} on {selector}` |
+| `drag`         | `Dragged {source_selector} onto {target_selector}` |
+| `console`      | `Console {level}: {message}` |
+| `session`      | `Session started` |
+| `element_pick` | `` (empty — no default representation) |
+
 ### Note box with `{field}` interpolation
 
-The Note box in `AnnotationPanel` becomes a template. On render, `renderTemplate` substitutes `{field}` tokens using the result of `fieldsOf(selectedEvent)` merged with any extra slot inputs.
+The Note box in `AnnotationPanel` becomes a template. When opened, it is seeded with `event.note ?? defaultNoteTemplate(event)` — so first-time annotation starts from the event's natural description, which the user can edit freely. On render, `renderTemplate` substitutes `{field}` tokens using the result of `fieldsOf(selectedEvent)`.
 
 Escaping: `{{field}}` renders as the literal string `{field}` in the prompt. The render step applies field substitution first, then unescapes `{{...}}` → `{...}`.
 
@@ -105,9 +121,9 @@ No changes needed. `renderTemplate` already produces the expanded output. With t
 
 ## Event List Rendering
 
-`formatEvents` in `engine.ts` gains a case for `element_pick`. Unlike other event types, `element_pick` events are only included in the formatted output if they have a non-empty annotation (Note). If unannotated, the event is skipped entirely — it produces no line in `interaction_description`.
+`formatEvents` renders each event by expanding `event.note ?? defaultNoteTemplate(event)` through `renderTemplate` + `fieldsOf`. This replaces the current per-type string formatting logic.
 
-When annotated, the expanded note text is used as the line. The raw event fields (`selector`, `text`, etc.) do not appear in the output independently; they only appear via `{field}` interpolation in the note.
+`element_pick` events with no `note` return `""` from `defaultNoteTemplate`, so they produce no line in `interaction_description`. All other event types fall back to their default template when unannotated.
 
 ---
 
@@ -117,7 +133,7 @@ When annotated, the expanded note text is used as the line. The raw event fields
 |------|--------|
 | `src/lib/event-capture/types.ts` | Add `ElementPickEvent`, expand `EventType` and `CapturedEvent` union |
 | `src/lib/event-capture/store.ts` | Add `updateEvent(id, patch)` to persist `note` back to a stored event |
-| `src/lib/prompts/engine.ts` | Add `fieldsOf`, extend `renderTemplate` with `{{}}` unescaping, add `element_pick` case to `formatEvents`, update `resolveSlots` to merge event fields |
+| `src/lib/prompts/engine.ts` | Add `fieldsOf`, add `defaultNoteTemplate`, extend `renderTemplate` with `{{}}` unescaping, rewrite `formatEvents` to use note expansion, update `resolveSlots` to merge event fields |
 | `src/components/sidebar/ElementPicker.svelte` | Replace `onSelect(selector, source)` with `onPick(event: ElementPickEvent)`, capture attributes + styles |
 | `src/components/sidebar/Sidebar.svelte` | Handle `onPick`: write event to store, open panel with event pre-selected |
 | `src/components/sidebar/AnnotationPanel.svelte` | Add `{` suggestion dropdown to Note box; call `updateEvent` to persist note on change |
