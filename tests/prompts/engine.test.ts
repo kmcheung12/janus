@@ -149,7 +149,7 @@ describe('fieldsOf', () => {
   })
 })
 
-import { defaultNoteTemplate } from '../../src/lib/prompts/engine'
+import { defaultNoteTemplate, expandFields } from '../../src/lib/prompts/engine'
 
 describe('defaultNoteTemplate', () => {
   it('click', () => {
@@ -195,5 +195,32 @@ describe('defaultNoteTemplate', () => {
   it('element_pick returns empty string', () => {
     expect(defaultNoteTemplate({ id: '', type: 'element_pick', timestamp: 0, selector: '', text: '', attributes: {}, styles: {} }))
       .toBe('')
+  })
+})
+
+describe('expandFields', () => {
+  it('substitutes known fields', () => {
+    expect(expandFields('{selector} should be visible', { selector: 'button.save' }))
+      .toBe('button.save should be visible')
+  })
+
+  it('passes unknown fields through unchanged', () => {
+    expect(expandFields('value is {unknown_field}', {}))
+      .toBe('value is {unknown_field}')
+  })
+
+  it('unescapes {{field}} to literal {field}', () => {
+    expect(expandFields('use {{selector}} to target', { selector: 'btn' }))
+      .toBe('use {selector} to target')
+  })
+
+  it('substitutes before unescaping — {{field}} never gets substituted', () => {
+    expect(expandFields('{{selector}} and {selector}', { selector: 'btn' }))
+      .toBe('{selector} and btn')
+  })
+
+  it('handles multiline text', () => {
+    const result = expandFields('{label} clicked\n{selector} is the target', { label: 'Save', selector: '#save' })
+    expect(result).toBe('Save clicked\n#save is the target')
   })
 })

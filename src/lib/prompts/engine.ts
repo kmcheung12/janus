@@ -62,6 +62,16 @@ export function defaultNoteTemplate(event: CapturedEvent): string {
   }
 }
 
+export function expandFields(text: string, fields: Record<string, string>): string {
+  // Temporarily protect double-braces from substitution
+  const SENTINEL = '\x00'
+  const protected_ = text.replace(/\{\{(\w+)\}\}/g, `${SENTINEL}$1${SENTINEL}`)
+  // Substitute single-brace tokens; pass through unresolved
+  const substituted = protected_.replace(/\{(\w+)\}/g, (match, key) => fields[key] ?? match)
+  // Unescape sentinels back to literal {field}
+  return substituted.replace(new RegExp(`${SENTINEL}(\\w+)${SENTINEL}`, 'g'), '{$1}')
+}
+
 export interface PromptContext {
   url: string
   elementSelector?: string
