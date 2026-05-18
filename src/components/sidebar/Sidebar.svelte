@@ -3,7 +3,7 @@
   import ElementPicker from './ElementPicker.svelte'
   import EventSidebar from './EventSidebar.svelte'
   import AnnotationPanel from './AnnotationPanel.svelte'
-  import type { CapturedEvent, ElementPickEvent } from '../../lib/event-capture/types'
+  import type { CapturedEvent, ElementPickEvent, EventType } from '../../lib/event-capture/types'
   import { getEvents, subscribe, addEvent } from '../../lib/event-capture/store'
 
   let { onClose, onPickingRef, onSidebarRef, initialMode }: {
@@ -20,6 +20,19 @@
     onSidebarRef?.(() => { mode = 'sidebar' })
     return subscribe(updated => { events = updated })
   })
+
+  // Type filter — ephemeral per session, does not persist
+  let hiddenTypes = $state(new Set<EventType>())
+
+  function onToggleType(type: EventType) {
+    const next = new Set(hiddenTypes)
+    if (next.has(type)) next.delete(type)
+    else next.add(type)
+    hiddenTypes = next
+  }
+
+  // Events passed to AnnotationPanel: type-filtered + formatEvents will skip excluded
+  let promptEvents = $derived(events.filter(e => !hiddenTypes.has(e.type as EventType)))
 
   type Mode = 'picking' | 'sidebar' | 'panel'
 
@@ -67,11 +80,11 @@
     <ElementPicker {onPick} />
     <div class="janus-hint">Click any element to annotate it</div>
   {:else if mode === 'sidebar'}
-    <EventSidebar {events} onSelect={onEventSelected} />
+    <EventSidebar {events} {hiddenTypes} {onToggleType} onSelect={onEventSelected} />
   {:else if mode === 'panel' && selectedEvent}
     <AnnotationPanel
       {selectedEvent}
-      {events}
+      events={promptEvents}
       pageUrl={window.location.href}
       onBack={onBack}
       onDone={onClose}
