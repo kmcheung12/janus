@@ -41,6 +41,10 @@
         const s = e as SessionEvent
         return `Session started ${s.viewport.width}×${s.viewport.height}`
       }
+      case 'element_pick': {
+        const p = e as import('../../lib/event-capture/types').ElementPickEvent
+        return `Pick: ${p.selector}`
+      }
     }
   }
 
@@ -98,6 +102,7 @@
     font-weight: 600; flex-shrink: 0; text-transform: uppercase;
   }
   .badge-click, .badge-keyboard, .badge-navigation, .badge-scroll, .badge-drag, .badge-session { background: #313244; color: #cdd6f4; }
+  .badge-element_pick { background: #cba6f7; color: #1e1e2e; }
   .badge-console-error { background: #f38ba8; color: #1e1e2e; }
   .badge-console-warn { background: #fab387; color: #1e1e2e; }
   .badge-ok { background: #a6e3a1; color: #1e1e2e; }
