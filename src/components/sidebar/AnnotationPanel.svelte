@@ -49,9 +49,8 @@
   }
 
   let highlightLine = $derived.by(() => {
-    const template = selectedEvent.note ?? defaultNoteTemplate(selectedEvent)
-    if (!template) return undefined
-    return expandFields(template, fieldsOf(selectedEvent))
+    if (!noteText) return undefined
+    return expandFields(noteText, fieldsOf(selectedEvent))
   })
 
   let prompt = $derived.by(() => {
