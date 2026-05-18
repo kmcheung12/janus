@@ -64,7 +64,7 @@ export function defaultNoteTemplate(event: CapturedEvent): string {
     }
     case 'scroll':       return 'Scrolled {direction} on {selector}'
     case 'drag':         return 'Dragged {source_selector} onto {target_selector}'
-    case 'console':      return 'Console {level}: {message}'
+    case 'console':      return 'Console {source} {level}: {message}'
     case 'session':      return 'Session started'
     case 'element_pick': return ''
   }

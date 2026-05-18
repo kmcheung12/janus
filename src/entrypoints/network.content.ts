@@ -140,43 +140,61 @@ export default defineContentScript({
   }
 
   // ── console ──────────────────────────────────────────────────────────────
-  const seen = new Set<string>()
-  const origError = console.error.bind(console)
-  const origWarn = console.warn.bind(console)
+  const CONSOLE_MARKER = '__janusConsole__'
 
-  function emitConsole(level: 'error' | 'warn', args: unknown[]) {
-    const message = args
-      .map((a) => (a instanceof Error ? a.message : String(a)))
-      .join(' ')
-    const key = `${level}:${message}`
-    if (seen.has(key)) return
-    seen.add(key)
+  // Guard against double-patching if the script is injected more than once
+  if (!(console.error as unknown as Record<string, unknown>)[CONSOLE_MARKER]) {
+    const seen = new Set<string>()
+    const origError = console.error.bind(console)
+    const origWarn = console.warn.bind(console)
 
-    let source: string | null = null
-    try {
-      const frames = (new Error().stack ?? '').split('\n').filter(l => l.includes('    at '))
-      // frames[0] = emitConsole, frames[1] = console.error/warn wrapper, frames[2] = originator
-      const frame = frames[2]
-      if (frame) {
-        const match = frame.match(/\((.+)\)$/) ?? frame.match(/at\s+(.+)$/)
-        if (match) source = match[1]
-      }
-    } catch { /* ignore */ }
+    function emitConsole(level: 'error' | 'warn', args: unknown[]) {
+      console.log(new Error().stack)
+      const message = args
+        .map((a) => (a instanceof Error ? a.message : String(a)))
+        .join(' ')
+      const key = `${level}:${message}`
+      if (seen.has(key)) return
+      seen.add(key)
 
-    document.dispatchEvent(
-      new CustomEvent(CONSOLE_EVENT, {
-        detail: JSON.stringify({ level, message, source }),
-      }),
-    )
-  }
+      let source: string | null = null
+      try {
+        const lines = (new Error().stack ?? '').split('\n')
+        const frames = lines.filter(l =>
+          /^\s+at /.test(l) ||        // V8/Chrome: "    at name (url:line:col)"
+          /@.+:\d+:\d+$/.test(l)      // Firefox:   "name@url:line:col"
+        )
+        // frames[0] = emitConsole, frames[1] = console.error/warn wrapper, frames[2] = originator
+        const frame = frames[2]
+        if (frame) {
+          const v8 = frame.match(/\((.+)\)$/) ?? frame.match(/^\s+at\s+(.+)$/)
+          if (v8) source = v8[1]
+          else {
+            const atIdx = frame.lastIndexOf('@')
+            if (atIdx >= 0) source = frame.slice(atIdx + 1)
+          }
+        }
+      } catch { /* ignore */ }
 
-  console.error = (...args: unknown[]) => {
-    origError(...args)
-    emitConsole('error', args)
-  }
-  console.warn = (...args: unknown[]) => {
-    origWarn(...args)
-    emitConsole('warn', args)
+      document.dispatchEvent(
+        new CustomEvent(CONSOLE_EVENT, {
+          detail: JSON.stringify({ level, message, source }),
+        }),
+      )
+    }
+
+    const errorWrapper = (...args: unknown[]) => {
+      origError(...args)
+      emitConsole('error', args)
+    }
+    const warnWrapper = (...args: unknown[]) => {
+      origWarn(...args)
+      emitConsole('warn', args)
+    }
+    ;(errorWrapper as unknown as Record<string, unknown>)[CONSOLE_MARKER] = true
+    ;(warnWrapper as unknown as Record<string, unknown>)[CONSOLE_MARKER] = true
+    console.error = errorWrapper as typeof console.error
+    console.warn = warnWrapper as typeof console.warn
   }
   },
 })
