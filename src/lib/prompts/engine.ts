@@ -1,4 +1,52 @@
-import type { CapturedEvent, SessionEvent, ApiEvent, ClickEvent, KeyboardInputEvent, NavigationEvent, ScrollEvent, ConsoleEvent, DragEvent } from '../event-capture/types'
+import type { CapturedEvent, SessionEvent, ApiEvent, ClickEvent, KeyboardInputEvent, NavigationEvent, ScrollEvent, ConsoleEvent, DragEvent, ElementPickEvent } from '../event-capture/types'
+
+export function fieldsOf(event: CapturedEvent): Record<string, string> {
+  switch (event.type) {
+    case 'click': {
+      const e = event as ClickEvent
+      return { selector: e.selector, label: e.label, count: String(e.count), x: String(e.x), y: String(e.y) }
+    }
+    case 'navigation': {
+      const e = event as NavigationEvent
+      return { url: e.url, title: e.title }
+    }
+    case 'api': {
+      const e = event as ApiEvent
+      const out: Record<string, string> = { method: e.method, url: e.url }
+      if (e.status != null) out.status = String(e.status)
+      if (e.requestBody != null) out.request_body = e.requestBody
+      if (e.responseBody != null) out.response_body = e.responseBody
+      if (e.errorDetails != null) out.error_details = e.errorDetails
+      return out
+    }
+    case 'keyboard': {
+      const e = event as KeyboardInputEvent
+      const out: Record<string, string> = { selector: e.selector, input_type: e.inputType, count: String(e.count) }
+      if (e.key != null) out.key = e.key
+      return out
+    }
+    case 'scroll': {
+      const e = event as ScrollEvent
+      return { selector: e.selector, direction: e.direction, delta_x: String(e.deltaX), delta_y: String(e.deltaY), count: String(e.count) }
+    }
+    case 'console': {
+      const e = event as ConsoleEvent
+      return { level: e.level, message: e.message }
+    }
+    case 'drag': {
+      const e = event as DragEvent
+      const out: Record<string, string> = { source_selector: e.sourceSelector }
+      if (e.targetSelector != null) out.target_selector = e.targetSelector
+      return out
+    }
+    case 'element_pick': {
+      const e = event as ElementPickEvent
+      return { selector: e.selector, text: e.text, ...e.attributes, ...e.styles }
+    }
+    case 'session':
+      return {}
+  }
+}
 
 export interface PromptContext {
   url: string
