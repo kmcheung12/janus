@@ -86,6 +86,7 @@ export interface PromptContext {
   events: CapturedEvent[]
   selectedEvent?: CapturedEvent
   userText: string
+  exclude?: string[]
 }
 
 export interface SlotValues {
@@ -108,7 +109,7 @@ export function resolveSlots(ctx: PromptContext): SlotValues {
     ...eventFields,
     url: ctx.url,
     element_selector: ctx.elementSelector ?? pick?.selector,
-    interaction_description: formatEvents(ctx.events),
+    interaction_description: formatEvents(ctx.exclude?.length ? ctx.events.filter(e => !ctx.exclude!.includes(e.type)) : ctx.events),
     method: api?.method,
     status: api?.status?.toString(),
     error_details: api?.errorDetails ?? undefined,

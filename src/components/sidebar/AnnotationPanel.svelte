@@ -61,6 +61,7 @@
       events,
       selectedEvent,
       userText: expandedNote,
+      exclude: selected.exclude,
     })
     return renderTemplate(selected.body, { ...slots, ...extraInputs })
   })

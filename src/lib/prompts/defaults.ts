@@ -31,7 +31,8 @@ Current page: {url}`,
     description: 'Generate a Playwright TypeScript test that reproduces the recorded interaction',
     contextScope: 'both',
     isBuiltIn: true,
-    body: `Write a playwright test script in typescript with the following instruction: 
+    exclude: ['console', 'api'],
+    body: `Write a playwright test script in typescript with the following instruction:
 
 {interaction_description}.
 

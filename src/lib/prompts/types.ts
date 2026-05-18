@@ -5,6 +5,7 @@ export interface Template {
   body: string
   isBuiltIn: boolean
   contextScope: 'element' | 'event' | 'both'
+  exclude?: string[]
 }
 
 export const AUTO_FILL_SLOTS = [
