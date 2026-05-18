@@ -12,7 +12,6 @@ export const DEFAULT_TEMPLATES: Template[] = [
 User action:
 {interaction_description}
 Error: {error_details}
-{user_text}
 
 Current page: {url}`,
   },
@@ -24,7 +23,7 @@ Current page: {url}`,
     isBuiltIn: true,
     body: `Improve the UX of {element_selector} on {url}.
 
-{user_text}`,
+`,
   },
   {
     id: 'playwright',
