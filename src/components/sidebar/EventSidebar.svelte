@@ -2,7 +2,6 @@
   import type { CapturedEvent, ApiEvent, ClickEvent, KeyboardInputEvent, NavigationEvent, ConsoleEvent, ScrollEvent, DragEvent, SessionEvent, ElementPickEvent, EventType } from '../../lib/event-capture/types'
   import { formatEvents } from '../../lib/prompts/engine'
   import { groupEvents } from '../../lib/event-grouping'
-  import type { DisplayItem } from '../../lib/event-grouping'
   import { updateEvent } from '../../lib/event-capture/store'
   import PromptBox from './PromptBox.svelte'
 
@@ -140,6 +139,7 @@
               class="event-toggle"
               checked={!allExcluded}
               use:indeterminate={someExcluded && !allExcluded}
+              onclick={(e) => e.stopPropagation()}
               onchange={() => toggleGroupExcluded(item.events)}
             />
             <button class="expand-btn" onclick={() => toggleGroupExpanded(item.id)}>
