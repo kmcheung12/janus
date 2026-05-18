@@ -1,5 +1,25 @@
 import type { CapturedEvent, SessionEvent, ApiEvent, ClickEvent, KeyboardInputEvent, NavigationEvent, ScrollEvent, ConsoleEvent, DragEvent, ElementPickEvent } from '../event-capture/types'
 
+export function parseBrowser(ua: string): string {
+  if (/Edg\//.test(ua)) {
+    const v = ua.match(/Edg\/([\d]+)/)?.[1]
+    return v ? `Edge ${v}` : 'Edge'
+  }
+  if (/Chrome\//.test(ua)) {
+    const v = ua.match(/Chrome\/([\d]+)/)?.[1]
+    return v ? `Chrome ${v}` : 'Chrome'
+  }
+  if (/Firefox\//.test(ua)) {
+    const v = ua.match(/Firefox\/([\d]+)/)?.[1]
+    return v ? `Firefox ${v}` : 'Firefox'
+  }
+  if (/Safari\//.test(ua)) {
+    const v = ua.match(/Version\/([\d]+)/)?.[1]
+    return v ? `Safari ${v}` : 'Safari'
+  }
+  return ua
+}
+
 export function fieldsOf(event: CapturedEvent): Record<string, string> {
   switch (event.type) {
     case 'click': {
@@ -46,8 +66,10 @@ export function fieldsOf(event: CapturedEvent): Record<string, string> {
       const e = event as ElementPickEvent
       return { selector: e.selector, text: e.text, ...e.attributes, ...e.styles }
     }
-    case 'session':
-      return {}
+    case 'session': {
+      const e = event as SessionEvent
+      return { browser: parseBrowser(e.browser) }
+    }
   }
 }
 
@@ -65,7 +87,7 @@ export function defaultNoteTemplate(event: CapturedEvent): string {
     case 'scroll':       return 'Scrolled {direction} on {selector}'
     case 'drag':         return 'Dragged {source_selector} onto {target_selector}'
     case 'console':      return 'Console {source} {level}: {message}'
-    case 'session':      return 'Session started'
+    case 'session':      return 'Session started on {browser}'
     case 'element_pick': return ''
   }
 }

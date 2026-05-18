@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { CapturedEvent, ApiEvent, ClickEvent, KeyboardInputEvent, NavigationEvent, ConsoleEvent, ScrollEvent, DragEvent, SessionEvent, ElementPickEvent, EventType } from '../../lib/event-capture/types'
-  import { formatEvents } from '../../lib/prompts/engine'
+  import { formatEvents, parseBrowser } from '../../lib/prompts/engine'
   import { groupEvents } from '../../lib/event-grouping'
   import type { ApiDomainSubgroup } from '../../lib/event-grouping'
   import { updateEvent } from '../../lib/event-capture/store'
@@ -81,7 +81,7 @@
       }
       case 'session': {
         const s = e as SessionEvent
-        return `Session started ${s.viewport.width}×${s.viewport.height}`
+        return `Session started on ${parseBrowser(s.browser)} ${s.viewport.width}×${s.viewport.height}`
       }
       case 'element_pick': {
         const p = e as ElementPickEvent
