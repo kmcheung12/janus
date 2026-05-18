@@ -1,10 +1,11 @@
-type EventType = 'session' | 'navigation' | 'click' | 'keyboard' | 'api' | 'scroll' | 'console' | 'drag' | 'element_pick'
+export type EventType = 'session' | 'navigation' | 'click' | 'keyboard' | 'api' | 'scroll' | 'console' | 'drag' | 'element_pick'
 
 interface BaseEvent {
   id: string
   type: EventType
   timestamp: number
   note?: string
+  excluded?: boolean
 }
 
 export interface SessionEvent extends BaseEvent {
