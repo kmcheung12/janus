@@ -26,7 +26,7 @@
   })
 
   // Seed note from persisted value or default template
-  let noteText = $state(selectedEvent.note ?? defaultNoteTemplate(selectedEvent))
+  let noteText = $state('')
 
   $effect(() => {
     noteText = selectedEvent.note ?? defaultNoteTemplate(selectedEvent)
@@ -47,6 +47,12 @@
         .filter(k => !autoFillKeys.has(k) && k !== 'user_text')
     )]
   }
+
+  let highlightLine = $derived.by(() => {
+    const template = selectedEvent.note ?? defaultNoteTemplate(selectedEvent)
+    if (!template) return undefined
+    return expandFields(template, fieldsOf(selectedEvent))
+  })
 
   let prompt = $derived.by(() => {
     if (!selected) return ''
@@ -152,7 +158,7 @@
 
     <div class="section prompt-section">
       <p class="label">Prompt</p>
-      <PromptBox value={prompt} onCopy={onDone} rows={8} />
+      <PromptBox value={prompt} onCopy={onDone} rows={8} {highlightLine} />
     </div>
   {/if}
 </div>
