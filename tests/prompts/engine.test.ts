@@ -246,6 +246,39 @@ describe('formatEvents', () => {
   })
 })
 
+describe('formatEvents — excluded flag', () => {
+  it('skips events where excluded is true', () => {
+    const events: CapturedEvent[] = [
+      { id: '1', type: 'navigation', timestamp: 0, url: '/home', title: 'Home' },
+      { id: '2', type: 'navigation', timestamp: 1, url: '/about-page', title: 'About', excluded: true },
+      { id: '3', type: 'navigation', timestamp: 2, url: '/contact', title: 'Contact' },
+    ]
+    const result = formatEvents(events)
+    expect(result).toContain('/home')
+    expect(result).not.toContain('/about-page')
+    expect(result).toContain('/contact')
+  })
+
+  it('numbers lines contiguously after skipping excluded events', () => {
+    const events: CapturedEvent[] = [
+      { id: '1', type: 'navigation', timestamp: 0, url: '/a', title: 'A' },
+      { id: '2', type: 'navigation', timestamp: 1, url: '/b', title: 'B', excluded: true },
+      { id: '3', type: 'navigation', timestamp: 2, url: '/c', title: 'C' },
+    ]
+    const lines = formatEvents(events).split('\n')
+    expect(lines[0]).toMatch(/^1\./)
+    expect(lines[1]).toMatch(/^2\./)
+    expect(lines).toHaveLength(2)
+  })
+
+  it('includes events where excluded is false', () => {
+    const events: CapturedEvent[] = [
+      { id: '1', type: 'navigation', timestamp: 0, url: '/excluded-false', title: 'X', excluded: false },
+    ]
+    expect(formatEvents(events)).toContain('/excluded-false')
+  })
+})
+
 describe('expandFields', () => {
   it('substitutes known fields', () => {
     expect(expandFields('{selector} should be visible', { selector: 'button.save' }))

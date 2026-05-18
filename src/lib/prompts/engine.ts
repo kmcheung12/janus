@@ -134,6 +134,7 @@ export function formatEvents(events: CapturedEvent[]): string {
   let i = 0
   return events
     .map(e => {
+      if (e.excluded) return null
       const template = e.note ?? defaultNoteTemplate(e)
       if (!template) return null
       i++
