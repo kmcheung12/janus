@@ -24,6 +24,7 @@
   type Mode = 'picking' | 'sidebar' | 'panel'
 
   let mode = $state<Mode>(untrack(() => initialMode ?? 'picking'))
+  let previousMode = $state<'picking' | 'sidebar'>('picking')
   let selectedSelector = $state<string | undefined>(undefined)
   let selectedSource = $state<'page' | 'extension' | undefined>(undefined)
   let selectedEvent = $state<CapturedEvent | undefined>(undefined)
@@ -32,6 +33,7 @@
     selectedSelector = selector
     selectedSource = src
     selectedEvent = undefined
+    previousMode = 'picking'
     mode = 'panel'
   }
 
@@ -39,11 +41,12 @@
     selectedEvent = event
     selectedSelector = undefined
     selectedSource = 'page'
+    previousMode = 'sidebar'
     mode = 'panel'
   }
 
   function onBack() {
-    mode = 'picking'
+    mode = previousMode
     selectedSelector = undefined
     selectedSource = undefined
     selectedEvent = undefined

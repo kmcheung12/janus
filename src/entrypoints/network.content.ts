@@ -86,6 +86,59 @@ export default defineContentScript({
   ;(wrapper as unknown as Record<string, boolean>)[JANUS_MARKER] = true
   window.fetch = wrapper as typeof fetch
 
+  // ── XHR ──────────────────────────────────────────────────────────────────
+  const originalOpen = XMLHttpRequest.prototype.open
+  const originalSend = XMLHttpRequest.prototype.send
+
+  XMLHttpRequest.prototype.open = function (
+    method: string,
+    url: string | URL,
+    ...args: unknown[]
+  ) {
+    ;(this as unknown as Record<string, unknown>)._janusMethod = method
+    ;(this as unknown as Record<string, unknown>)._janusUrl =
+      typeof url === 'string' ? url : (url as URL).href
+    return originalOpen.apply(this, [method, url, ...args] as Parameters<typeof originalOpen>)
+  }
+
+  XMLHttpRequest.prototype.send = function (
+    body?: Document | XMLHttpRequestBodyInit | null,
+  ) {
+    const start = Date.now()
+    const requestBody = truncate(body != null ? String(body) : null)
+    const self = this as unknown as Record<string, unknown>
+
+    this.addEventListener('loadend', () => {
+      let responseBody: string | null = null
+      try {
+        responseBody = truncate(
+          this.responseType === '' || this.responseType === 'text'
+            ? this.responseText
+            : null,
+        )
+      } catch {
+        // responseText throws when responseType isn't text
+      }
+
+      document.dispatchEvent(
+        new CustomEvent(NETWORK_EVENT, {
+          detail: JSON.stringify({
+            method: self._janusMethod,
+            url: self._janusUrl,
+            status: this.status || null,
+            requestBody,
+            responseBody,
+            errorDetails:
+              this.status === 0 ? 'Network error or request aborted' : null,
+            duration: Date.now() - start,
+          }),
+        }),
+      )
+    })
+
+    return originalSend.apply(this, [body] as Parameters<typeof originalSend>)
+  }
+
   // ── console ──────────────────────────────────────────────────────────────
   const seen = new Set<string>()
   const origError = console.error.bind(console)
