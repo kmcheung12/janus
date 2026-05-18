@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { resolveSlots, renderTemplate, fieldsOf } from '../../src/lib/prompts/engine'
-import type { CapturedEvent, ElementPickEvent, ClickEvent, ApiEvent, NavigationEvent } from '../../src/lib/event-capture/types'
+import type { CapturedEvent, ElementPickEvent, ClickEvent, ApiEvent, NavigationEvent, KeyboardInputEvent } from '../../src/lib/event-capture/types'
 
 const navEvent: CapturedEvent = { id: '1', type: 'navigation', timestamp: 0, url: '/checkout', title: '' }
 const clickEvent: CapturedEvent = { id: '2', type: 'click', timestamp: 1, selector: '#pay-btn', label: 'Pay Now', count: 1, x: 0, y: 0 }
@@ -117,13 +117,13 @@ describe('fieldsOf', () => {
     expect(fields.error_details).toBe('bad')
   })
 
-  it('omits null/undefined api fields', () => {
+  it('omits null/undefined api fields except status', () => {
     const e: ApiEvent = {
       id: '3', type: 'api', timestamp: 0, method: 'GET', url: '/x',
       status: null, requestBody: null, responseBody: null, errorDetails: null, duration: null,
     }
     const fields = fieldsOf(e)
-    expect('status' in fields).toBe(false)
+    expect(fields.status).toBe('pending')
     expect('request_body' in fields).toBe(false)
   })
 
@@ -141,6 +141,12 @@ describe('fieldsOf', () => {
     expect(fields['data-testid']).toBe('save-btn')
     expect(fields.color).toBe('red')
     expect(fields.font_size).toBe('14px')
+  })
+
+  it('includes sequence in keyboard fields when keys present', () => {
+    const e: KeyboardInputEvent = { id: '1', type: 'keyboard', timestamp: 0, selector: '#inp', inputType: 'text', count: 3, keys: ['a', 'b', 'Enter'] }
+    const fields = fieldsOf(e)
+    expect(fields.sequence).toBe('ab[Enter]')
   })
 
   it('returns empty object for session event', () => {
@@ -167,8 +173,18 @@ describe('defaultNoteTemplate', () => {
       .toBe('{method} {url} → {status}')
   })
 
-  it('keyboard', () => {
-    expect(defaultNoteTemplate({ id: '', type: 'keyboard', timestamp: 0, selector: '', inputType: '', count: 1 }))
+  it('keyboard with sequence', () => {
+    expect(defaultNoteTemplate({ id: '', type: 'keyboard', timestamp: 0, selector: '#inp', inputType: '', count: 3, keys: ['a', 'b', 'c'] }))
+      .toBe('Typed "{sequence}" in {selector}')
+  })
+
+  it('keyboard with Enter key', () => {
+    expect(defaultNoteTemplate({ id: '', type: 'keyboard', timestamp: 0, selector: '#inp', inputType: '', count: 1, key: 'Enter' }))
+      .toBe('Pressed Enter in {selector}')
+  })
+
+  it('keyboard generic', () => {
+    expect(defaultNoteTemplate({ id: '', type: 'keyboard', timestamp: 0, selector: '#inp', inputType: '', count: 5 }))
       .toBe('Typed {count} characters in {selector}')
   })
 
@@ -249,6 +265,11 @@ describe('expandFields', () => {
   it('substitutes before unescaping — {{field}} never gets substituted', () => {
     expect(expandFields('{{selector}} and {selector}', { selector: 'btn' }))
       .toBe('{selector} and btn')
+  })
+
+  it('substitutes hyphenated field names', () => {
+    expect(expandFields('{data-testid} found', { 'data-testid': 'submit-btn' }))
+      .toBe('submit-btn found')
   })
 
   it('handles multiline text', () => {
