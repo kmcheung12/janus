@@ -85,7 +85,7 @@ The Note box in `AnnotationPanel` becomes a template. On render, `renderTemplate
 
 Escaping: `{{field}}` renders as the literal string `{field}` in the prompt. The render step applies field substitution first, then unescapes `{{...}}` → `{...}`.
 
-Unresolved fields: lines containing unresolved `{field}` tokens are dropped from the output (existing behaviour, unchanged).
+Unresolved fields: `{non_existent_field}` tokens pass through unchanged to the output. The existing behaviour of dropping lines with unresolved slots is removed.
 
 ### Field suggestions
 
