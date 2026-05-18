@@ -28,6 +28,12 @@ export function clearEvents(): void {
   browser.runtime.sendMessage({ type: 'JANUS_CLEAR_EVENTS' }).catch(() => {})
 }
 
+export function updateEvent(id: string, patch: Partial<CapturedEvent>): void {
+  events = events.map(e => e.id === id ? { ...e, ...patch } : e)
+  listeners.forEach(fn => fn(events))
+  syncToBackground()
+}
+
 export function subscribe(fn: (events: CapturedEvent[]) => void): () => void {
   listeners.add(fn)
   return () => listeners.delete(fn)
