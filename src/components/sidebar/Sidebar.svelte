@@ -3,8 +3,8 @@
   import ElementPicker from './ElementPicker.svelte'
   import EventSidebar from './EventSidebar.svelte'
   import AnnotationPanel from './AnnotationPanel.svelte'
-  import type { CapturedEvent } from '../../lib/event-capture/types'
-  import { getEvents, subscribe } from '../../lib/event-capture/store'
+  import type { CapturedEvent, ElementPickEvent } from '../../lib/event-capture/types'
+  import { getEvents, subscribe, addEvent } from '../../lib/event-capture/store'
 
   let { onClose, onPickingRef, onSidebarRef, initialMode }: {
     onClose: () => void
@@ -25,30 +25,23 @@
 
   let mode = $state<Mode>(untrack(() => initialMode ?? 'picking'))
   let previousMode = $state<'picking' | 'sidebar'>('picking')
-  let selectedSelector = $state<string | undefined>(undefined)
-  let selectedSource = $state<'page' | 'extension' | undefined>(undefined)
   let selectedEvent = $state<CapturedEvent | undefined>(undefined)
 
-  function onElementPicked(selector: string, src: 'page' | 'extension') {
-    selectedSelector = selector
-    selectedSource = src
-    selectedEvent = undefined
+  function onPick(event: ElementPickEvent) {
+    addEvent(event)
+    selectedEvent = event
     previousMode = 'picking'
     mode = 'panel'
   }
 
   function onEventSelected(event: CapturedEvent) {
     selectedEvent = event
-    selectedSelector = undefined
-    selectedSource = 'page'
     previousMode = 'sidebar'
     mode = 'panel'
   }
 
   function onBack() {
     mode = previousMode
-    selectedSelector = undefined
-    selectedSource = undefined
     selectedEvent = undefined
   }
 
@@ -71,14 +64,12 @@
   </div>
 
   {#if mode === 'picking'}
-    <ElementPicker onSelect={onElementPicked} />
+    <ElementPicker {onPick} />
     <div class="janus-hint">Click any element to annotate it</div>
   {:else if mode === 'sidebar'}
     <EventSidebar {events} onSelect={onEventSelected} />
-  {:else if mode === 'panel'}
+  {:else if mode === 'panel' && selectedEvent}
     <AnnotationPanel
-      {selectedSelector}
-      {selectedSource}
       {selectedEvent}
       {events}
       pageUrl={window.location.href}
