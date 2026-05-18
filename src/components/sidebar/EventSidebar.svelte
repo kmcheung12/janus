@@ -2,6 +2,7 @@
   import type { CapturedEvent, ApiEvent, ClickEvent, KeyboardInputEvent, NavigationEvent, ConsoleEvent, ScrollEvent, DragEvent, SessionEvent, ElementPickEvent, EventType } from '../../lib/event-capture/types'
   import { formatEvents } from '../../lib/prompts/engine'
   import { groupEvents } from '../../lib/event-grouping'
+  import type { ApiDomainSubgroup } from '../../lib/event-grouping'
   import { updateEvent } from '../../lib/event-capture/store'
   import PromptBox from './PromptBox.svelte'
 
@@ -12,20 +13,13 @@
     onSelect: (e: CapturedEvent) => void
   } = $props()
 
-  // All distinct types in the full event list (for the filter bar)
   let allTypes = $derived([...new Set(events.map(e => e.type))] as EventType[])
-
-  // Events visible in the list after type filtering
   let visibleEvents = $derived(events.filter(e => !hiddenTypes.has(e.type as EventType)))
-
-  // Grouped display items, newest first
   let displayItems = $derived([...groupEvents(visibleEvents)].reverse())
-
-  // Prompt text shown in the bottom box (respects both type filter and excluded flag)
   let interactionText = $derived(formatEvents(visibleEvents))
 
-  // Which API groups are expanded
   let expandedGroups = $state(new Set<string>())
+  let expandedSubgroups = $state(new Set<string>())
 
   function toggleGroupExpanded(id: string) {
     const next = new Set(expandedGroups)
@@ -34,17 +28,22 @@
     expandedGroups = next
   }
 
+  function toggleSubgroupExpanded(id: string) {
+    const next = new Set(expandedSubgroups)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    expandedSubgroups = next
+  }
+
   function toggleEventExcluded(event: CapturedEvent) {
     updateEvent(event.id, { excluded: !event.excluded })
   }
 
   function toggleGroupExcluded(groupEvts: ApiEvent[]) {
     const allExcluded = groupEvts.every(e => e.excluded)
-    // all excluded → include all; otherwise → exclude all
     groupEvts.forEach(e => updateEvent(e.id, { excluded: !allExcluded }))
   }
 
-  // Svelte action: sets the native indeterminate property on a checkbox
   function indeterminate(node: HTMLInputElement, value: boolean) {
     node.indeterminate = value
     return { update(v: boolean) { node.indeterminate = v } }
@@ -130,8 +129,10 @@
     {:else}
       {#each displayItems as item (item.kind === 'api-group' ? item.id : item.event.id)}
         {#if item.kind === 'api-group'}
-          {@const allExcluded = item.events.every(e => e.excluded)}
-          {@const someExcluded = item.events.some(e => e.excluded)}
+          {@const allEvents = item.subgroups.flatMap(s => s.events)}
+          {@const totalCount = allEvents.length}
+          {@const allExcluded = allEvents.every(e => e.excluded)}
+          {@const someExcluded = allEvents.some(e => e.excluded)}
           {@const isExpanded = expandedGroups.has(item.id)}
           <div class="group-header" class:excluded={allExcluded}>
             <input
@@ -140,27 +141,48 @@
               checked={!allExcluded}
               use:indeterminate={someExcluded && !allExcluded}
               onclick={(e) => e.stopPropagation()}
-              onchange={() => toggleGroupExcluded(item.events)}
+              onchange={() => toggleGroupExcluded(allEvents)}
             />
             <button class="expand-btn" onclick={() => toggleGroupExpanded(item.id)}>
               {isExpanded ? '▼' : '▶'}
             </button>
-            <span class="badge badge-ok">api ×{item.events.length}</span>
-            <span class="group-domain">{item.domain}</span>
+            <span class="badge badge-ok">api ×{totalCount}</span>
           </div>
           {#if isExpanded}
-            {#each [...item.events].reverse() as event (event.id)}
-              <button class="entry entry-indented" class:excluded={event.excluded} onclick={() => onSelect(event)}>
+            {#each item.subgroups as subgroup (subgroup.id)}
+              {@const subAllExcluded = subgroup.events.every(e => e.excluded)}
+              {@const subSomeExcluded = subgroup.events.some(e => e.excluded)}
+              {@const isSubExpanded = expandedSubgroups.has(subgroup.id)}
+              <div class="subgroup-header" class:excluded={subAllExcluded}>
                 <input
                   type="checkbox"
                   class="event-toggle"
-                  checked={!event.excluded}
+                  checked={!subAllExcluded}
+                  use:indeterminate={subSomeExcluded && !subAllExcluded}
                   onclick={(e) => e.stopPropagation()}
-                  onchange={() => toggleEventExcluded(event)}
+                  onchange={() => toggleGroupExcluded(subgroup.events)}
                 />
-                <span class="badge badge-{badge(event)}">{event.type}</span>
-                <span class="entry-label">{label(event)}</span>
-              </button>
+                <button class="expand-btn" onclick={() => toggleSubgroupExpanded(subgroup.id)}>
+                  {isSubExpanded ? '▼' : '▶'}
+                </button>
+                <span class="group-domain">{subgroup.domain}</span>
+                <span class="subgroup-count">×{subgroup.events.length}</span>
+              </div>
+              {#if isSubExpanded}
+                {#each [...subgroup.events].reverse() as event (event.id)}
+                  <button class="entry entry-double-indented" class:excluded={event.excluded} onclick={() => onSelect(event)}>
+                    <input
+                      type="checkbox"
+                      class="event-toggle"
+                      checked={!event.excluded}
+                      onclick={(e) => e.stopPropagation()}
+                      onchange={() => toggleEventExcluded(event)}
+                    />
+                    <span class="badge badge-{badge(event)}">{event.type}</span>
+                    <span class="entry-label">{label(event)}</span>
+                  </button>
+                {/each}
+              {/if}
             {/each}
           {/if}
         {:else}
@@ -215,7 +237,7 @@
   }
   .entry:hover { background: #313244; }
   .entry.excluded { opacity: 0.4; }
-  .entry-indented { padding-left: 28px; }
+  .entry-double-indented { padding-left: 44px; }
 
   .group-header {
     display: flex; align-items: center; gap: 8px;
@@ -223,7 +245,15 @@
     border-bottom: 1px solid #2a2a3e;
   }
   .group-header.excluded { opacity: 0.4; }
+
+  .subgroup-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 12px 5px 28px; font-size: 12px; color: #cdd6f4;
+    border-bottom: 1px solid #252535;
+  }
+  .subgroup-header.excluded { opacity: 0.4; }
   .group-domain { color: #a6adc8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .subgroup-count { color: #6c7086; font-size: 11px; flex-shrink: 0; }
 
   .expand-btn {
     background: none; border: none; color: #6c7086;
