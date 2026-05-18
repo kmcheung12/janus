@@ -186,38 +186,53 @@
             </div>
             {#if isExpanded}
               {#each item.subgroups as subgroup (subgroup.id)}
-                {@const subAllExcluded = subgroup.events.every(e => e.excluded)}
-                {@const subSomeExcluded = subgroup.events.some(e => e.excluded)}
-                {@const isSubExpanded = expandedSubgroups.has(subgroup.id)}
-                <div class="subgroup-header" class:excluded={subAllExcluded}>
-                  <input
-                    type="checkbox"
-                    class="event-toggle"
-                    checked={!subAllExcluded}
-                    use:indeterminate={subSomeExcluded && !subAllExcluded}
-                    onclick={(e) => e.stopPropagation()}
-                    onchange={() => toggleGroupExcluded(subgroup.events)}
-                  />
-                  <button class="expand-btn" onclick={() => toggleSubgroupExpanded(subgroup.id)}>
-                    {isSubExpanded ? '▼' : '▶'}
+                {#if subgroup.events.length === 1}
+                  {@const event = subgroup.events[0]}
+                  <button class="entry entry-indented" class:excluded={event.excluded} onclick={() => onSelect(event)}>
+                    <input
+                      type="checkbox"
+                      class="event-toggle"
+                      checked={!event.excluded}
+                      onclick={(e) => e.stopPropagation()}
+                      onchange={() => toggleEventExcluded(event)}
+                    />
+                    <span class="badge badge-{badge(event)}">{event.type}</span>
+                    <span class="entry-label">{label(event)}</span>
                   </button>
-                  <span class="group-domain">{subgroup.domain}</span>
-                  <span class="subgroup-count">×{subgroup.events.length}</span>
-                </div>
-                {#if isSubExpanded}
-                  {#each [...subgroup.events].reverse() as event (event.id)}
-                    <button class="entry entry-double-indented" class:excluded={event.excluded} onclick={() => onSelect(event)}>
-                      <input
-                        type="checkbox"
-                        class="event-toggle"
-                        checked={!event.excluded}
-                        onclick={(e) => e.stopPropagation()}
-                        onchange={() => toggleEventExcluded(event)}
-                      />
-                      <span class="badge badge-{badge(event)}">{event.type}</span>
-                      <span class="entry-label">{label(event)}</span>
+                {:else}
+                  {@const subAllExcluded = subgroup.events.every(e => e.excluded)}
+                  {@const subSomeExcluded = subgroup.events.some(e => e.excluded)}
+                  {@const isSubExpanded = expandedSubgroups.has(subgroup.id)}
+                  <div class="subgroup-header" class:excluded={subAllExcluded}>
+                    <input
+                      type="checkbox"
+                      class="event-toggle"
+                      checked={!subAllExcluded}
+                      use:indeterminate={subSomeExcluded && !subAllExcluded}
+                      onclick={(e) => e.stopPropagation()}
+                      onchange={() => toggleGroupExcluded(subgroup.events)}
+                    />
+                    <button class="expand-btn" onclick={() => toggleSubgroupExpanded(subgroup.id)}>
+                      {isSubExpanded ? '▼' : '▶'}
                     </button>
-                  {/each}
+                    <span class="group-domain">{subgroup.domain}</span>
+                    <span class="subgroup-count">×{subgroup.events.length}</span>
+                  </div>
+                  {#if isSubExpanded}
+                    {#each [...subgroup.events].reverse() as event (event.id)}
+                      <button class="entry entry-double-indented" class:excluded={event.excluded} onclick={() => onSelect(event)}>
+                        <input
+                          type="checkbox"
+                          class="event-toggle"
+                          checked={!event.excluded}
+                          onclick={(e) => e.stopPropagation()}
+                          onchange={() => toggleEventExcluded(event)}
+                        />
+                        <span class="badge badge-{badge(event)}">{event.type}</span>
+                        <span class="entry-label">{label(event)}</span>
+                      </button>
+                    {/each}
+                  {/if}
                 {/if}
               {/each}
             {/if}
