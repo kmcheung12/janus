@@ -151,9 +151,21 @@ export default defineContentScript({
     const key = `${level}:${message}`
     if (seen.has(key)) return
     seen.add(key)
+
+    let source: string | null = null
+    try {
+      const frames = (new Error().stack ?? '').split('\n').filter(l => l.includes('    at '))
+      // frames[0] = emitConsole, frames[1] = console.error/warn wrapper, frames[2] = originator
+      const frame = frames[2]
+      if (frame) {
+        const match = frame.match(/\((.+)\)$/) ?? frame.match(/at\s+(.+)$/)
+        if (match) source = match[1]
+      }
+    } catch { /* ignore */ }
+
     document.dispatchEvent(
       new CustomEvent(CONSOLE_EVENT, {
-        detail: JSON.stringify({ level, message }),
+        detail: JSON.stringify({ level, message, source }),
       }),
     )
   }

@@ -71,6 +71,7 @@ export interface ConsoleEvent extends BaseEvent {
   type: 'console'
   level: 'error' | 'warn'
   message: string
+  source?: string | null
 }
 
 export interface ElementPickEvent extends BaseEvent {

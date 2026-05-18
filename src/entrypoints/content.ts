@@ -72,8 +72,8 @@ export default defineContentScript({
     })
 
     document.addEventListener(CONSOLE_EVENT_NAME, (e: Event) => {
-      const { level, message } = JSON.parse((e as CustomEvent<string>).detail)
-      filteredAddEvent({ id: uuid(), type: 'console', level, message, timestamp: Date.now() })
+      const { level, message, source } = JSON.parse((e as CustomEvent<string>).detail)
+      filteredAddEvent({ id: uuid(), type: 'console', level, message, source, timestamp: Date.now() })
     })
 
     await loadPersistedEvents()

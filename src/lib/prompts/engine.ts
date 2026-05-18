@@ -34,7 +34,7 @@ export function fieldsOf(event: CapturedEvent): Record<string, string> {
     }
     case 'console': {
       const e = event as ConsoleEvent
-      return { level: e.level, message: e.message }
+      return { level: e.level, message: e.message, source: e.source ?? '' }
     }
     case 'drag': {
       const e = event as DragEvent

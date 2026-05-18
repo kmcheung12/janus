@@ -134,7 +134,7 @@
             {@const allExcluded = sub.events.every(e => e.excluded)}
             {@const someExcluded = sub.events.some(e => e.excluded)}
             {@const isExpanded = expandedGroups.has(item.id)}
-            <div class="group-header" class:excluded={allExcluded}>
+            <div class="group-header" class:excluded={allExcluded} onclick={() => toggleGroupExpanded(item.id)} onkeydown={(e) => e.key === 'Enter' && toggleGroupExpanded(item.id)} role="button" tabindex="0">
               <input
                 type="checkbox"
                 class="event-toggle"
@@ -143,9 +143,7 @@
                 onclick={(e) => e.stopPropagation()}
                 onchange={() => toggleGroupExcluded(sub.events)}
               />
-              <button class="expand-btn" onclick={() => toggleGroupExpanded(item.id)}>
-                {isExpanded ? '▼' : '▶'}
-              </button>
+              <span class="expand-btn">{isExpanded ? '▼' : '▶'}</span>
               <span class="badge badge-ok">api ×{sub.events.length}</span>
               <span class="group-domain">{sub.domain}</span>
             </div>
@@ -170,7 +168,7 @@
             {@const allExcluded = allEvents.every(e => e.excluded)}
             {@const someExcluded = allEvents.some(e => e.excluded)}
             {@const isExpanded = expandedGroups.has(item.id)}
-            <div class="group-header" class:excluded={allExcluded}>
+            <div class="group-header" class:excluded={allExcluded} onclick={() => toggleGroupExpanded(item.id)} onkeydown={(e) => e.key === 'Enter' && toggleGroupExpanded(item.id)} role="button" tabindex="0">
               <input
                 type="checkbox"
                 class="event-toggle"
@@ -179,9 +177,7 @@
                 onclick={(e) => e.stopPropagation()}
                 onchange={() => toggleGroupExcluded(allEvents)}
               />
-              <button class="expand-btn" onclick={() => toggleGroupExpanded(item.id)}>
-                {isExpanded ? '▼' : '▶'}
-              </button>
+              <span class="expand-btn">{isExpanded ? '▼' : '▶'}</span>
               <span class="badge badge-ok">api ×{totalCount}</span>
             </div>
             {#if isExpanded}
@@ -203,7 +199,7 @@
                   {@const subAllExcluded = subgroup.events.every(e => e.excluded)}
                   {@const subSomeExcluded = subgroup.events.some(e => e.excluded)}
                   {@const isSubExpanded = expandedSubgroups.has(subgroup.id)}
-                  <div class="subgroup-header" class:excluded={subAllExcluded}>
+                  <div class="subgroup-header" class:excluded={subAllExcluded} onclick={() => toggleSubgroupExpanded(subgroup.id)} onkeydown={(e) => e.key === 'Enter' && toggleSubgroupExpanded(subgroup.id)} role="button" tabindex="0">
                     <input
                       type="checkbox"
                       class="event-toggle"
@@ -212,9 +208,7 @@
                       onclick={(e) => e.stopPropagation()}
                       onchange={() => toggleGroupExcluded(subgroup.events)}
                     />
-                    <button class="expand-btn" onclick={() => toggleSubgroupExpanded(subgroup.id)}>
-                      {isSubExpanded ? '▼' : '▶'}
-                    </button>
+                    <span class="expand-btn">{isSubExpanded ? '▼' : '▶'}</span>
                     <span class="group-domain">{subgroup.domain}</span>
                     <span class="subgroup-count">×{subgroup.events.length}</span>
                   </div>
@@ -295,14 +289,14 @@
   .group-header {
     display: flex; align-items: center; gap: 8px;
     padding: 6px 12px; font-size: 12px; color: #cdd6f4;
-    border-bottom: 1px solid #2a2a3e;
+    border-bottom: 1px solid #2a2a3e; cursor: pointer;
   }
   .group-header.excluded { opacity: 0.4; }
 
   .subgroup-header {
     display: flex; align-items: center; gap: 8px;
     padding: 5px 12px 5px 28px; font-size: 12px; color: #cdd6f4;
-    border-bottom: 1px solid #252535;
+    border-bottom: 1px solid #252535; cursor: pointer;
   }
   .subgroup-header.excluded { opacity: 0.4; }
   .group-domain { color: #a6adc8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
