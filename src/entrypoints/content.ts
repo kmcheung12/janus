@@ -21,6 +21,7 @@ function sessionEvent(): SessionEvent {
     timestamp: Date.now(),
     viewport: { width: window.innerWidth, height: window.innerHeight },
     dpr: window.devicePixelRatio,
+    browser: navigator.userAgent,
   }
 }
 

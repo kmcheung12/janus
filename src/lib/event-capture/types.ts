@@ -12,6 +12,7 @@ export interface SessionEvent extends BaseEvent {
   type: 'session'
   viewport: { width: number; height: number }
   dpr: number
+  browser: string
 }
 
 export interface NavigationEvent extends BaseEvent {
