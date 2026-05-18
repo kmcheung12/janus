@@ -11,6 +11,23 @@ Two closely related changes:
 
 ## Data Model
 
+### Annotation storage
+
+`BaseEvent` gains an optional `note` field:
+
+```typescript
+interface BaseEvent {
+  id: string
+  type: EventType
+  timestamp: number
+  note?: string   // raw template text, e.g. "{selector} should equal 'Save'"
+}
+```
+
+`note` stores the user's raw Note box input (with `{field}` tokens unresolved). It is written back to the store when the user leaves the annotation panel. The expanded result is derived at render time via `fieldsOf` + `renderTemplate`.
+
+All event types can carry a `note`. `formatEvents` uses the expanded note as the output line when present, falling back to the default format for events without one — except `element_pick`, which is skipped entirely when `note` is absent.
+
 ### New event type: `ElementPickEvent`
 
 ```typescript
@@ -88,13 +105,9 @@ No changes needed. `renderTemplate` already produces the expanded output. With t
 
 ## Event List Rendering
 
-`formatEvents` in `engine.ts` gains a case for `element_pick`:
+`formatEvents` in `engine.ts` gains a case for `element_pick`. Unlike other event types, `element_pick` events are only included in the formatted output if they have a non-empty annotation (Note). If unannotated, the event is skipped entirely — it produces no line in `interaction_description`.
 
-```
-3. Picked button.save — "Save"
-```
-
-(tag + selector, truncated text content)
+When annotated, the expanded note text is used as the line. The raw event fields (`selector`, `text`, etc.) do not appear in the output independently; they only appear via `{field}` interpolation in the note.
 
 ---
 
@@ -103,8 +116,8 @@ No changes needed. `renderTemplate` already produces the expanded output. With t
 | File | Change |
 |------|--------|
 | `src/lib/event-capture/types.ts` | Add `ElementPickEvent`, expand `EventType` and `CapturedEvent` union |
-| `src/lib/event-capture/store.ts` | Verify `addEvent` handles new type (likely no change needed) |
+| `src/lib/event-capture/store.ts` | Add `updateEvent(id, patch)` to persist `note` back to a stored event |
 | `src/lib/prompts/engine.ts` | Add `fieldsOf`, extend `renderTemplate` with `{{}}` unescaping, add `element_pick` case to `formatEvents`, update `resolveSlots` to merge event fields |
 | `src/components/sidebar/ElementPicker.svelte` | Replace `onSelect(selector, source)` with `onPick(event: ElementPickEvent)`, capture attributes + styles |
 | `src/components/sidebar/Sidebar.svelte` | Handle `onPick`: write event to store, open panel with event pre-selected |
-| `src/components/sidebar/AnnotationPanel.svelte` | Add `{` suggestion dropdown to Note box |
+| `src/components/sidebar/AnnotationPanel.svelte` | Add `{` suggestion dropdown to Note box; call `updateEvent` to persist note on change |
