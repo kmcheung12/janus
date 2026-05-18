@@ -48,6 +48,20 @@ export function fieldsOf(event: CapturedEvent): Record<string, string> {
   }
 }
 
+export function defaultNoteTemplate(event: CapturedEvent): string {
+  switch (event.type) {
+    case 'click':        return 'Clicked {label} at ({x}, {y})'
+    case 'navigation':   return 'Navigated to {url}'
+    case 'api':          return '{method} {url} → {status}'
+    case 'keyboard':     return 'Typed {count} characters in {selector}'
+    case 'scroll':       return 'Scrolled {direction} on {selector}'
+    case 'drag':         return 'Dragged {source_selector} onto {target_selector}'
+    case 'console':      return 'Console {level}: {message}'
+    case 'session':      return 'Session started'
+    case 'element_pick': return ''
+  }
+}
+
 export interface PromptContext {
   url: string
   elementSelector?: string

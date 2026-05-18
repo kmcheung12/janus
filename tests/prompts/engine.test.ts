@@ -148,3 +148,52 @@ describe('fieldsOf', () => {
     expect(fieldsOf(e)).toEqual({})
   })
 })
+
+import { defaultNoteTemplate } from '../../src/lib/prompts/engine'
+
+describe('defaultNoteTemplate', () => {
+  it('click', () => {
+    expect(defaultNoteTemplate({ id: '', type: 'click', timestamp: 0, selector: '', label: '', count: 1, x: 0, y: 0 }))
+      .toBe('Clicked {label} at ({x}, {y})')
+  })
+
+  it('navigation', () => {
+    expect(defaultNoteTemplate({ id: '', type: 'navigation', timestamp: 0, url: '', title: '' }))
+      .toBe('Navigated to {url}')
+  })
+
+  it('api', () => {
+    expect(defaultNoteTemplate({ id: '', type: 'api', timestamp: 0, method: 'GET', url: '', status: null, requestBody: null, responseBody: null, errorDetails: null, duration: null }))
+      .toBe('{method} {url} → {status}')
+  })
+
+  it('keyboard', () => {
+    expect(defaultNoteTemplate({ id: '', type: 'keyboard', timestamp: 0, selector: '', inputType: '', count: 1 }))
+      .toBe('Typed {count} characters in {selector}')
+  })
+
+  it('scroll', () => {
+    expect(defaultNoteTemplate({ id: '', type: 'scroll', timestamp: 0, selector: '', direction: 'down', count: 1, deltaX: 0, deltaY: 0 }))
+      .toBe('Scrolled {direction} on {selector}')
+  })
+
+  it('drag', () => {
+    expect(defaultNoteTemplate({ id: '', type: 'drag', timestamp: 0, sourceSelector: '', targetSelector: null, path: [], deltaX: 0, deltaY: 0 }))
+      .toBe('Dragged {source_selector} onto {target_selector}')
+  })
+
+  it('console', () => {
+    expect(defaultNoteTemplate({ id: '', type: 'console', timestamp: 0, level: 'error', message: '' }))
+      .toBe('Console {level}: {message}')
+  })
+
+  it('session', () => {
+    expect(defaultNoteTemplate({ id: '', type: 'session', timestamp: 0, viewport: { width: 0, height: 0 }, dpr: 1 }))
+      .toBe('Session started')
+  })
+
+  it('element_pick returns empty string', () => {
+    expect(defaultNoteTemplate({ id: '', type: 'element_pick', timestamp: 0, selector: '', text: '', attributes: {}, styles: {} }))
+      .toBe('')
+  })
+})
