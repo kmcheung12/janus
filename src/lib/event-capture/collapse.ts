@@ -38,6 +38,7 @@ function canCollapse(a: CapturedEvent, b: CapturedEvent): boolean {
     case 'drag':
     case 'console':
     case 'navigation':
+    case 'element_pick':
       return false
   }
 }
@@ -61,6 +62,7 @@ function merged(a: CapturedEvent, b: CapturedEvent): CapturedEvent {
     case 'drag':
     case 'console':
     case 'navigation':
+    case 'element_pick':
       return { ...b }
   }
 }

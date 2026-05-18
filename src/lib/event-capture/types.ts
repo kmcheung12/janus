@@ -1,9 +1,10 @@
-type EventType = 'session' | 'navigation' | 'click' | 'keyboard' | 'api' | 'scroll' | 'console' | 'drag'
+type EventType = 'session' | 'navigation' | 'click' | 'keyboard' | 'api' | 'scroll' | 'console' | 'drag' | 'element_pick'
 
 interface BaseEvent {
   id: string
   type: EventType
   timestamp: number
+  note?: string
 }
 
 export interface SessionEvent extends BaseEvent {
@@ -71,4 +72,21 @@ export interface ConsoleEvent extends BaseEvent {
   message: string
 }
 
-export type CapturedEvent = SessionEvent | NavigationEvent | ClickEvent | KeyboardInputEvent | ApiEvent | ScrollEvent | ConsoleEvent | DragEvent
+export interface ElementPickEvent extends BaseEvent {
+  type: 'element_pick'
+  selector: string
+  text: string
+  attributes: Record<string, string>
+  styles: Record<string, string>
+}
+
+export type CapturedEvent =
+  | SessionEvent
+  | NavigationEvent
+  | ClickEvent
+  | KeyboardInputEvent
+  | ApiEvent
+  | ScrollEvent
+  | ConsoleEvent
+  | DragEvent
+  | ElementPickEvent
