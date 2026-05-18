@@ -149,7 +149,7 @@ describe('fieldsOf', () => {
   })
 })
 
-import { defaultNoteTemplate, expandFields } from '../../src/lib/prompts/engine'
+import { defaultNoteTemplate, expandFields, formatEvents } from '../../src/lib/prompts/engine'
 
 describe('defaultNoteTemplate', () => {
   it('click', () => {
@@ -195,6 +195,38 @@ describe('defaultNoteTemplate', () => {
   it('element_pick returns empty string', () => {
     expect(defaultNoteTemplate({ id: '', type: 'element_pick', timestamp: 0, selector: '', text: '', attributes: {}, styles: {} }))
       .toBe('')
+  })
+})
+
+describe('formatEvents', () => {
+  it('formats click using default template', () => {
+    const e: CapturedEvent = { id: '1', type: 'click', timestamp: 0, selector: '#btn', label: 'Pay Now', count: 1, x: 854, y: 101 }
+    expect(formatEvents([e])).toBe('1. Clicked Pay Now at (854, 101)')
+  })
+
+  it('uses note instead of default template when present', () => {
+    const e: CapturedEvent = { id: '1', type: 'click', timestamp: 0, selector: '#btn', label: 'Pay Now', count: 1, x: 0, y: 0, note: '{selector} should navigate to /checkout' }
+    expect(formatEvents([e])).toBe('1. #btn should navigate to /checkout')
+  })
+
+  it('skips element_pick with no note', () => {
+    const pick: ElementPickEvent = { id: '1', type: 'element_pick', timestamp: 0, selector: 'h1', text: 'Hello', attributes: {}, styles: {} }
+    const click: CapturedEvent = { id: '2', type: 'click', timestamp: 1, selector: '#btn', label: 'Go', count: 1, x: 0, y: 0 }
+    const result = formatEvents([pick, click])
+    expect(result).not.toContain('element_pick')
+    expect(result).toBe('1. Clicked Go at (0, 0)')
+  })
+
+  it('includes element_pick when it has a note', () => {
+    const pick: ElementPickEvent = { id: '1', type: 'element_pick', timestamp: 0, selector: 'h1.title', text: 'Welcome', attributes: {}, styles: {}, note: '{text} should equal "Dashboard"' }
+    expect(formatEvents([pick])).toBe('1. Welcome should equal "Dashboard"')
+  })
+
+  it('numbers lines contiguously skipping invisible events', () => {
+    const pick: ElementPickEvent = { id: '1', type: 'element_pick', timestamp: 0, selector: 'h1', text: '', attributes: {}, styles: {} }
+    const nav: CapturedEvent = { id: '2', type: 'navigation', timestamp: 1, url: '/home', title: 'Home' }
+    const result = formatEvents([pick, nav])
+    expect(result).toBe('1. Navigated to /home')
   })
 })
 

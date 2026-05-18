@@ -93,10 +93,13 @@ export interface SlotValues {
 
 export function resolveSlots(ctx: PromptContext): SlotValues {
   const api = ctx.selectedEvent?.type === 'api' ? ctx.selectedEvent as ApiEvent : undefined
+  const pick = ctx.selectedEvent?.type === 'element_pick' ? ctx.selectedEvent as ElementPickEvent : undefined
+  const eventFields = ctx.selectedEvent ? fieldsOf(ctx.selectedEvent) : {}
 
   return {
+    ...eventFields,
     url: ctx.url,
-    element_selector: ctx.elementSelector,
+    element_selector: ctx.elementSelector ?? pick?.selector,
     interaction_description: formatEvents(ctx.events),
     method: api?.method,
     status: api?.status?.toString(),
@@ -120,49 +123,14 @@ export function renderTemplate(body: string, slots: SlotValues): string {
 }
 
 export function formatEvents(events: CapturedEvent[]): string {
-  return events.map((e, i) => {
-    switch (e.type) {
-      case 'session': {
-        const s = e as SessionEvent
-        return `${i + 1}. Session started — viewport ${s.viewport.width}×${s.viewport.height}, dpr ${s.dpr}`
-      }
-      case 'navigation':
-        return `${i + 1}. Navigated to ${(e as NavigationEvent).url}`
-      case 'click': {
-        const c = e as ClickEvent
-        return `${i + 1}. Clicked ${c.label || c.selector} at (${c.x}, ${c.y})${c.count > 1 ? ` (×${c.count})` : ''}`
-      }
-      case 'keyboard': {
-        const k = e as KeyboardInputEvent
-        if (k.keys !== undefined) {
-          const seq = k.keys.map(key => key.length === 1 ? key : `[${key}]`).join('')
-          return `${i + 1}. Typed "${seq}" in ${k.selector}`
-        }
-        if (k.key === 'Enter') {
-          return `${i + 1}. Pressed Enter in ${k.selector}${k.count > 1 ? ` (×${k.count})` : ''}`
-        }
-        return `${i + 1}. Typed ${k.count} characters in ${k.selector} (${k.inputType})`
-      }
-      case 'api': {
-        const a = e as ApiEvent
-        return `${i + 1}. ${a.method} ${a.url} → ${a.status ?? 'pending'}`
-      }
-      case 'scroll': {
-        const s = e as ScrollEvent
-        const target = s.selector === 'window' ? 'page' : s.selector
-        const px = Math.abs(s.deltaX) >= Math.abs(s.deltaY) ? Math.abs(s.deltaX) : Math.abs(s.deltaY)
-        return `${i + 1}. Scrolled ${s.direction} ${px}px on ${target}${s.count > 1 ? ` (×${s.count})` : ''}`
-      }
-      case 'drag': {
-        const d = e as DragEvent
-        const target = d.targetSelector ? ` onto ${d.targetSelector}` : ''
-        const path = d.path.map(p => `(${p.x},${p.y})`).join('→')
-        return `${i + 1}. Dragged ${d.sourceSelector}${target}: ${path}`
-      }
-      case 'console': {
-        const c = e as ConsoleEvent
-        return `${i + 1}. Console ${c.level}: ${c.message}`
-      }
-    }
-  }).join('\n')
+  let i = 0
+  return events
+    .map(e => {
+      const template = e.note ?? defaultNoteTemplate(e)
+      if (!template) return null
+      i++
+      return `${i}. ${expandFields(template, fieldsOf(e))}`
+    })
+    .filter((line): line is string => line !== null)
+    .join('\n')
 }
