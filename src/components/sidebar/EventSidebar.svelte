@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { CapturedEvent, ApiEvent, ClickEvent, KeyboardInputEvent, NavigationEvent, ConsoleEvent, ScrollEvent, DragEvent, SessionEvent, ElementPickEvent, EventType } from '../../lib/event-capture/types'
+  import type { CapturedEvent, ApiEvent, ClickEvent, KeyboardInputEvent, NavigationEvent, ConsoleEvent, ScrollEvent, DragEvent, SessionEvent, ElementPickEvent, ResizeEvent, EventType } from '../../lib/event-capture/types'
   import { formatEvents, parseBrowser } from '../../lib/prompts/engine'
   import { groupEvents } from '../../lib/event-grouping'
   import type { ApiDomainSubgroup } from '../../lib/event-grouping'
@@ -87,6 +87,10 @@
         const p = e as ElementPickEvent
         return `Pick: ${p.selector}`
       }
+      case 'resize': {
+        const r = e as ResizeEvent
+        return `Viewport resized to ${r.width}×${r.height}`
+      }
     }
   }
 
@@ -105,6 +109,7 @@
     click: 'click', navigation: 'nav', keyboard: 'kbd',
     api: 'api', scroll: 'scroll', console: 'console',
     drag: 'drag', element_pick: 'pick', session: 'session',
+    resize: 'resize',
   }
 </script>
 
@@ -316,7 +321,7 @@
     padding: 2px 5px; border-radius: 3px; font-size: 10px;
     font-weight: 600; flex-shrink: 0; text-transform: uppercase;
   }
-  .badge-click, .badge-keyboard, .badge-navigation, .badge-scroll, .badge-drag, .badge-session { background: #313244; color: #cdd6f4; }
+  .badge-click, .badge-keyboard, .badge-navigation, .badge-scroll, .badge-drag, .badge-session, .badge-resize { background: #313244; color: #cdd6f4; }
   .badge-element_pick { background: #cba6f7; color: #1e1e2e; }
   .badge-console-error { background: #f38ba8; color: #1e1e2e; }
   .badge-console-warn { background: #fab387; color: #1e1e2e; }
