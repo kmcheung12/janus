@@ -2,11 +2,12 @@
   import { untrack } from 'svelte'
   import { copyToClipboard } from '../../lib/clipboard'
 
-  let { value, onCopy, rows = 8, highlightLine }: {
+  let { value, onCopy, rows = 8, highlightLine, onLineClick }: {
     value: string
     onCopy?: () => void
     rows?: number
     highlightLine?: string
+    onLineClick?: (line: string) => void
   } = $props()
 
   let editableValue = $state(untrack(() => value))
@@ -37,7 +38,13 @@
     <div class="prompt-display" style="height: calc({rows} * 1.5em + 14px)">
       {#each value.split('\n') as line}
         {@const active = highlightLine.length > 0 && line.includes(highlightLine)}
-        <div class="display-line" class:highlighted={active} use:scrollIfActive={active}>{line}</div>
+        <div
+          class="display-line"
+          class:highlighted={active}
+          class:clickable={!!onLineClick}
+          onclick={() => onLineClick?.(line)}
+          use:scrollIfActive={active}
+        >{line}</div>
       {/each}
     </div>
   {:else}
@@ -66,6 +73,8 @@
     background: #2a2040; border-left: 2px solid #cba6f7;
     padding-left: 6px; color: #cdd6f4;
   }
+  .display-line.clickable { cursor: pointer; }
+  .display-line.clickable:hover { background: #252535; }
   .copy-btn {
     background: #cba6f7; color: #1e1e2e; border: none; border-radius: 4px;
     padding: 8px; font-weight: 700; cursor: pointer; font-size: 12px;
