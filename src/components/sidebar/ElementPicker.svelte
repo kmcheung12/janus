@@ -12,7 +12,11 @@
 
   let hovered = $state<Element | null>(null)
   let ready = false
-  onMount(() => { setTimeout(() => { ready = true }, 0) })
+  onMount(() => {
+    setTimeout(() => { ready = true }, 0)
+    document.addEventListener('click', handleClick, { capture: true })
+    return () => document.removeEventListener('click', handleClick, { capture: true })
+  })
 
   function captureElement(el: Element): ElementPickEvent {
     const attributes: Record<string, string> = {}
@@ -61,7 +65,6 @@
 <svelte:document
   onmouseover={handleMouseOver}
   onmouseout={handleMouseOut}
-  onclick={handleClick}
 />
 
 {#if hovered}

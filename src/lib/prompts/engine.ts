@@ -58,7 +58,10 @@ export function fieldsOf(event: CapturedEvent): Record<string, string> {
     }
     case 'drag': {
       const e = event as DragEvent
-      const out: Record<string, string> = { source_selector: e.sourceSelector }
+      const out: Record<string, string> = {
+        source_selector: e.sourceSelector,
+        path: e.path.map(p => `(${p.x},${p.y})`).join(' '),
+      }
       if (e.targetSelector != null) out.target_selector = e.targetSelector
       return out
     }
@@ -91,7 +94,7 @@ export function defaultNoteTemplate(event: CapturedEvent): string {
       return 'Typed {count} characters in {selector}'
     }
     case 'scroll':       return 'Scrolled {direction} on {selector}'
-    case 'drag':         return 'Dragged {source_selector} onto {target_selector}'
+    case 'drag':         return 'Dragged {source_selector} onto {target_selector} path: {path}'
     case 'console':      return 'Console {source} {level}: {message}'
     case 'session':      return 'Session started on {browser} {viewport}'
     case 'element_pick': return ''

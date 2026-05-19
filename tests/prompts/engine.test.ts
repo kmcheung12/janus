@@ -197,7 +197,7 @@ describe('defaultNoteTemplate', () => {
 
   it('drag', () => {
     expect(defaultNoteTemplate({ id: '', type: 'drag', timestamp: 0, sourceSelector: '', targetSelector: null, path: [], deltaX: 0, deltaY: 0 }))
-      .toBe('Dragged {source_selector} onto {target_selector}')
+      .toBe('Dragged {source_selector} onto {target_selector} path: {path}')
   })
 
   it('console', () => {
