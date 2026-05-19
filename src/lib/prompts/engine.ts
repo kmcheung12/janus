@@ -149,12 +149,7 @@ export function resolveSlots(ctx: PromptContext): SlotValues {
 export function renderTemplate(body: string, slots: SlotValues): string {
   return body
     .split('\n')
-    .map(line => {
-      const resolved = line.replace(/\{(\w+)\}/g, (_, key) => slots[key] ?? `{${key}}`)
-      // Drop lines that still have unresolved slots
-      return /\{[a-z_]+\}/.test(resolved) ? null : resolved
-    })
-    .filter((line): line is string => line !== null)
+    .map(line => line.replace(/\{(\w+)\}/g, (_, key) => slots[key] ?? `{${key}}`))
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim()

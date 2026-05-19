@@ -79,6 +79,7 @@
   {#if mode === 'picking'}
     <ElementPicker {onPick} />
     <div class="janus-hint">Click any element to annotate it</div>
+    <EventSidebar {events} {hiddenTypes} {onToggleType} onSelect={onEventSelected} />
   {:else if mode === 'sidebar'}
     <EventSidebar {events} {hiddenTypes} {onToggleType} onSelect={onEventSelected} />
   {:else if mode === 'panel' && selectedEvent}

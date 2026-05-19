@@ -60,13 +60,13 @@ describe('renderTemplate', () => {
     expect(result).toBe('Fix bug in #btn on https://ex.com.')
   })
 
-  it('drops lines with unresolved slots entirely', () => {
+  it('leaves unresolved slots as literal tokens', () => {
     const body = 'First line\nAPI call: {method} {url}\nLast line'
     const result = renderTemplate(body, { url: 'https://ex.com', interaction_description: '', user_text: '' })
-    expect(result).not.toContain('{method}')
+    expect(result).toContain('{method}')
     expect(result).toContain('First line')
     expect(result).toContain('Last line')
-    expect(result).not.toContain('API call:')
+    expect(result).toContain('API call:')
   })
 
   it('collapses multiple blank lines into one', () => {
