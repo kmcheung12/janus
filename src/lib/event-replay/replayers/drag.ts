@@ -28,9 +28,9 @@ registerReplayer('drag', (event: CapturedEvent) => {
   polyline.setAttribute('stroke-width', '2')
   polyline.setAttribute('stroke-linecap', 'round')
   polyline.setAttribute('stroke-linejoin', 'round')
-  polyline.style.setProperty('--path-len', String(len))
-  polyline.style.strokeDasharray = String(len)
-  polyline.style.strokeDashoffset = String(len)
+  polyline.style.setProperty('--path-len', `${len}px`)
+  polyline.style.strokeDasharray = `${len}px`
+  polyline.style.strokeDashoffset = `${len}px`
   polyline.style.animation = 'janus-drag-trace 800ms ease-out forwards'
   polyline.addEventListener('animationend', () => polyline.remove(), { once: true })
   svg.appendChild(polyline)
