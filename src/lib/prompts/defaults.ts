@@ -36,6 +36,7 @@ Current page: {url}`,
 
 {interaction_description}.
 
+Wait for 1s between each interaction.
 Save a screenshot at the end in the current working directory`,
   },
 ]
