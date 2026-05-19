@@ -5,6 +5,7 @@
   import type { ApiDomainSubgroup } from '../../lib/event-grouping'
   import { updateEvent } from '../../lib/event-capture/store'
   import PromptBox from './PromptBox.svelte'
+  import { replay } from '../../lib/event-replay'
 
   let { events, hiddenTypes, onToggleType, onSelect }: {
     events: CapturedEvent[]
@@ -154,7 +155,7 @@
             </div>
             {#if isExpanded}
               {#each [...sub.events].reverse() as event (event.id)}
-                <button class="entry entry-indented" class:excluded={event.excluded} onclick={() => onSelect(event)}>
+                <button class="entry entry-indented" class:excluded={event.excluded} onclick={() => { replay(event); onSelect(event) }}>
                   <input
                     type="checkbox"
                     class="event-toggle"
@@ -189,7 +190,7 @@
               {#each item.subgroups as subgroup (subgroup.id)}
                 {#if subgroup.events.length === 1}
                   {@const event = subgroup.events[0]}
-                  <button class="entry entry-indented" class:excluded={event.excluded} onclick={() => onSelect(event)}>
+                  <button class="entry entry-indented" class:excluded={event.excluded} onclick={() => { replay(event); onSelect(event) }}>
                     <input
                       type="checkbox"
                       class="event-toggle"
@@ -219,7 +220,7 @@
                   </div>
                   {#if isSubExpanded}
                     {#each [...subgroup.events].reverse() as event (event.id)}
-                      <button class="entry entry-double-indented" class:excluded={event.excluded} onclick={() => onSelect(event)}>
+                      <button class="entry entry-double-indented" class:excluded={event.excluded} onclick={() => { replay(event); onSelect(event) }}>
                         <input
                           type="checkbox"
                           class="event-toggle"
@@ -237,7 +238,7 @@
             {/if}
           {/if}
         {:else}
-          <button class="entry" class:excluded={item.event.excluded} onclick={() => onSelect(item.event)}>
+          <button class="entry" class:excluded={item.event.excluded} onclick={() => { replay(item.event); onSelect(item.event) }}>
             <input
               type="checkbox"
               class="event-toggle"
