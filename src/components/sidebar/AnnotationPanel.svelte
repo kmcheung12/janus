@@ -9,12 +9,13 @@
   import type { CapturedEvent, EventType } from '../../lib/event-capture/types'
   import { replay } from '../../lib/event-replay'
 
-  let { selectedEvent, events, pageUrl, onBack, onDone }: {
+  let { selectedEvent, events, pageUrl, onBack, onDone, onSelect }: {
     selectedEvent: CapturedEvent
     events: CapturedEvent[]
     pageUrl: string
     onBack: () => void
     onDone: () => void
+    onSelect?: (event: CapturedEvent) => void
   } = $props()
 
   let templates = $state<Template[]>([])
@@ -91,7 +92,10 @@
       const m = line.match(/^.+?:\s*(\d+\..+)$/)
       if (m) event = lineEventMap.get(m[1])
     }
-    if (event) replay(event)
+    if (event) {
+      replay(event)
+      onSelect?.(event)
+    }
   }
 
   // Field suggestion state

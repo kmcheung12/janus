@@ -23,6 +23,8 @@ Current page: {url}`,
     isBuiltIn: true,
     body: `Improve the UX of {element_selector} on {url}.
 
+User action:
+{interaction_description}
 `,
   },
   {

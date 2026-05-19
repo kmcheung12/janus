@@ -67,7 +67,8 @@ export function fieldsOf(event: CapturedEvent): Record<string, string> {
     }
     case 'element_pick': {
       const e = event as ElementPickEvent
-      return { selector: e.selector, text: e.text, ...e.attributes, ...e.styles }
+      const styles = Object.entries(e.styles).map(([k, v]) => `${k}: ${v}`).join('; ')
+      return { ...e.attributes, ...e.styles, selector: e.selector, text: e.text, styles }
     }
     case 'session': {
       const e = event as SessionEvent
@@ -84,7 +85,7 @@ export function fieldsOf(event: CapturedEvent): Record<string, string> {
 
 export function defaultNoteTemplate(event: CapturedEvent): string {
   switch (event.type) {
-    case 'click':        return 'Clicked {label} at ({x}, {y})'
+    case 'click':        return 'Clicked {label} at ({x}, {y}) on element {selector}'
     case 'navigation':   return 'Navigated to {url}'
     case 'api':          return '{method} {url} → {status}'
     case 'keyboard': {

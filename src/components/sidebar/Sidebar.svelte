@@ -60,38 +60,38 @@
 
   function handleKeyDown(e: KeyboardEvent) {
     if (e.key !== 'Escape') return
-    if (mode === 'picking') mode = 'sidebar'
-    else if (mode === 'sidebar') onClose()
+    if (mode === 'picking' || mode === 'sidebar') onClose()
   }
 </script>
 
 <svelte:window onkeydown={handleKeyDown} />
 
-<div class="janus-sidebar">
-  <div class="janus-toolbar">
-    <span class="janus-logo">Janus</span>
-    <button onclick={() => mode = mode === 'sidebar' ? 'picking' : 'sidebar'}>
-      {mode === 'sidebar' ? 'Element Picker' : 'Events'}
-    </button>
-    <button onclick={onClose}>✕</button>
-  </div>
+{#if mode === 'picking'}
+  <ElementPicker {onPick} />
+{:else}
+  <div class="janus-sidebar">
+    <div class="janus-toolbar">
+      <span class="janus-logo">Janus</span>
+      <button onclick={() => mode = mode === 'sidebar' ? 'picking' : 'sidebar'}>
+        {mode === 'sidebar' ? 'Element Picker' : 'Events'}
+      </button>
+      <button onclick={onClose}>✕</button>
+    </div>
 
-  {#if mode === 'picking'}
-    <ElementPicker {onPick} />
-    <div class="janus-hint">Click any element to annotate it</div>
-    <EventSidebar {events} {hiddenTypes} {onToggleType} onSelect={onEventSelected} />
-  {:else if mode === 'sidebar'}
-    <EventSidebar {events} {hiddenTypes} {onToggleType} onSelect={onEventSelected} />
-  {:else if mode === 'panel' && selectedEvent}
-    <AnnotationPanel
-      {selectedEvent}
-      events={promptEvents}
-      pageUrl={window.location.href}
-      onBack={onBack}
-      onDone={onClose}
-    />
-  {/if}
-</div>
+    {#if mode === 'sidebar'}
+      <EventSidebar {events} {hiddenTypes} {onToggleType} onSelect={onEventSelected} />
+    {:else if mode === 'panel' && selectedEvent}
+      <AnnotationPanel
+        {selectedEvent}
+        events={promptEvents}
+        pageUrl={window.location.href}
+        onBack={onBack}
+        onDone={onClose}
+        onSelect={(e) => { selectedEvent = e }}
+      />
+    {/if}
+  </div>
+{/if}
 
 <style>
   .janus-sidebar {
@@ -128,11 +128,6 @@
     padding: 4px 8px;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 12px;
-  }
-  .janus-hint {
-    padding: 12px;
-    color: #6c7086;
     font-size: 12px;
   }
 </style>
