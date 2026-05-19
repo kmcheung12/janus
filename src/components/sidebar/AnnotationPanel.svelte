@@ -6,7 +6,8 @@
   import { updateEvent } from '../../lib/event-capture/store'
   import PromptBox from './PromptBox.svelte'
   import type { Template } from '../../lib/prompts/types'
-  import type { CapturedEvent } from '../../lib/event-capture/types'
+  import type { CapturedEvent, EventType } from '../../lib/event-capture/types'
+  import { replay } from '../../lib/event-replay'
 
   let { selectedEvent, events, pageUrl, onBack, onDone }: {
     selectedEvent: CapturedEvent
@@ -65,6 +66,33 @@
     })
     return renderTemplate(selected.body, { ...slots, ...extraInputs })
   })
+
+  let lineEventMap = $derived.by(() => {
+    if (!selected) return new Map<string, CapturedEvent>()
+    const exclude = selected.exclude ?? []
+    const filtered = exclude.length
+      ? events.filter(e => !exclude.includes(e.type as EventType))
+      : events
+    const map = new Map<string, CapturedEvent>()
+    let i = 0
+    for (const e of filtered) {
+      if (e.excluded) continue
+      const template = e.note ?? defaultNoteTemplate(e)
+      if (!template) continue
+      i++
+      map.set(`${i}. ${expandFields(template, fieldsOf(e))}`, e)
+    }
+    return map
+  })
+
+  function handleLineClick(line: string) {
+    let event = lineEventMap.get(line)
+    if (!event) {
+      const m = line.match(/^.+?:\s*(\d+\..+)$/)
+      if (m) event = lineEventMap.get(m[1])
+    }
+    if (event) replay(event)
+  }
 
   // Field suggestion state
   let noteRef = $state<HTMLTextAreaElement | null>(null)
@@ -158,7 +186,7 @@
 
     <div class="section prompt-section">
       <p class="label">Prompt</p>
-      <PromptBox value={prompt} onCopy={onDone} rows={8} {highlightLine} />
+      <PromptBox value={prompt} onCopy={onDone} rows={8} {highlightLine} onLineClick={handleLineClick} />
     </div>
   {/if}
 </div>
