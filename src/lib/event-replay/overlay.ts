@@ -1,7 +1,7 @@
 const KEYFRAMES = `
 @keyframes janus-click-ripple {
-  from { r: 30; opacity: 1; }
-  to   { r: 0;  opacity: 0; }
+  from { r: 30px; opacity: 1; }
+  to   { r: 0px;  opacity: 0; }
 }
 @keyframes janus-drag-trace {
   0%   { stroke-dashoffset: var(--path-len); opacity: 1; }
