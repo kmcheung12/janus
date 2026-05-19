@@ -1,4 +1,4 @@
-export type EventType = 'session' | 'navigation' | 'click' | 'keyboard' | 'api' | 'scroll' | 'console' | 'drag' | 'element_pick'
+export type EventType = 'session' | 'navigation' | 'click' | 'keyboard' | 'api' | 'scroll' | 'console' | 'drag' | 'element_pick' | 'resize'
 
 interface BaseEvent {
   id: string
@@ -83,6 +83,13 @@ export interface ElementPickEvent extends BaseEvent {
   styles: Record<string, string>
 }
 
+export interface ResizeEvent extends BaseEvent {
+  type: 'resize'
+  width: number
+  height: number
+  orientation?: string
+}
+
 export type CapturedEvent =
   | SessionEvent
   | NavigationEvent
@@ -93,3 +100,4 @@ export type CapturedEvent =
   | ConsoleEvent
   | DragEvent
   | ElementPickEvent
+  | ResizeEvent
