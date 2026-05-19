@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { resolveSlots, renderTemplate, fieldsOf } from '../../src/lib/prompts/engine'
-import type { CapturedEvent, ElementPickEvent, ClickEvent, ApiEvent, NavigationEvent, KeyboardInputEvent } from '../../src/lib/event-capture/types'
+import { resolveSlots, renderTemplate, fieldsOf, defaultNoteTemplate } from '../../src/lib/prompts/engine'
+import type { CapturedEvent, ElementPickEvent, ClickEvent, ApiEvent, NavigationEvent, KeyboardInputEvent, ResizeEvent } from '../../src/lib/event-capture/types'
 
 const navEvent: CapturedEvent = { id: '1', type: 'navigation', timestamp: 0, url: '/checkout', title: '' }
 const clickEvent: CapturedEvent = { id: '2', type: 'click', timestamp: 1, selector: '#pay-btn', label: 'Pay Now', count: 1, x: 0, y: 0 }
@@ -149,13 +149,15 @@ describe('fieldsOf', () => {
     expect(fields.sequence).toBe('ab[Enter]')
   })
 
-  it('returns empty object for session event', () => {
-    const e = { id: '5', type: 'session' as const, timestamp: 0, viewport: { width: 1280, height: 800 }, dpr: 2 }
-    expect(fieldsOf(e)).toEqual({})
+  it('returns browser and viewport for session event', () => {
+    const e = { id: '5', type: 'session' as const, timestamp: 0, viewport: { width: 1280, height: 800 }, dpr: 2, browser: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' }
+    const fields = fieldsOf(e)
+    expect(fields.browser).toBe('Chrome 124')
+    expect(fields.viewport).toBe('1280×800')
   })
 })
 
-import { defaultNoteTemplate, expandFields, formatEvents } from '../../src/lib/prompts/engine'
+import { expandFields, formatEvents } from '../../src/lib/prompts/engine'
 
 describe('defaultNoteTemplate', () => {
   it('click', () => {
@@ -200,12 +202,12 @@ describe('defaultNoteTemplate', () => {
 
   it('console', () => {
     expect(defaultNoteTemplate({ id: '', type: 'console', timestamp: 0, level: 'error', message: '' }))
-      .toBe('Console {level}: {message}')
+      .toBe('Console {source} {level}: {message}')
   })
 
   it('session', () => {
-    expect(defaultNoteTemplate({ id: '', type: 'session', timestamp: 0, viewport: { width: 0, height: 0 }, dpr: 1 }))
-      .toBe('Session started')
+    expect(defaultNoteTemplate({ id: '', type: 'session', timestamp: 0, viewport: { width: 0, height: 0 }, dpr: 1, browser: '' }))
+      .toBe('Session started on {browser} {viewport}')
   })
 
   it('element_pick returns empty string', () => {
@@ -308,5 +310,28 @@ describe('expandFields', () => {
   it('handles multiline text', () => {
     const result = expandFields('{label} clicked\n{selector} is the target', { label: 'Save', selector: '#save' })
     expect(result).toBe('Save clicked\n#save is the target')
+  })
+})
+
+describe('fieldsOf resize', () => {
+  it('returns width and height as strings', () => {
+    const e: ResizeEvent = { id: '1', type: 'resize', timestamp: 0, width: 1280, height: 800 }
+    const fields = fieldsOf(e)
+    expect(fields.width).toBe('1280')
+    expect(fields.height).toBe('800')
+    expect(fields.orientation).toBeUndefined()
+  })
+
+  it('includes orientation when present', () => {
+    const e: ResizeEvent = { id: '1', type: 'resize', timestamp: 0, width: 375, height: 812, orientation: 'portrait-primary' }
+    const fields = fieldsOf(e)
+    expect(fields.orientation).toBe('portrait-primary')
+  })
+})
+
+describe('defaultNoteTemplate resize', () => {
+  it('returns viewport resized template', () => {
+    const e: ResizeEvent = { id: '1', type: 'resize', timestamp: 0, width: 1280, height: 800 }
+    expect(defaultNoteTemplate(e)).toBe('Viewport resized to {width}×{height}')
   })
 })

@@ -1,4 +1,4 @@
-import type { CapturedEvent, SessionEvent, ApiEvent, ClickEvent, KeyboardInputEvent, NavigationEvent, ScrollEvent, ConsoleEvent, DragEvent, ElementPickEvent } from '../event-capture/types'
+import type { CapturedEvent, SessionEvent, ApiEvent, ClickEvent, KeyboardInputEvent, NavigationEvent, ScrollEvent, ConsoleEvent, DragEvent, ElementPickEvent, ResizeEvent } from '../event-capture/types'
 
 export function parseBrowser(ua: string): string {
   if (/Edg\//.test(ua)) {
@@ -68,7 +68,13 @@ export function fieldsOf(event: CapturedEvent): Record<string, string> {
     }
     case 'session': {
       const e = event as SessionEvent
-      return { browser: parseBrowser(e.browser) }
+      return { browser: parseBrowser(e.browser), viewport: `${e.viewport.width}×${e.viewport.height}` }
+    }
+    case 'resize': {
+      const e = event as ResizeEvent
+      const out: Record<string, string> = { width: String(e.width), height: String(e.height) }
+      if (e.orientation != null) out.orientation = e.orientation
+      return out
     }
   }
 }
@@ -87,8 +93,9 @@ export function defaultNoteTemplate(event: CapturedEvent): string {
     case 'scroll':       return 'Scrolled {direction} on {selector}'
     case 'drag':         return 'Dragged {source_selector} onto {target_selector}'
     case 'console':      return 'Console {source} {level}: {message}'
-    case 'session':      return 'Session started on {browser}'
+    case 'session':      return 'Session started on {browser} {viewport}'
     case 'element_pick': return ''
+    case 'resize':       return 'Viewport resized to {width}×{height}'
   }
 }
 
