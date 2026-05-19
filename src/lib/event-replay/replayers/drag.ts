@@ -1,4 +1,4 @@
-import type { CapturedEvent, DragEvent } from '../../event-capture/types'
+import type { CapturedEvent, DragEvent as CapturedDragEvent } from '../../event-capture/types'
 import { registerReplayer } from '../registry'
 import { getOverlay } from '../overlay'
 
@@ -13,7 +13,7 @@ function pathLength(points: Array<{ x: number; y: number }>): number {
 }
 
 registerReplayer('drag', (event: CapturedEvent) => {
-  const e = event as DragEvent
+  const e = event as CapturedDragEvent
   if (e.path.length < 2) return
   const svg = getOverlay()
   if (!svg) return

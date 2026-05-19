@@ -1,4 +1,5 @@
 const KEYFRAMES = `
+/* px unit required for CSS animation of SVG r attribute (unitless fails in some browsers) */
 @keyframes janus-click-ripple {
   from { r: 30px; opacity: 1; }
   to   { r: 0px;  opacity: 0; }
