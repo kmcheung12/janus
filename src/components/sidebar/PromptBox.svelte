@@ -75,6 +75,7 @@
   }
   .display-line.clickable { cursor: pointer; }
   .display-line.clickable:hover { background: #252535; }
+  .display-line.highlighted.clickable:hover { background: #321850; }
   .copy-btn {
     background: #cba6f7; color: #1e1e2e; border: none; border-radius: 4px;
     padding: 8px; font-weight: 700; cursor: pointer; font-size: 12px;
