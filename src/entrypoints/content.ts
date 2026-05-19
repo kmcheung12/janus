@@ -35,7 +35,7 @@ export default defineContentScript({
 
     let captureConfig: CaptureConfig = {
       click: true, keyboard: true, keyboard_keystrokes: false, navigation: true, api: true,
-      scroll: true, drag: true, console_error: true, console_warn: true,
+      scroll: true, drag: true, console_error: true, console_warn: true, resize: true,
     }
 
     let isRecording = false
