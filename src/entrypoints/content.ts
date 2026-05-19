@@ -3,6 +3,7 @@ import { attachPointerInterceptor } from '../lib/event-capture/interceptors/poin
 import { attachKeyboardInterceptor } from '../lib/event-capture/interceptors/keyboard'
 import { attachNavigationInterceptor } from '../lib/event-capture/interceptors/navigation'
 import { attachScrollInterceptor } from '../lib/event-capture/interceptors/scroll'
+import { attachResizeInterceptor } from '../lib/event-capture/interceptors/resize'
 import { CONSOLE_EVENT_NAME } from '../lib/event-capture/interceptors/console'
 import { NETWORK_EVENT_NAME } from '../lib/event-capture/interceptors/network'
 import type { ApiEvent, CapturedEvent, ConsoleEvent, SessionEvent } from '../lib/event-capture/types'
@@ -58,6 +59,7 @@ export default defineContentScript({
       attachKeyboardInterceptor(filteredAddEvent, () => captureConfig.keyboard_keystrokes),
       attachNavigationInterceptor(filteredAddEvent),
       attachScrollInterceptor(filteredAddEvent),
+      attachResizeInterceptor(filteredAddEvent),
     ]
     window.addEventListener('pagehide', () => cleanups.forEach(fn => fn()), { once: true })
 
@@ -113,7 +115,6 @@ export default defineContentScript({
     function openSidebar(initialMode: 'picking' | 'sidebar') {
       // SPA navigation can detach sidebarHost from the DOM without calling closeSidebar;
       // treat a disconnected host as if the sidebar was never opened.
-      console.log("openSidebar", initialMode);
       if (sidebarHost && !sidebarHost.isConnected) {
         if (sidebarInstance) { unmount(sidebarInstance); sidebarInstance = null }
         sidebarHost = null
@@ -121,7 +122,6 @@ export default defineContentScript({
         enterEventsMode = null
       }
 
-      console.log("sidebarHost", sidebarHost)
       if (sidebarHost) {
         if (initialMode === 'picking') enterPickingMode?.()
         else enterEventsMode?.()
