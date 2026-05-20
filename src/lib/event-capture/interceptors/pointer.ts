@@ -77,7 +77,7 @@ export function attachPointerInterceptor(onEvent: (e: CapturedEvent) => void): (
         type: 'drag',
         timestamp: Date.now(),
         sourceSelector: resolveSelector(startEl),
-        targetSelector: targetEl,
+        targetSelector: targetEl ? resolveSelector(targetEl) : null,
         path,
         deltaX: end.x - start.x,
         deltaY: end.y - start.y,
