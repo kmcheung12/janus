@@ -70,7 +70,7 @@ export interface ScrollEvent extends BaseEvent {
 
 export interface ConsoleEvent extends BaseEvent {
   type: 'console'
-  level: 'error' | 'warn'
+  level: 'error' | 'warn' | 'log'
   message: string
   source?: string | null
 }

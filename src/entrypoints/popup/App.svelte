@@ -170,7 +170,7 @@
     >{configuringFor === 'sidebar' ? '…' : shortcuts.sidebar ? formatShortcut(shortcuts.sidebar) : '+'}</kbd>
   </button>
   <button class="primary" onclick={activate}>
-    Annotate this page
+    Pick Element
     <kbd
       class:configuring={configuringFor === 'annotate'}
       onclick={(e) => startConfiguring(e, 'annotate')}

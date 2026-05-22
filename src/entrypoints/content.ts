@@ -35,7 +35,7 @@ export default defineContentScript({
 
     let captureConfig: CaptureConfig = {
       click: true, keyboard: true, keyboard_keystrokes: false, navigation: true, api: true,
-      scroll: true, drag: true, console_error: true, console_warn: true, resize: true,
+      scroll: true, drag: true, console_error: true, console_warn: true, console_log: false, resize: true,
     }
 
     let isRecording = false
@@ -46,6 +46,7 @@ export default defineContentScript({
         const c = event as ConsoleEvent
         if (c.level === 'error' && !captureConfig.console_error) return
         if (c.level === 'warn' && !captureConfig.console_warn) return
+        if (c.level === 'log' && !captureConfig.console_log) return
       } else if (!captureConfig[event.type as keyof CaptureConfig]) {
         return
       }
@@ -92,6 +93,7 @@ export default defineContentScript({
     let sidebarInstance: Record<string, unknown> | null = null
     let enterPickingMode: (() => void) | null = null
     let enterEventsMode: (() => void) | null = null
+    let isPickingMode: (() => boolean) | null = null
 
     // Restore recording and sidebar state from background (persists across reloads / navigation)
     try {
@@ -120,6 +122,7 @@ export default defineContentScript({
         sidebarHost = null
         enterPickingMode = null
         enterEventsMode = null
+        isPickingMode = null
       }
 
       if (sidebarHost) {
@@ -144,6 +147,7 @@ export default defineContentScript({
           onClose: closeSidebar,
           onPickingRef: (fn) => { enterPickingMode = fn },
           onSidebarRef: (fn) => { enterEventsMode = fn },
+          onIsPickingRef: (fn) => { isPickingMode = fn },
         },
       })
 
@@ -162,6 +166,7 @@ export default defineContentScript({
       sidebarHost = null
       enterPickingMode = null
       enterEventsMode = null
+      isPickingMode = null
       browser.runtime.sendMessage({ type: 'JANUS_SIDEBAR_CLOSED' }).catch(() => {})
     }
 
@@ -196,7 +201,8 @@ export default defineContentScript({
         else openEventsSidebar()
       }
       if (shortcuts.annotate && matchesShortcut(e, shortcuts.annotate)) {
-        openAnnotationSidebar()
+        if (sidebarHost && isPickingMode?.()) closeSidebar()
+        else openAnnotationSidebar()
       }
       if (shortcuts.templates && matchesShortcut(e, shortcuts.templates)) {
         browser.tabs.create({ url: browser.runtime.getURL('/prompt-manager.html') })

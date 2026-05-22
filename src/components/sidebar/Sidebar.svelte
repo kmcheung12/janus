@@ -6,10 +6,11 @@
   import type { CapturedEvent, ElementPickEvent, EventType } from '../../lib/event-capture/types'
   import { getEvents, subscribe, addEvent } from '../../lib/event-capture/store'
 
-  let { onClose, onPickingRef, onSidebarRef, initialMode }: {
+  let { onClose, onPickingRef, onSidebarRef, onIsPickingRef, initialMode }: {
     onClose: () => void
     onPickingRef?: (fn: () => void) => void
     onSidebarRef?: (fn: () => void) => void
+    onIsPickingRef?: (fn: () => boolean) => void
     initialMode?: 'picking' | 'sidebar'
   } = $props()
 
@@ -18,6 +19,7 @@
   onMount(() => {
     onPickingRef?.(() => { mode = 'picking' })
     onSidebarRef?.(() => { mode = 'sidebar' })
+    onIsPickingRef?.(() => mode === 'picking')
     return subscribe(updated => { events = updated })
   })
 

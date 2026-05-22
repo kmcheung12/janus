@@ -42,7 +42,10 @@
           class="display-line"
           class:highlighted={active}
           class:clickable={!!onLineClick}
+          role="button"
+          tabindex="0"
           onclick={() => onLineClick?.(line)}
+          onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') onLineClick?.(line) }}
           use:scrollIfActive={active}
         >{line}</div>
       {/each}

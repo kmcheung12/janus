@@ -147,10 +147,11 @@ export default defineContentScript({
     const seen = new Set<string>()
     const origError = console.error.bind(console)
     const origWarn = console.warn.bind(console)
+    const origLog = console.log.bind(console)
 
-    type EmitSource = 'console.error' | 'console.warn' | 'error' | 'unhandledrejection'
+    type EmitSource = 'console.error' | 'console.warn' | 'console.log' | 'error' | 'unhandledrejection'
 
-    function emitConsole(level: 'error' | 'warn', args: unknown[], emitSource: EmitSource) {
+    function emitConsole(level: 'error' | 'warn' | 'log', args: unknown[], emitSource: EmitSource) {
       const message = args
         .map((a) => (a instanceof Error ? a.message : String(a)))
         .join(' ')
@@ -192,10 +193,16 @@ export default defineContentScript({
       origWarn(...args)
       emitConsole('warn', args, 'console.warn')
     }
+    const logWrapper = (...args: unknown[]) => {
+      origLog(...args)
+      emitConsole('log', args, 'console.log')
+    }
     ;(errorWrapper as unknown as Record<string, unknown>)[CONSOLE_MARKER] = true
     ;(warnWrapper as unknown as Record<string, unknown>)[CONSOLE_MARKER] = true
+    ;(logWrapper as unknown as Record<string, unknown>)[CONSOLE_MARKER] = true
     console.error = errorWrapper as typeof console.error
     console.warn = warnWrapper as typeof console.warn
+    console.log = logWrapper as typeof console.log
 
     window.addEventListener('error', (event) => {
       emitConsole('error', [event.error ?? event.message], 'error')

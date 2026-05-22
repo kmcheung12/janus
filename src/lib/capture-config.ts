@@ -8,6 +8,7 @@ export interface CaptureConfig {
   drag: boolean
   console_error: boolean
   console_warn: boolean
+  console_log: boolean
   resize: boolean
 }
 
@@ -21,6 +22,7 @@ export const CAPTURE_CONFIG_LABELS: Record<keyof CaptureConfig, string> = {
   drag: 'Drag',
   console_error: 'Console errors',
   console_warn: 'Console warnings',
+  console_log: 'Console logs',
   resize: 'Resize & orientation',
 }
 
@@ -36,6 +38,7 @@ const DEFAULTS: CaptureConfig = {
   drag: true,
   console_error: true,
   console_warn: true,
+  console_log: false,
   resize: true,
 }
 
