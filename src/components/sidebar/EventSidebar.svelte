@@ -267,54 +267,54 @@
 
   .filter-bar {
     display: flex; flex-wrap: wrap; gap: 4px;
-    padding: 6px 8px; border-bottom: 1px solid #313244; flex-shrink: 0;
+    padding: 6px 8px; border-bottom: 1px solid var(--janus-surface0); flex-shrink: 0;
   }
   .filter-btn {
     padding: 2px 7px; border-radius: 3px; font-size: 10px; font-weight: 600;
     text-transform: uppercase; border: none; cursor: pointer;
-    background: #313244; color: #cdd6f4; transition: opacity 0.1s;
+    background: var(--janus-surface0); color: var(--janus-text); transition: opacity 0.1s;
   }
   .filter-btn.inactive { opacity: 0.35; text-decoration: line-through; }
 
   .events-list { overflow-y: auto; flex: 1; padding: 4px 0; }
-  .prompt-area { padding: 8px 12px; border-top: 1px solid #313244; flex-shrink: 0; }
-  .label { font-size: 11px; color: #6c7086; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px; }
-  .empty { padding: 12px; color: #6c7086; font-size: 12px; }
+  .prompt-area { padding: 8px 12px; border-top: 1px solid var(--janus-surface0); flex-shrink: 0; }
+  .label { font-size: 11px; color: var(--janus-subtext0); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px; }
+  .empty { padding: 12px; color: var(--janus-subtext0); font-size: 12px; }
 
   .entry {
     display: flex; align-items: center; gap: 8px;
     width: 100%; padding: 6px 12px;
-    background: none; border: none; color: #cdd6f4;
+    background: none; border: none; color: var(--janus-text);
     cursor: pointer; text-align: left; font-size: 12px;
   }
-  .entry:hover { background: #313244; }
+  .entry:hover { background: var(--janus-surface0); }
   .entry.excluded { opacity: 0.4; }
   .entry-indented { padding-left: 28px; }
   .entry-double-indented { padding-left: 44px; }
 
   .group-header {
     display: flex; align-items: center; gap: 8px;
-    padding: 6px 12px; font-size: 12px; color: #cdd6f4;
-    border-bottom: 1px solid #2a2a3e; cursor: pointer;
+    padding: 6px 12px; font-size: 12px; color: var(--janus-text);
+    border-bottom: 1px solid var(--janus-surface0); cursor: pointer;
   }
   .group-header.excluded { opacity: 0.4; }
 
   .subgroup-header {
     display: flex; align-items: center; gap: 8px;
-    padding: 5px 12px 5px 28px; font-size: 12px; color: #cdd6f4;
-    border-bottom: 1px solid #252535; cursor: pointer;
+    padding: 5px 12px 5px 28px; font-size: 12px; color: var(--janus-text);
+    border-bottom: 1px solid var(--janus-surface0); cursor: pointer;
   }
   .subgroup-header.excluded { opacity: 0.4; }
-  .group-domain { color: #a6adc8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-  .subgroup-count { color: #6c7086; font-size: 11px; flex-shrink: 0; }
+  .group-domain { color: var(--janus-subtext1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .subgroup-count { color: var(--janus-subtext0); font-size: 11px; flex-shrink: 0; }
 
   .expand-btn {
-    background: none; border: none; color: #6c7086;
+    background: none; border: none; color: var(--janus-subtext0);
     font-size: 10px; cursor: pointer; padding: 0; flex-shrink: 0;
   }
 
   .event-toggle {
-    flex-shrink: 0; cursor: pointer; accent-color: #cba6f7;
+    flex-shrink: 0; cursor: pointer; accent-color: var(--janus-mauve);
     width: 13px; height: 13px;
   }
 
@@ -322,12 +322,13 @@
     padding: 2px 5px; border-radius: 3px; font-size: 10px;
     font-weight: 600; flex-shrink: 0; text-transform: uppercase;
   }
-  .badge-click, .badge-keyboard, .badge-navigation, .badge-scroll, .badge-drag, .badge-session, .badge-resize { background: #313244; color: #cdd6f4; }
-  .badge-element_pick { background: #cba6f7; color: #1e1e2e; }
-  .badge-console-error { background: #f38ba8; color: #1e1e2e; }
-  .badge-console-warn { background: #fab387; color: #1e1e2e; }
-  .badge-ok { background: #a6e3a1; color: #1e1e2e; }
-  .badge-warn { background: #fab387; color: #1e1e2e; }
-  .badge-error { background: #f38ba8; color: #1e1e2e; }
+  .badge-click, .badge-keyboard, .badge-navigation, .badge-scroll, .badge-drag, .badge-session, .badge-resize { background: var(--janus-surface0); color: var(--janus-text); }
+  .badge-element_pick { background: var(--janus-mauve); color: var(--janus-base); }
+  .badge-console-error { background: var(--janus-red); color: var(--janus-base); }
+  .badge-console-warn { background: var(--janus-peach); color: var(--janus-base); }
+  .badge-console-log { background: var(--janus-blue); color: var(--janus-base); }
+  .badge-ok { background: var(--janus-green); color: var(--janus-base); }
+  .badge-warn { background: var(--janus-peach); color: var(--janus-base); }
+  .badge-error { background: var(--janus-red); color: var(--janus-base); }
   .entry-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 </style>

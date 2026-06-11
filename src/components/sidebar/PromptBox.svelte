@@ -59,29 +59,29 @@
 <style>
   .prompt-box { display: flex; flex-direction: column; gap: 4px; }
   textarea {
-    background: #181825; border: 1px solid #313244; border-radius: 4px;
-    color: #a6adc8; padding: 6px 8px; font-size: 11px; font-family: monospace;
+    background: var(--janus-mantle); border: 1px solid var(--janus-surface0); border-radius: 4px;
+    color: var(--janus-subtext1); padding: 6px 8px; font-size: 11px; font-family: monospace;
     resize: vertical; width: 100%; box-sizing: border-box;
   }
   .prompt-display {
-    background: #181825; border: 1px solid #313244; border-radius: 4px;
+    background: var(--janus-mantle); border: 1px solid var(--janus-surface0); border-radius: 4px;
     font-size: 11px; font-family: monospace; overflow-y: auto;
     width: 100%; box-sizing: border-box; padding: 6px 0;
   }
   .display-line {
-    padding: 1px 8px; line-height: 1.5; color: #a6adc8;
+    padding: 1px 8px; line-height: 1.5; color: var(--janus-subtext1);
     white-space: pre-wrap; word-break: break-all;
   }
   .display-line.highlighted {
-    background: #2a2040; border-left: 2px solid #cba6f7;
-    padding-left: 6px; color: #cdd6f4;
+    background: #2a2040; border-left: 2px solid var(--janus-mauve);
+    padding-left: 6px; color: var(--janus-text);
   }
   .display-line.clickable { cursor: pointer; }
-  .display-line.clickable:hover { background: #252535; }
+  .display-line.clickable:hover { background: var(--janus-surface0); }
   .display-line.highlighted.clickable:hover { background: #321850; }
   .copy-btn {
-    background: #cba6f7; color: #1e1e2e; border: none; border-radius: 4px;
+    background: var(--janus-mauve); color: var(--janus-base); border: none; border-radius: 4px;
     padding: 8px; font-weight: 700; cursor: pointer; font-size: 12px;
   }
-  .copy-btn:hover { background: #d6b9fa; }
+  .copy-btn:hover { background: var(--janus-mauve-hover); }
 </style>

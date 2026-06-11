@@ -205,22 +205,39 @@
 </div>
 
 <style>
-  .popup { width: 220px; padding: 16px; background: #1e1e2e; color: #cdd6f4; font-family: system-ui, sans-serif; display: flex; flex-direction: column; gap: 10px; }
+  :global(:root) {
+    --janus-base: #1e1e2e;
+    --janus-mantle: #181825;
+    --janus-surface0: #313244;
+    --janus-surface1: #45475a;
+    --janus-surface1-hover: #3d3f55;
+    --janus-overlay0: #585b70;
+    --janus-subtext0: #6c7086;
+    --janus-subtext1: #a6adc8;
+    --janus-text: #cdd6f4;
+    --janus-mauve: #cba6f7;
+    --janus-mauve-hover: #d6b9fa;
+    --janus-red: #f38ba8;
+    --janus-peach: #fab387;
+    --janus-green: #a6e3a1;
+    --janus-blue: #89b4fa;
+  }
+  .popup { width: 220px; padding: 16px; background: var(--janus-base); color: var(--janus-text); font-family: system-ui, sans-serif; display: flex; flex-direction: column; gap: 10px; }
   .header { display: flex; flex-direction: column; gap: 2px; }
-  .logo { font-weight: 700; font-size: 16px; color: #cba6f7; }
-  .tagline { font-size: 11px; color: #6c7086; }
-  .primary { background: #cba6f7; color: #1e1e2e; border: none; border-radius: 6px; padding: 10px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
-  .primary:hover { background: #d6b9fa; }
-  .secondary { background: #313244; color: #cdd6f4; border: none; border-radius: 6px; padding: 8px 10px; cursor: pointer; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
-  .secondary:hover { background: #45475a; }
+  .logo { font-weight: 700; font-size: 16px; color: var(--janus-mauve); }
+  .tagline { font-size: 11px; color: var(--janus-subtext0); }
+  .primary { background: var(--janus-mauve); color: var(--janus-base); border: none; border-radius: 6px; padding: 10px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+  .primary:hover { background: var(--janus-mauve-hover); }
+  .secondary { background: var(--janus-surface0); color: var(--janus-text); border: none; border-radius: 6px; padding: 8px 10px; cursor: pointer; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
+  .secondary:hover { background: var(--janus-surface1); }
   kbd { font-size: 10px; background: rgba(0,0,0,0.2); border-radius: 3px; padding: 2px 4px; font-family: monospace; cursor: pointer; white-space: nowrap; }
   kbd:hover { background: rgba(0,0,0,0.35); }
-  kbd.configuring { background: #cba6f7; color: #1e1e2e; animation: pulse 1s ease-in-out infinite; }
-  .hint { margin: 0; font-size: 10px; color: #6c7086; text-align: center; }
+  kbd.configuring { background: var(--janus-mauve); color: var(--janus-base); animation: pulse 1s ease-in-out infinite; }
+  .hint { margin: 0; font-size: 10px; color: var(--janus-subtext0); text-align: center; }
   .hint kbd { cursor: default; }
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
   .record-label { display: flex; align-items: center; gap: 8px; }
-  .record-dot { width: 8px; height: 8px; border-radius: 50%; background: #f38ba8; border: 2px solid #1e1e2e; flex-shrink: 0; }
-  .record-dot.recording { background: #a6e3a1; animation: flash 1s ease-in-out infinite; }
+  .record-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--janus-red); border: 2px solid var(--janus-base); flex-shrink: 0; }
+  .record-dot.recording { background: var(--janus-green); animation: flash 1s ease-in-out infinite; }
   @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 </style>

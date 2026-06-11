@@ -197,16 +197,16 @@
 
 <style>
   .panel { display: flex; flex-direction: column; gap: 12px; padding: 12px; overflow-y: auto; flex: 1; }
-  .back { background: none; border: none; color: #89b4fa; cursor: pointer; font-size: 12px; text-align: left; padding: 0; }
+  .back { background: none; border: none; color: var(--janus-blue); cursor: pointer; font-size: 12px; text-align: left; padding: 0; }
   .section { display: flex; flex-direction: column; gap: 4px; }
-  label, .label { font-size: 11px; color: #6c7086; text-transform: uppercase; letter-spacing: 0.05em; margin: 0; }
-  .hint { font-size: 10px; color: #45475a; text-transform: none; letter-spacing: 0; }
+  label, .label { font-size: 11px; color: var(--janus-subtext0); text-transform: uppercase; letter-spacing: 0.05em; margin: 0; }
+  .hint { font-size: 10px; color: var(--janus-surface1); text-transform: none; letter-spacing: 0; }
   .selection-info { font-size: 12px; }
-  .chip { background: #313244; border-radius: 3px; padding: 2px 6px; font-family: monospace; }
+  .chip { background: var(--janus-surface0); border-radius: 3px; padding: 2px 6px; font-family: monospace; }
   .tags { display: flex; flex-wrap: wrap; gap: 6px; }
-  .tag-btn { background: #313244; border: 1px solid transparent; color: #cdd6f4; border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
-  .tag-btn.active { border-color: #cba6f7; color: #cba6f7; }
-  textarea, input { background: #181825; border: 1px solid #313244; border-radius: 4px; color: #cdd6f4; padding: 6px 8px; font-size: 12px; font-family: inherit; resize: vertical; width: 100%; box-sizing: border-box; }
+  .tag-btn { background: var(--janus-surface0); border: 1px solid transparent; color: var(--janus-text); border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
+  .tag-btn.active { border-color: var(--janus-mauve); color: var(--janus-mauve); }
+  textarea, input { background: var(--janus-mantle); border: 1px solid var(--janus-surface0); border-radius: 4px; color: var(--janus-text); padding: 6px 8px; font-size: 12px; font-family: inherit; resize: vertical; width: 100%; box-sizing: border-box; }
   .note-section { position: relative; }
   .note-wrapper { position: relative; }
   .suggestions {
@@ -214,8 +214,8 @@
     top: 100%;
     left: 0;
     right: 0;
-    background: #1e1e2e;
-    border: 1px solid #45475a;
+    background: var(--janus-base);
+    border: 1px solid var(--janus-surface1);
     border-radius: 4px;
     list-style: none;
     margin: 2px 0 0;
@@ -230,11 +230,11 @@
     text-align: left;
     background: none;
     border: none;
-    color: #cdd6f4;
+    color: var(--janus-text);
     padding: 4px 10px;
     font-size: 12px;
     font-family: monospace;
     cursor: pointer;
   }
-  .suggestion-item:hover { background: #313244; }
+  .suggestion-item:hover { background: var(--janus-surface0); }
 </style>

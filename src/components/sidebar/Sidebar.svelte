@@ -6,17 +6,18 @@
   import type { CapturedEvent, ElementPickEvent, EventType } from '../../lib/event-capture/types'
   import { getEvents, subscribe, addEvent } from '../../lib/event-capture/store'
 
-  let { onClose, onPickingRef, onSidebarRef, onIsPickingRef, onJourneyIdRef, initialMode }: {
+  let { onClose, onPickingRef, onSidebarRef, onIsPickingRef, onJourneyIdRef, initialMode, initialJourneyId = null }: {
     onClose: () => void
     onPickingRef?: (fn: () => void) => void
     onSidebarRef?: (fn: () => void) => void
     onIsPickingRef?: (fn: () => boolean) => void
     onJourneyIdRef?: (fn: (id: string | null) => void) => void
     initialMode?: 'picking' | 'sidebar'
+    initialJourneyId?: string | null
   } = $props()
 
   let events = $state<CapturedEvent[]>(getEvents())
-  let journeyId = $state<string | null>(null)
+  let journeyId = $state<string | null>(initialJourneyId)
 
   onMount(() => {
     onPickingRef?.(() => { mode = 'picking' })
@@ -120,13 +121,29 @@
 
 <style>
   .janus-sidebar {
+    --janus-base: #1e1e2e;
+    --janus-mantle: #181825;
+    --janus-surface0: #313244;
+    --janus-surface1: #45475a;
+    --janus-surface1-hover: #3d3f55;
+    --janus-overlay0: #585b70;
+    --janus-subtext0: #6c7086;
+    --janus-subtext1: #a6adc8;
+    --janus-text: #cdd6f4;
+    --janus-mauve: #cba6f7;
+    --janus-mauve-hover: #d6b9fa;
+    --janus-red: #f38ba8;
+    --janus-peach: #fab387;
+    --janus-green: #a6e3a1;
+    --janus-blue: #89b4fa;
+
     position: fixed;
     top: 0;
     right: 0;
     width: 320px;
     height: 100vh;
-    background: #1e1e2e;
-    color: #cdd6f4;
+    background: var(--janus-base);
+    color: var(--janus-text);
     font-family: system-ui, sans-serif;
     font-size: 13px;
     z-index: 2147483647;
@@ -139,17 +156,17 @@
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
-    border-bottom: 1px solid #313244;
+    border-bottom: 1px solid var(--janus-surface0);
   }
   .janus-logo {
     font-weight: 700;
-    color: #cba6f7;
+    color: var(--janus-mauve);
     flex: 1;
   }
   .janus-toolbar button {
-    background: #313244;
+    background: var(--janus-surface0);
     border: none;
-    color: #cdd6f4;
+    color: var(--janus-text);
     padding: 4px 8px;
     border-radius: 4px;
     cursor: pointer;
@@ -158,9 +175,9 @@
   .janus-journey-id {
     font-family: monospace;
     font-size: 11px;
-    color: #a6e3a1;
-    background: #1e1e2e;
-    border: 1px solid #313244;
+    color: var(--janus-green);
+    background: var(--janus-base);
+    border: 1px solid var(--janus-surface0);
     border-radius: 3px;
     padding: 2px 5px;
     letter-spacing: 0.05em;
@@ -168,9 +185,9 @@
     user-select: all;
   }
   .janus-file-btn {
-    background: #313244;
+    background: var(--janus-surface0);
     border: none;
-    color: #cdd6f4;
+    color: var(--janus-text);
     padding: 4px 8px;
     border-radius: 4px;
     cursor: pointer;

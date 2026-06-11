@@ -83,15 +83,15 @@
 <style>
   .editor { display: flex; flex-direction: column; gap: 12px; }
   .field { display: flex; flex-direction: column; gap: 4px; }
-  label { font-size: 11px; color: #6c7086; text-transform: uppercase; letter-spacing: 0.05em; }
-  input, textarea { background: #181825; border: 1px solid #313244; border-radius: 4px; color: #cdd6f4; padding: 6px 8px; font-size: 12px; font-family: monospace; width: 100%; box-sizing: border-box; }
+  label { font-size: 11px; color: var(--janus-subtext0); text-transform: uppercase; letter-spacing: 0.05em; }
+  input, textarea { background: var(--janus-mantle); border: 1px solid var(--janus-surface0); border-radius: 4px; color: var(--janus-text); padding: 6px 8px; font-size: 12px; font-family: monospace; width: 100%; box-sizing: border-box; }
   textarea { resize: vertical; }
   .body-row { display: flex; gap: 16px; }
   .body-field { flex: 1; }
   .slot-ref-col { width: 220px; flex-shrink: 0; padding-top: 20px; }
-  .warn { background: #45475a; border-left: 3px solid #fab387; color: #fab387; font-size: 11px; padding: 6px 8px; border-radius: 2px; }
+  .warn { background: var(--janus-surface1); border-left: 3px solid var(--janus-peach); color: var(--janus-peach); font-size: 11px; padding: 6px 8px; border-radius: 2px; }
   .actions { display: flex; gap: 8px; }
-  .save-btn { background: #cba6f7; color: #1e1e2e; border: none; border-radius: 4px; padding: 8px 16px; font-weight: 700; cursor: pointer; }
-  .reset-btn { background: #313244; color: #cdd6f4; border: none; border-radius: 4px; padding: 8px 12px; cursor: pointer; font-size: 12px; }
-  .delete-btn { background: #f38ba8; color: #1e1e2e; border: none; border-radius: 4px; padding: 8px 12px; cursor: pointer; font-size: 12px; font-weight: 600; }
+  .save-btn { background: var(--janus-mauve); color: var(--janus-base); border: none; border-radius: 4px; padding: 8px 16px; font-weight: 700; cursor: pointer; }
+  .reset-btn { background: var(--janus-surface0); color: var(--janus-text); border: none; border-radius: 4px; padding: 8px 12px; cursor: pointer; font-size: 12px; }
+  .delete-btn { background: var(--janus-red); color: var(--janus-base); border: none; border-radius: 4px; padding: 8px 12px; cursor: pointer; font-size: 12px; font-weight: 600; }
 </style>

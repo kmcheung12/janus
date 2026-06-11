@@ -79,16 +79,33 @@
 </div>
 
 <style>
-  :global(body) { margin: 0; background: #1e1e2e; color: #cdd6f4; font-family: system-ui, sans-serif; }
+  :global(:root) {
+    --janus-base: #1e1e2e;
+    --janus-mantle: #181825;
+    --janus-surface0: #313244;
+    --janus-surface1: #45475a;
+    --janus-surface1-hover: #3d3f55;
+    --janus-overlay0: #585b70;
+    --janus-subtext0: #6c7086;
+    --janus-subtext1: #a6adc8;
+    --janus-text: #cdd6f4;
+    --janus-mauve: #cba6f7;
+    --janus-mauve-hover: #d6b9fa;
+    --janus-red: #f38ba8;
+    --janus-peach: #fab387;
+    --janus-green: #a6e3a1;
+    --janus-blue: #89b4fa;
+  }
+  :global(body) { margin: 0; background: var(--janus-base); color: var(--janus-text); font-family: system-ui, sans-serif; }
   .page { display: flex; height: 100vh; }
-  .sidebar { width: 200px; border-right: 1px solid #313244; display: flex; flex-direction: column; }
-  .sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 12px; border-bottom: 1px solid #313244; }
-  .logo { font-weight: 700; color: #cba6f7; }
-  .sidebar-header button { background: #313244; border: none; color: #cdd6f4; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
-  .template-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: none; border: none; color: #cdd6f4; cursor: pointer; text-align: left; font-size: 13px; width: 100%; }
-  .template-item:hover { background: #313244; }
-  .template-item.active { background: #313244; color: #cba6f7; }
-  .built-in { font-size: 9px; color: #6c7086; text-transform: uppercase; background: #45475a; border-radius: 2px; padding: 1px 4px; }
+  .sidebar { width: 200px; border-right: 1px solid var(--janus-surface0); display: flex; flex-direction: column; }
+  .sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 12px; border-bottom: 1px solid var(--janus-surface0); }
+  .logo { font-weight: 700; color: var(--janus-mauve); }
+  .sidebar-header button { background: var(--janus-surface0); border: none; color: var(--janus-text); padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+  .template-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: none; border: none; color: var(--janus-text); cursor: pointer; text-align: left; font-size: 13px; width: 100%; }
+  .template-item:hover { background: var(--janus-surface0); }
+  .template-item.active { background: var(--janus-surface0); color: var(--janus-mauve); }
+  .built-in { font-size: 9px; color: var(--janus-subtext0); text-transform: uppercase; background: var(--janus-surface1); border-radius: 2px; padding: 1px 4px; }
   .main { flex: 1; padding: 24px; overflow-y: auto; }
-  .empty { color: #6c7086; }
+  .empty { color: var(--janus-subtext0); }
 </style>
