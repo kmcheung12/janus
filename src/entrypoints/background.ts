@@ -106,11 +106,13 @@ export default defineBackground(() => {
       const journeyId = tabJourneyId.get(tabId)
       if (journeyId) {
         syncEvents(journeyId, msg.events)
-      } else if (tabRecording.get(tabId)) {
-        // SW restarted — restore journeyId from session storage then resync
-        browser.storage.session.get(`janus_journeyid_${tabId}`).then(stored => {
+      } else {
+        // SW restarted — check session storage for active recording and restore
+        browser.storage.session.get([`janus_recording_${tabId}`, `janus_journeyid_${tabId}`]).then(stored => {
+          const recording = stored[`janus_recording_${tabId}`] as boolean | undefined
           const id = stored[`janus_journeyid_${tabId}`] as string | undefined
-          if (id) {
+          if (recording && id) {
+            tabRecording.set(tabId, true)
             tabJourneyId.set(tabId, id)
             syncEvents(id, msg.events)
           }
