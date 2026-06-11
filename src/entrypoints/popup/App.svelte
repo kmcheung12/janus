@@ -221,6 +221,7 @@
     --janus-peach: #fab387;
     --janus-green: #a6e3a1;
     --janus-blue: #89b4fa;
+    --janus-sky: #89dceb;
   }
   .popup { width: 220px; padding: 16px; background: var(--janus-base); color: var(--janus-text); font-family: system-ui, sans-serif; display: flex; flex-direction: column; gap: 10px; }
   .header { display: flex; flex-direction: column; gap: 2px; }

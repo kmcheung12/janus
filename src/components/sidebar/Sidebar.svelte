@@ -136,6 +136,7 @@
     --janus-peach: #fab387;
     --janus-green: #a6e3a1;
     --janus-blue: #89b4fa;
+    --janus-sky: #89dceb;
 
     position: fixed;
     top: 0;

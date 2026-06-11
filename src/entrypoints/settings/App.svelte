@@ -77,6 +77,7 @@
     --janus-peach: #fab387;
     --janus-green: #a6e3a1;
     --janus-blue: #89b4fa;
+    --janus-sky: #89dceb;
   }
   :global(body) { margin: 0; background: var(--janus-base); color: var(--janus-text); font-family: system-ui, sans-serif; }
   .page { display: flex; height: 100vh; }
