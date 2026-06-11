@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import type { FileMessageHeader } from './types.js'
 
 export function parseFrame(buffer: Buffer): { header: FileMessageHeader; data: Buffer } {
@@ -16,7 +16,7 @@ export function parseFrame(buffer: Buffer): { header: FileMessageHeader; data: B
 export function saveFile(journeyId: string, filename: string, data: Buffer): string {
   const dir = join(tmpdir(), 'janus-mcp', journeyId)
   mkdirSync(dir, { recursive: true })
-  const path = join(dir, filename)
+  const path = join(dir, basename(filename))
   writeFileSync(path, data)
   return path
 }

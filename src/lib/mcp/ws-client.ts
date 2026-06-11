@@ -36,6 +36,7 @@ export function stopJourney(journeyId: string): void {
   if (!active || active.journeyId !== journeyId) return
   active.meta.status = 'stopped'
   send({ type: 'recording_stopped', journeyId })
+  active = null
 }
 
 export function sendFile(journeyId: string, filename: string, mimeType: string, bytes: ArrayBuffer): void {

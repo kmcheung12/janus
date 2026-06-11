@@ -29,11 +29,7 @@
   async function handleFileUpload(e: Event) {
     const file = (e.target as HTMLInputElement).files?.[0]
     if (!file || !journeyId) return
-    const buffer = await file.arrayBuffer()
-    const bytes = new Uint8Array(buffer)
-    let binary = ''
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
-    const data = btoa(binary)
+    const data = await file.arrayBuffer()
     browser.runtime.sendMessage({
       type: 'JANUS_SEND_FILE',
       filename: file.name,

@@ -11,7 +11,7 @@ type Msg =
   | { type: 'JANUS_GET_RECORDING_STATE'; tabId?: number }
   | { type: 'JANUS_SIDEBAR_OPENED' }
   | { type: 'JANUS_SIDEBAR_CLOSED' }
-  | { type: 'JANUS_SEND_FILE'; filename: string; mimeType: string; data: string }
+  | { type: 'JANUS_SEND_FILE'; filename: string; mimeType: string; data: ArrayBuffer }
 
 function setBadge(tabId: number, recording: boolean) {
   const api = (browser as any).action || (browser as any).browserAction
@@ -42,19 +42,21 @@ export default defineBackground(() => {
       if (next) {
         const journeyId = shortId()
         tabJourneyId.set(tabId, journeyId)
-        browser.storage.session.set({
-          [`janus_recording_${tabId}`]: true,
-          [`janus_journeyid_${tabId}`]: journeyId,
-        }).catch(() => {})
         return browser.tabs.get(tabId).then(tab => {
           const startUrl = tab.url ?? ''
-          startJourney(journeyId, {
+          const meta = {
             startTime: Date.now(),
             startUrl,
             tabTitle: tab.title ?? '',
             domain: (() => { try { return new URL(startUrl).hostname } catch { return startUrl } })(),
-            status: 'recording',
-          })
+            status: 'recording' as const,
+          }
+          browser.storage.session.set({
+            [`janus_recording_${tabId}`]: true,
+            [`janus_journeyid_${tabId}`]: journeyId,
+            [`janus_journeymeta_${tabId}`]: meta,
+          }).catch(() => {})
+          startJourney(journeyId, meta)
           browser.tabs.sendMessage(tabId, { type: 'JANUS_RECORDING_CHANGED', recording: true, journeyId }).catch(() => {})
           return { recording: true, journeyId }
         })
@@ -62,7 +64,7 @@ export default defineBackground(() => {
         const journeyId = tabJourneyId.get(tabId)
         if (journeyId) stopJourney(journeyId)
         tabJourneyId.delete(tabId)
-        browser.storage.session.remove([`janus_recording_${tabId}`, `janus_journeyid_${tabId}`]).catch(() => {})
+        browser.storage.session.remove([`janus_recording_${tabId}`, `janus_journeyid_${tabId}`, `janus_journeymeta_${tabId}`]).catch(() => {})
         browser.tabs.sendMessage(tabId, { type: 'JANUS_RECORDING_CHANGED', recording: false }).catch(() => {})
         return Promise.resolve({ recording: false })
       }
@@ -107,14 +109,16 @@ export default defineBackground(() => {
       if (journeyId) {
         syncEvents(journeyId, msg.events)
       } else {
-        // SW restarted — check session storage for active recording and restore
-        browser.storage.session.get([`janus_recording_${tabId}`, `janus_journeyid_${tabId}`]).then(stored => {
+        // SW restarted — restore from session storage and re-establish WebSocket connection
+        browser.storage.session.get([`janus_recording_${tabId}`, `janus_journeyid_${tabId}`, `janus_journeymeta_${tabId}`]).then(stored => {
           const recording = stored[`janus_recording_${tabId}`] as boolean | undefined
           const id = stored[`janus_journeyid_${tabId}`] as string | undefined
-          if (recording && id) {
+          const meta = stored[`janus_journeymeta_${tabId}`] as import('../lib/mcp/ws-client').JourneyMeta | undefined
+          if (recording && id && meta) {
             tabRecording.set(tabId, true)
             tabJourneyId.set(tabId, id)
-            syncEvents(id, msg.events)
+            startJourney(id, meta)    // re-opens WebSocket; onopen will send full sync
+            syncEvents(id, msg.events) // pre-populates active.events so onopen sync includes them
           }
         }).catch(() => {})
       }
@@ -142,10 +146,7 @@ export default defineBackground(() => {
     if (msg.type === 'JANUS_SEND_FILE') {
       const journeyId = tabJourneyId.get(tabId)
       if (!journeyId) return
-      const binary = atob(msg.data)
-      const bytes = new Uint8Array(binary.length)
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-      sendFile(journeyId, msg.filename, msg.mimeType, bytes.buffer)
+      sendFile(journeyId, msg.filename, msg.mimeType, msg.data)
       return
     }
   })
@@ -163,6 +164,7 @@ export default defineBackground(() => {
       `janus_sidebar_${tabId}`,
       `janus_recording_${tabId}`,
       `janus_journeyid_${tabId}`,
+      `janus_journeymeta_${tabId}`,
     ]).catch(() => {})
   })
 })

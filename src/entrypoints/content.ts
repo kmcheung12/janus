@@ -176,7 +176,7 @@ export default defineContentScript({
     }
 
     // Listen for messages from popup / background
-    browser.runtime.onMessage.addListener((msg: { type: string; recording?: boolean }) => {
+    browser.runtime.onMessage.addListener((msg: { type: string; recording?: boolean; journeyId?: string }) => {
       if (msg.type === 'JANUS_ACTIVATE') {
         openAnnotationSidebar()
         return
@@ -188,7 +188,7 @@ export default defineContentScript({
       if (msg.type === 'JANUS_RECORDING_CHANGED') {
         isRecording = msg.recording ?? false
         if (isRecording) {
-          currentJourneyId = (msg as any).journeyId ?? null
+          currentJourneyId = msg.journeyId ?? null
           updateSidebarJourneyId?.(currentJourneyId)
           clearEvents()
           addEvent(sessionEvent())
