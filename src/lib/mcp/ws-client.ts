@@ -3,7 +3,7 @@ import type { CapturedEvent } from '../event-capture/types'
 const WS_URL = 'ws://localhost:3457'
 const RECONNECT_DELAY_MS = 2000
 
-interface JourneyMeta {
+export interface JourneyMeta {
   startTime: number
   startUrl: string
   tabTitle: string
