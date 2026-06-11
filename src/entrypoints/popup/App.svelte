@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { loadShortcuts, saveShortcuts, formatShortcut, matchesShortcut } from '../../lib/shortcuts.svelte'
   import type { StoredShortcuts, Shortcut } from '../../lib/shortcuts.svelte'
+  import ShortcutButton from '../../components/popup/ShortcutButton.svelte'
 
   let shortcuts = $state<StoredShortcuts>({
     record: { key: 'KeyK', ctrl: false, alt: true, shift: true, meta: false },
@@ -146,59 +147,24 @@
     <span class="logo">Janus</span>
     <span class="tagline">Annotate. Prompt. Iterate.</span>
   </div>
-  <button class="primary record-btn" onclick={toggleRecording}>
+  <ShortcutButton onclick={toggleRecording} action="record" {configuringFor} {shortcuts} onStartConfiguring={startConfiguring} {formatShortcut}>
     <span class="record-label">
       <span class="record-dot" class:recording={isRecording}></span>
       {isRecording ? 'Stop recording' : 'Start recording events'}
     </span>
-    <kbd
-      class:configuring={configuringFor === 'record'}
-      onclick={(e) => startConfiguring(e, 'record')}
-      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') startConfiguring(e, 'record') }}
-      role="button"
-      tabindex="0"
-    >{configuringFor === 'record' ? '…' : shortcuts.record ? formatShortcut(shortcuts.record) : '+'}</kbd>
-  </button>
-  <button class="primary" onclick={openSidebar}>
+  </ShortcutButton>
+  <ShortcutButton onclick={openSidebar} action="sidebar" {configuringFor} {shortcuts} onStartConfiguring={startConfiguring} {formatShortcut}>
     Open sidebar
-    <kbd
-      class:configuring={configuringFor === 'sidebar'}
-      onclick={(e) => startConfiguring(e, 'sidebar')}
-      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') startConfiguring(e, 'sidebar') }}
-      role="button"
-      tabindex="0"
-    >{configuringFor === 'sidebar' ? '…' : shortcuts.sidebar ? formatShortcut(shortcuts.sidebar) : '+'}</kbd>
-  </button>
-  <button class="primary" onclick={activate}>
+  </ShortcutButton>
+  <ShortcutButton onclick={activate} action="annotate" {configuringFor} {shortcuts} onStartConfiguring={startConfiguring} {formatShortcut}>
     Pick Element
-    <kbd
-      class:configuring={configuringFor === 'annotate'}
-      onclick={(e) => startConfiguring(e, 'annotate')}
-      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') startConfiguring(e, 'annotate') }}
-      role="button"
-      tabindex="0"
-    >{configuringFor === 'annotate' ? '…' : shortcuts.annotate ? formatShortcut(shortcuts.annotate) : '+'}</kbd>
-  </button>
-  <button class="secondary" onclick={openTemplates}>
+  </ShortcutButton>
+  <ShortcutButton variant="secondary" onclick={openTemplates} action="templates" {configuringFor} {shortcuts} onStartConfiguring={startConfiguring} {formatShortcut}>
     Manage templates
-    <kbd
-      class:configuring={configuringFor === 'templates'}
-      onclick={(e) => startConfiguring(e, 'templates')}
-      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') startConfiguring(e, 'templates') }}
-      role="button"
-      tabindex="0"
-    >{configuringFor === 'templates' ? '…' : shortcuts.templates ? formatShortcut(shortcuts.templates) : '+'}</kbd>
-  </button>
-  <button class="secondary" onclick={openSettings}>
+  </ShortcutButton>
+  <ShortcutButton variant="secondary" onclick={openSettings} action="settings" {configuringFor} {shortcuts} onStartConfiguring={startConfiguring} {formatShortcut}>
     Settings
-    <kbd
-      class:configuring={configuringFor === 'settings'}
-      onclick={(e) => startConfiguring(e, 'settings')}
-      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') startConfiguring(e, 'settings') }}
-      role="button"
-      tabindex="0"
-    >{configuringFor === 'settings' ? '…' : shortcuts.settings ? formatShortcut(shortcuts.settings) : '+'}</kbd>
-  </button>
+  </ShortcutButton>
   {#if configuringFor}
     <p class="hint">Press a combo to set · <kbd>Del</kbd> to clear · <kbd>Esc</kbd> to cancel</p>
   {/if}
@@ -227,16 +193,8 @@
   .header { display: flex; flex-direction: column; gap: 2px; }
   .logo { font-weight: 700; font-size: 16px; color: var(--janus-mauve); }
   .tagline { font-size: 11px; color: var(--janus-subtext0); }
-  .primary { background: var(--janus-mauve); color: var(--janus-base); border: none; border-radius: 6px; padding: 10px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
-  .primary:hover { background: var(--janus-mauve-hover); }
-  .secondary { background: var(--janus-surface0); color: var(--janus-text); border: none; border-radius: 6px; padding: 8px 10px; cursor: pointer; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
-  .secondary:hover { background: var(--janus-surface1); }
-  kbd { font-size: 10px; background: rgba(0,0,0,0.2); border-radius: 3px; padding: 2px 4px; font-family: monospace; cursor: pointer; white-space: nowrap; }
-  kbd:hover { background: rgba(0,0,0,0.35); }
-  kbd.configuring { background: var(--janus-mauve); color: var(--janus-base); animation: pulse 1s ease-in-out infinite; }
   .hint { margin: 0; font-size: 10px; color: var(--janus-subtext0); text-align: center; }
-  .hint kbd { cursor: default; }
-  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  .hint kbd { cursor: default; font-size: 10px; background: rgba(0,0,0,0.2); border-radius: 3px; padding: 2px 4px; font-family: monospace; white-space: nowrap; }
   .record-label { display: flex; align-items: center; gap: 8px; }
   .record-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--janus-red); border: 2px solid var(--janus-base); flex-shrink: 0; }
   .record-dot.recording { background: var(--janus-green); animation: flash 1s ease-in-out infinite; }
