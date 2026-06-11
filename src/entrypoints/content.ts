@@ -11,7 +11,7 @@ import { mount, unmount } from 'svelte'
 import Sidebar from '../components/sidebar/Sidebar.svelte'
 import { loadShortcuts, matchesShortcut } from '../lib/shortcuts.svelte'
 import type { StoredShortcuts } from '../lib/shortcuts.svelte'
-import { loadCaptureConfig } from '../lib/capture-config'
+import { loadCaptureConfig, DEFAULTS as CAPTURE_DEFAULTS } from '../lib/capture-config'
 import type { CaptureConfig } from '../lib/capture-config'
 import { uuid } from '../lib/uuid'
 
@@ -39,6 +39,8 @@ export default defineContentScript({
     }
 
     let isRecording = false
+    let currentJourneyId: string | null = null
+    let updateSidebarJourneyId: ((id: string | null) => void) | null = null
 
     function filteredAddEvent(event: CapturedEvent) {
       if (!isRecording) return
@@ -85,7 +87,7 @@ export default defineContentScript({
     captureConfig = await loadCaptureConfig()
     browser.storage.onChanged.addListener((changes) => {
       if ('janus_shortcuts' in changes) shortcuts = changes['janus_shortcuts'].newValue
-      if ('janus_capture_config' in changes) captureConfig = changes['janus_capture_config'].newValue
+      if ('janus_capture_config' in changes) captureConfig = { ...CAPTURE_DEFAULTS, ...(changes['janus_capture_config'].newValue as Partial<CaptureConfig>) }
     })
 
     // Sidebar
@@ -99,6 +101,7 @@ export default defineContentScript({
     try {
       const res = await browser.runtime.sendMessage({ type: 'JANUS_GET_RECORDING_STATE' })
       isRecording = res?.recording ?? false
+      currentJourneyId = res?.journeyId ?? null
       if (res?.sidebarOpen) openEventsSidebar()
     } catch (e) {
       console.error('Failed to restore state from background:', e)
@@ -148,8 +151,10 @@ export default defineContentScript({
           onPickingRef: (fn) => { enterPickingMode = fn },
           onSidebarRef: (fn) => { enterEventsMode = fn },
           onIsPickingRef: (fn) => { isPickingMode = fn },
+          onJourneyIdRef: (fn: (id: string | null) => void) => { updateSidebarJourneyId = fn },
         },
       })
+      updateSidebarJourneyId?.(currentJourneyId)
 
       browser.runtime.sendMessage({ type: 'JANUS_SIDEBAR_OPENED' }).catch(() => {})
     }
@@ -183,12 +188,17 @@ export default defineContentScript({
       if (msg.type === 'JANUS_RECORDING_CHANGED') {
         isRecording = msg.recording ?? false
         if (isRecording) {
+          currentJourneyId = (msg as any).journeyId ?? null
+          updateSidebarJourneyId?.(currentJourneyId)
           clearEvents()
           addEvent(sessionEvent())
           addEvent({
             id: uuid(), type: 'navigation', timestamp: Date.now(),
             url: window.location.href, title: document.title,
           })
+        } else {
+          currentJourneyId = null
+          updateSidebarJourneyId?.(null)
         }
         return
       }

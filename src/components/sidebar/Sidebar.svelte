@@ -6,22 +6,42 @@
   import type { CapturedEvent, ElementPickEvent, EventType } from '../../lib/event-capture/types'
   import { getEvents, subscribe, addEvent } from '../../lib/event-capture/store'
 
-  let { onClose, onPickingRef, onSidebarRef, onIsPickingRef, initialMode }: {
+  let { onClose, onPickingRef, onSidebarRef, onIsPickingRef, onJourneyIdRef, initialMode }: {
     onClose: () => void
     onPickingRef?: (fn: () => void) => void
     onSidebarRef?: (fn: () => void) => void
     onIsPickingRef?: (fn: () => boolean) => void
+    onJourneyIdRef?: (fn: (id: string | null) => void) => void
     initialMode?: 'picking' | 'sidebar'
   } = $props()
 
   let events = $state<CapturedEvent[]>(getEvents())
+  let journeyId = $state<string | null>(null)
 
   onMount(() => {
     onPickingRef?.(() => { mode = 'picking' })
     onSidebarRef?.(() => { mode = 'sidebar' })
     onIsPickingRef?.(() => mode === 'picking')
+    onJourneyIdRef?.((id) => { journeyId = id })
     return subscribe(updated => { events = updated })
   })
+
+  async function handleFileUpload(e: Event) {
+    const file = (e.target as HTMLInputElement).files?.[0]
+    if (!file || !journeyId) return
+    const buffer = await file.arrayBuffer()
+    const bytes = new Uint8Array(buffer)
+    let binary = ''
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+    const data = btoa(binary)
+    browser.runtime.sendMessage({
+      type: 'JANUS_SEND_FILE',
+      filename: file.name,
+      mimeType: file.type || 'application/octet-stream',
+      data,
+    }).catch(() => {})
+    ;(e.target as HTMLInputElement).value = ''
+  }
 
   // Type filter — ephemeral per session, does not persist
   let hiddenTypes = $state(new Set<EventType>())
@@ -74,6 +94,13 @@
   <div class="janus-sidebar">
     <div class="janus-toolbar">
       <span class="janus-logo">Janus</span>
+      {#if journeyId}
+        <span class="janus-journey-id" title="Journey ID">{journeyId}</span>
+      {/if}
+      <label class="janus-file-btn" title="Attach file to journey">
+        +
+        <input type="file" style="display:none" onchange={handleFileUpload} />
+      </label>
       <button onclick={() => mode = mode === 'sidebar' ? 'picking' : 'sidebar'}>
         {mode === 'sidebar' ? 'Element Picker' : 'Events'}
       </button>
@@ -131,5 +158,27 @@
     border-radius: 4px;
     cursor: pointer;
     font-size: 12px;
+  }
+  .janus-journey-id {
+    font-family: monospace;
+    font-size: 11px;
+    color: #a6e3a1;
+    background: #1e1e2e;
+    border: 1px solid #313244;
+    border-radius: 3px;
+    padding: 2px 5px;
+    letter-spacing: 0.05em;
+    cursor: default;
+    user-select: all;
+  }
+  .janus-file-btn {
+    background: #313244;
+    border: none;
+    color: #cdd6f4;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    display: inline-block;
   }
 </style>
