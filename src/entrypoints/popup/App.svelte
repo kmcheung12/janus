@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { loadShortcuts, saveShortcuts, formatShortcut, matchesShortcut } from '../../lib/shortcuts.svelte'
+  import { loadShortcuts, saveShortcuts, matchesShortcut } from '../../lib/shortcuts.svelte'
   import type { StoredShortcuts, Shortcut } from '../../lib/shortcuts.svelte'
   import ShortcutButton from '../../components/popup/ShortcutButton.svelte'
 
@@ -147,22 +147,22 @@
     <span class="logo">Janus</span>
     <span class="tagline">Annotate. Prompt. Iterate.</span>
   </div>
-  <ShortcutButton onclick={toggleRecording} action="record" {configuringFor} {shortcuts} onStartConfiguring={startConfiguring} {formatShortcut}>
+  <ShortcutButton onclick={toggleRecording} action="record" {configuringFor} {shortcuts} onStartConfiguring={startConfiguring}>
     <span class="record-label">
       <span class="record-dot" class:recording={isRecording}></span>
       {isRecording ? 'Stop recording' : 'Start recording events'}
     </span>
   </ShortcutButton>
-  <ShortcutButton onclick={openSidebar} action="sidebar" {configuringFor} {shortcuts} onStartConfiguring={startConfiguring} {formatShortcut}>
+  <ShortcutButton onclick={openSidebar} action="sidebar" {configuringFor} {shortcuts} onStartConfiguring={startConfiguring}>
     Open sidebar
   </ShortcutButton>
-  <ShortcutButton onclick={activate} action="annotate" {configuringFor} {shortcuts} onStartConfiguring={startConfiguring} {formatShortcut}>
+  <ShortcutButton onclick={activate} action="annotate" {configuringFor} {shortcuts} onStartConfiguring={startConfiguring}>
     Pick Element
   </ShortcutButton>
-  <ShortcutButton variant="secondary" onclick={openTemplates} action="templates" {configuringFor} {shortcuts} onStartConfiguring={startConfiguring} {formatShortcut}>
+  <ShortcutButton variant="secondary" onclick={openTemplates} action="templates" {configuringFor} {shortcuts} onStartConfiguring={startConfiguring}>
     Manage templates
   </ShortcutButton>
-  <ShortcutButton variant="secondary" onclick={openSettings} action="settings" {configuringFor} {shortcuts} onStartConfiguring={startConfiguring} {formatShortcut}>
+  <ShortcutButton variant="secondary" onclick={openSettings} action="settings" {configuringFor} {shortcuts} onStartConfiguring={startConfiguring}>
     Settings
   </ShortcutButton>
   {#if configuringFor}

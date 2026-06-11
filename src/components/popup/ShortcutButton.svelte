@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { StoredShortcuts, Shortcut } from '../../lib/shortcuts.svelte'
+  import type { StoredShortcuts } from '../../lib/shortcuts.svelte'
+  import { formatShortcut } from '../../lib/shortcuts.svelte'
 
   interface Props {
     variant?: 'primary' | 'secondary'
@@ -8,7 +9,6 @@
     configuringFor: keyof StoredShortcuts | null
     shortcuts: StoredShortcuts
     onStartConfiguring: (e: Event, action: keyof StoredShortcuts) => void
-    formatShortcut: (s: Shortcut) => string
     children?: import('svelte').Snippet
   }
 
@@ -19,20 +19,22 @@
     configuringFor,
     shortcuts,
     onStartConfiguring,
-    formatShortcut,
     children,
   }: Props = $props()
+
+  let isConfiguring = $derived(configuringFor === action)
+  let shortcutLabel = $derived(isConfiguring ? '…' : shortcuts[action] ? formatShortcut(shortcuts[action]!) : '+')
 </script>
 
 <button class={variant} {onclick}>
   {@render children?.()}
   <kbd
-    class:configuring={configuringFor === action}
+    class:configuring={isConfiguring}
     onclick={(e) => onStartConfiguring(e, action)}
     onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') onStartConfiguring(e, action) }}
     role="button"
     tabindex="0"
-  >{configuringFor === action ? '…' : shortcuts[action] ? formatShortcut(shortcuts[action]!) : '+'}</kbd>
+  >{shortcutLabel}</kbd>
 </button>
 
 <style>
