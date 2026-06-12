@@ -42,6 +42,21 @@ const TOOLS = [
         description: 'Get the most recently started journey with full events and files',
         inputSchema: { type: 'object', properties: {} },
     },
+    {
+        name: 'merge_journeys',
+        description: 'Merge events from multiple journeys sorted by timestamp. Use to correlate browser interactions with CLI output.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                ids: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Journey IDs to merge'
+                }
+            },
+            required: ['ids'],
+        },
+    },
 ];
 export function createMcpServer() {
     const server = new Server({ name: 'janus', version: '0.0.0' }, { capabilities: { tools: {} } });
@@ -66,6 +81,23 @@ export function createMcpServer() {
             if (!j)
                 return { content: [{ type: 'text', text: 'No journeys recorded yet' }] };
             return { content: [{ type: 'text', text: JSON.stringify(j, null, 2) }] };
+        }
+        if (name === 'merge_journeys') {
+            const ids = args.ids ?? [];
+            const missing = [];
+            const events = [];
+            for (const id of ids) {
+                const j = getById(id);
+                if (!j) {
+                    missing.push(id);
+                    continue;
+                }
+                for (const e of j.events) {
+                    events.push({ ...e, journeyId: id });
+                }
+            }
+            events.sort((a, b) => a.timestamp - b.timestamp);
+            return { content: [{ type: 'text', text: JSON.stringify({ missing, events }, null, 2) }] };
         }
         return { content: [{ type: 'text', text: `Unknown tool: ${name}` }] };
     });

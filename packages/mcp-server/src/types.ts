@@ -1,5 +1,5 @@
 // --- Copied from src/lib/event-capture/types.ts ---
-export type EventType = 'session' | 'navigation' | 'click' | 'keyboard' | 'api' | 'scroll' | 'console' | 'drag' | 'element_pick' | 'resize'
+export type EventType = 'session' | 'navigation' | 'click' | 'keyboard' | 'api' | 'scroll' | 'console' | 'drag' | 'element_pick' | 'resize' | 'cli_line'
 
 interface BaseEvent {
   id: string
@@ -19,10 +19,11 @@ export interface ScrollEvent extends BaseEvent { type: 'scroll'; selector: strin
 export interface ConsoleEvent extends BaseEvent { type: 'console'; level: 'error' | 'warn' | 'log'; message: string; source?: string | null }
 export interface ElementPickEvent extends BaseEvent { type: 'element_pick'; selector: string; text: string; attributes: Record<string, string>; styles: Record<string, string> }
 export interface ResizeEvent extends BaseEvent { type: 'resize'; width: number; height: number; orientation?: string }
+export interface CliLineEvent extends BaseEvent { type: 'cli_line'; line: string; stream: 'stdout' | 'stderr' }
 
 export type CapturedEvent =
   | SessionEvent | NavigationEvent | ClickEvent | KeyboardInputEvent
-  | ApiEvent | ScrollEvent | ConsoleEvent | DragEvent | ElementPickEvent | ResizeEvent
+  | ApiEvent | ScrollEvent | ConsoleEvent | DragEvent | ElementPickEvent | ResizeEvent | CliLineEvent
 
 // --- MCP server types ---
 export interface JourneyMeta {
