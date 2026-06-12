@@ -40,9 +40,10 @@ The server listens on two ports:
 
 ### 3. Register with Claude Code
 
-The repo includes a `.mcp.json` that registers the server automatically when you open Claude Code from this directory:
+Add a `.mcp.json` to the root of **the project you want to use Janus in**:
 
-```json
+```bash
+cat > .mcp.json << 'EOF'
 {
   "mcpServers": {
     "janus": {
@@ -51,9 +52,12 @@ The repo includes a `.mcp.json` that registers the server automatically when you
     }
   }
 }
+EOF
 ```
 
-To register globally instead (available in all Claude Code sessions), add the same block to `~/.claude/settings.json` under `"mcpServers"`.
+Claude Code picks this up automatically when you open that project.
+
+To register globally instead (available in all projects), add the same block to `~/.claude/settings.json` under `"mcpServers"`.
 
 ### 4. Verify
 
