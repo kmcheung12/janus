@@ -6,6 +6,12 @@ Most coding agents work from specs and diffs. They don't know what actually happ
 
 Stop copy-pasting stack traces into Claude. Your browser can do that itself.
 
+## Demo
+
+<video src="demo.mp4" controls width="100%"></video>
+
+> Dev workflow for [splendor](https://github.com/kmcheung12/splendor).
+
 ## Architecture
 
 ```
