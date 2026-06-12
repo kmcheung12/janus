@@ -59,6 +59,23 @@
   let previousMode = $state<'picking' | 'sidebar'>('picking')
   let selectedEvent = $state<CapturedEvent | undefined>(undefined)
 
+  let width = $state(320)
+  let dragging = $state(false)
+
+  function onResizePointerDown(e: PointerEvent) {
+    (e.target as HTMLElement).setPointerCapture(e.pointerId)
+    dragging = true
+  }
+
+  function onResizePointerMove(e: PointerEvent) {
+    if (!dragging) return
+    width = Math.min(600, Math.max(200, window.innerWidth - e.clientX))
+  }
+
+  function onResizePointerUp(e: PointerEvent) {
+    dragging = false
+  }
+
   function onPick(event: ElementPickEvent) {
     addEvent(event)
     selectedEvent = event
@@ -88,7 +105,16 @@
 {#if mode === 'picking'}
   <ElementPicker {onPick} />
 {:else}
-  <div class="janus-sidebar">
+  <div class="janus-sidebar" style="width: {width}px">
+    <div
+      class="janus-resize-handle"
+      class:dragging
+      role="separator"
+      aria-orientation="vertical"
+      onpointerdown={onResizePointerDown}
+      onpointermove={onResizePointerMove}
+      onpointerup={onResizePointerUp}
+    ></div>
     <div class="janus-toolbar">
       <span class="janus-logo">Janus</span>
       {#if journeyId}
@@ -141,7 +167,6 @@
     position: fixed;
     top: 0;
     right: 0;
-    width: 320px;
     height: 100vh;
     background: var(--janus-base);
     color: var(--janus-text);
@@ -194,5 +219,19 @@
     cursor: pointer;
     font-size: 12px;
     display: inline-block;
+  }
+  .janus-resize-handle {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 5px;
+    height: 100%;
+    cursor: ew-resize;
+    z-index: 1;
+  }
+  .janus-resize-handle:hover,
+  .janus-resize-handle.dragging {
+    background: var(--janus-mauve);
+    opacity: 0.5;
   }
 </style>
