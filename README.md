@@ -73,6 +73,49 @@ In Claude Code, the `mcp__janus__list_journeys` tool should be available. Start 
 - Journey data is in-memory only — it is lost when the daemon restarts. The extension will resync the active recording on reconnect, but stopped journeys are gone.
 - Attached files are written to `$TMPDIR/janus-mcp/<journeyId>/` and survive daemon restarts at the filesystem level, but the in-memory journey record referencing them does not.
 
+## Install the `janus` CLI
+
+The `janus` CLI wraps any command and streams its output as a journey to the MCP server, so Claude can see what your processes are doing alongside browser sessions.
+
+### 1. Build and install
+
+```bash
+cd packages/janus-cli
+pnpm install --ignore-workspace
+pnpm build
+pnpm link --global
+```
+
+This makes `janus` available on your PATH.
+
+### 2. Use it
+
+```bash
+# Wrap a command — captures stdout and stderr separately
+janus npm run dev
+janus python server.py
+
+# Rolling window — keep only the last N lines (useful for chatty daemons)
+janus -n 100 rails server
+
+# Pipe mode — filter output before it reaches Janus
+long_running_command | grep ERROR | janus -n 50
+```
+
+Janus prints the journey ID to stderr on start:
+
+```
+[janus] journey: a1b2c3
+```
+
+Use that ID with `get_journey_by_id` or combine multiple journeys with `merge_journeys` to correlate CLI output with browser interactions.
+
+### Notes
+
+- The MCP server must be running before you use `janus` — if it's not reachable, the command runs normally with no MCP side effect
+- Without `-n`, all output is buffered in memory — use `-n` for long-running processes
+- `janus` exits with the wrapped command's exit code
+
 ## Development
 
 ```bash
