@@ -2,7 +2,7 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import type { Tool } from '@modelcontextprotocol/sdk/types.js'
 import { getById, getByDomain, getLatest, listAll } from './journey-store.js'
-import type { Journey } from './types.js'
+import type { Journey, CapturedEvent } from './types.js'
 
 function summarise(j: Journey) {
   return {
@@ -94,7 +94,7 @@ export function createMcpServer(): Server {
     if (name === 'merge_journeys') {
       const ids = (args as { ids: string[] }).ids ?? []
       const missing: string[] = []
-      const events: Array<Record<string, unknown>> = []
+      const events: Array<CapturedEvent & { journeyId: string }> = []
       for (const id of ids) {
         const j = getById(id)
         if (!j) { missing.push(id); continue }
@@ -102,7 +102,7 @@ export function createMcpServer(): Server {
           events.push({ ...e, journeyId: id })
         }
       }
-      events.sort((a, b) => (a.timestamp as number) - (b.timestamp as number))
+      events.sort((a, b) => a.timestamp - b.timestamp)
       return { content: [{ type: 'text', text: JSON.stringify({ missing, events }, null, 2) }] }
     }
     return { content: [{ type: 'text', text: `Unknown tool: ${name}` }] }
