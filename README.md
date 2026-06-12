@@ -8,7 +8,7 @@ Stop copy-pasting stack traces into Claude. Your browser can do that itself.
 
 ## Demo
 
-<video src="https://github.com/kmcheung12/janus/raw/refs/heads/main/demo.mp4" controls width="100%"></video>
+<video src="https://github.com/user-attachments/assets/c8d659cd-8827-429c-a4c5-610bba2647ee" controls width="100%"></video>
 
 > Dev workflow for [splendor](https://github.com/kmcheung12/splendor).
 
