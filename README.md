@@ -14,7 +14,7 @@ Browser extension that captures user sessions and generates LLM prompts from the
 
 ## Install the MCP server
 
-The MCP server is a local daemon that receives journey data from the extension over WebSocket and exposes it to Claude Code via MCP tools (`list_journeys`, `get_journey_by_id`, etc.).
+The MCP server is a local daemon that receives journey data from the extension over WebSocket and exposes it to Claude Code via four MCP tools: `list_journeys`, `get_journey_by_id`, `get_journeys_by_domain`, and `latest_journey`.
 
 ### 1. Build the server
 
