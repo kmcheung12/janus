@@ -83,7 +83,7 @@ The `janus` CLI wraps any command and streams its output as a journey to the MCP
 cd packages/janus-cli
 pnpm install --ignore-workspace
 pnpm build
-pnpm link --global
+npm link
 ```
 
 This makes `janus` available on your PATH.
