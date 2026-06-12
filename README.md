@@ -95,6 +95,7 @@ cd packages/janus-cli
 npm install
 npm start -- echo "hello"          # runs via tsx directly
 npm start -- -n 100 rails server   # with flags
+echo "hello"|npm start             # pipe mode
 ```
 
 Or from the repo root after installing tsx globally (`npm install -g tsx`):
