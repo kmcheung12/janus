@@ -67,13 +67,15 @@ async function main() {
             process.exit(1);
         }
         const child = spawn(cmd[0], cmd.slice(1), { stdio: ['inherit', 'pipe', 'pipe'] });
-        child.stdout?.on('data', (chunk) => {
-            process.stdout.write(chunk);
-            chunk.toString().split('\n').filter(Boolean).forEach(line => addLine(line, 'stdout'));
+        const rlOut = createInterface({ input: child.stdout, crlfDelay: Infinity });
+        rlOut.on('line', (line) => {
+            process.stdout.write(line + '\n');
+            addLine(line, 'stdout');
         });
-        child.stderr?.on('data', (chunk) => {
-            process.stderr.write(chunk);
-            chunk.toString().split('\n').filter(Boolean).forEach(line => addLine(line, 'stderr'));
+        const rlErr = createInterface({ input: child.stderr, crlfDelay: Infinity });
+        rlErr.on('line', (line) => {
+            process.stderr.write(line + '\n');
+            addLine(line, 'stderr');
         });
         child.on('error', (err) => {
             if (err.code === 'ENOENT') {

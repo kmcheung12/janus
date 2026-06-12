@@ -25,6 +25,7 @@ export class JanusWsClient {
   private reconnectTimer: NodeJS.Timeout | null = null
   private reconnectDelay = 1000
   private closed = false
+  private pendingStopped = false
 
   constructor(
     private readonly url: string,
@@ -44,6 +45,11 @@ export class JanusWsClient {
 
     this.ws.on('open', () => {
       this.reconnectDelay = 1000
+      if (this.pendingStopped) {
+        this.send({ type: 'recording_stopped', journeyId: this.journeyId })
+        this.ws?.close()
+        return
+      }
       this.sendSync()
     })
 
@@ -59,9 +65,18 @@ export class JanusWsClient {
   }
 
   sendStopped(): void {
-    this.send({ type: 'recording_stopped', journeyId: this.journeyId })
-    this.closed = true
-    this.ws?.close()
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.send({ type: 'recording_stopped', journeyId: this.journeyId })
+      this.closed = true
+      this.ws.close()
+    } else {
+      // Not connected — attempt one reconnect just to deliver the stopped message
+      this.pendingStopped = true
+      this.closed = false
+      this.connect()
+      this.closed = true  // prevent further reconnects if this attempt also fails
+    }
   }
 
   private send(msg: WsMessage): void {
