@@ -6,7 +6,44 @@ Most coding agents work from specs and diffs. They don't know what actually happ
 
 Stop copy-pasting stack traces into Claude. Your browser can do that itself.
 
+## Architecture
+
+```
+  Browser                Terminal
+┌──────────┐          ┌───────────┐
+│Extension │          │ janus cli │
+└────┬─────┘          └─────┬─────┘
+     │ WebSocket            │ WebSocket
+     │         ws://localhost:3457
+     │              │
+     └──────────────┘
+                    │
+             ┌──────▼──────┐
+             │  MCP server │
+             └──────┬──────┘
+                    │ SSE
+             ┌──────▼──────┐
+             │    Claude   │
+             └─────────────┘
+```
+
+**Extension** — works standalone without the MCP server. Captures interactions in the sidebar and lets you copy a formatted prompt directly. The MCP server adds ambient, queryable access for Claude.
+
+**`janus` CLI** — without the MCP server it's a no-op passthrough. The MCP server is required for CLI journeys to be queryable.
+
+---
+
+## Table of contents
+
+- [Install the extension](#install-the-extension)
+- [Install the MCP server](#install-the-mcp-server)
+- [Install the `janus` CLI](#install-the-janus-cli)
+
+---
+
 ## Install the extension
+
+> Run from the **repo root** (`/path/to/janus`)
 
 **Chrome:**
 1. `npm install && npm run build`
@@ -18,9 +55,11 @@ Stop copy-pasting stack traces into Claude. Your browser can do that itself.
 
 ## Install the MCP server
 
-The MCP server is a local daemon that receives journey data from the extension over WebSocket and exposes it to Claude Code via four MCP tools: `list_journeys`, `get_journey_by_id`, `get_journeys_by_domain`, and `latest_journey`.
+The MCP server is a local daemon that receives journey data from the extension and `janus` CLI over WebSocket, and exposes it to Claude Code via four MCP tools: `list_journeys`, `get_journey_by_id`, `get_journeys_by_domain`, and `latest_journey`.
 
 ### 1. Build the server
+
+> Run from **`packages/mcp-server`**
 
 ```bash
 cd packages/mcp-server
@@ -32,19 +71,19 @@ This compiles TypeScript to `packages/mcp-server/dist/`.
 
 ### 2. Start the daemon
 
-Run this in a terminal (keep it running while using Claude Code):
+> Run from anywhere — keep this terminal open while using Claude Code
 
 ```bash
 node /path/to/janus/packages/mcp-server/dist/index.js
 ```
 
 The server listens on two ports:
-- `3456` — MCP SSE endpoint (`http://localhost:3456/sse`)
-- `3457` — WebSocket endpoint for the extension (`ws://localhost:3457`)
+- `3456` — MCP SSE endpoint (`http://localhost:3456/sse`) — Claude talks here
+- `3457` — WebSocket endpoint (`ws://localhost:3457`) — extension and CLI talk here
 
 ### 3. Register with Claude Code
 
-Add a `.mcp.json` to the root of **the project you want to use Janus in**:
+> Run from the **root of the project you want to use Janus in** (not the Janus repo)
 
 ```bash
 cat > .mcp.json << 'EOF'
@@ -79,6 +118,8 @@ The `janus` CLI wraps any command and streams its output as a journey to the MCP
 
 ### 1. Build and install
 
+> Run from **`packages/janus-cli`**
+
 ```bash
 cd packages/janus-cli
 npm install
@@ -90,21 +131,24 @@ This makes `janus` available on your PATH.
 
 ### Development (no build step)
 
+> Run from **`packages/janus-cli`**
+
 ```bash
-cd packages/janus-cli
 npm install
 npm start -- echo "hello"          # runs via tsx directly
 npm start -- -n 100 rails server   # with flags
 echo "hello" | npm start           # pipe mode
 ```
 
-Or from the repo root after installing tsx globally (`npm install -g tsx`):
+Or from anywhere after installing tsx globally (`npm install -g tsx`):
 
 ```bash
-tsx packages/janus-cli/src/index.ts echo "hello"
+tsx /path/to/janus/packages/janus-cli/src/index.ts echo "hello"
 ```
 
 ### 2. Use it
+
+> Run from anywhere
 
 ```bash
 # Wrap a command — captures stdout and stderr separately
@@ -118,9 +162,11 @@ janus -n 100 rails server
 long_running_command | grep ERROR | janus -n 50
 ```
 
-Janus prints the journey ID to stderr on start:
+Janus prints the journey ID to stderr on start and again on exit:
 
 ```
+[janus] journey: a1b2c3
+...
 [janus] journey: a1b2c3
 ```
 
@@ -133,6 +179,8 @@ Use that ID with `get_journey_by_id` or combine multiple journeys with `merge_jo
 - `janus` exits with the wrapped command's exit code
 
 ## Development
+
+> Run from the **repo root** (`/path/to/janus`)
 
 ```bash
 npm run dev          # extension hot-reload (Chrome)
