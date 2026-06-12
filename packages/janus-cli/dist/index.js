@@ -57,6 +57,7 @@ async function main() {
         rl.on('close', () => {
             status = 'stopped';
             client.sendStopped();
+            process.stderr.write(`[janus] journey: ${journeyId}\n`);
         });
         // Set title from first line after 1s fallback
         setTimeout(() => { if (!title)
@@ -89,6 +90,7 @@ async function main() {
         child.on('close', (code) => {
             status = 'stopped';
             client.sendStopped();
+            process.stderr.write(`[janus] journey: ${journeyId}\n`);
             setTimeout(() => process.exit(code ?? 0), 200);
         });
     }
