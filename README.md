@@ -14,9 +14,9 @@ Stop copy-pasting stack traces into Claude. Your browser can do that itself.
 │Extension │          │ janus cli │
 └────┬─────┘          └─────┬─────┘
      │ WebSocket            │ WebSocket
-     │         ws://localhost:3457
-     │              │
-     └──────────────┘
+     │ ws://localhost:3457  │ 
+     │                      │
+     └──────────────────────┘
                     │
              ┌──────▼──────┐
              │  MCP server │
