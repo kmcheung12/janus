@@ -9,11 +9,11 @@ Stop copy-pasting stack traces into Claude. Your browser can do that itself.
 ## Install the extension
 
 **Chrome:**
-1. `pnpm install && pnpm build`
+1. `npm install && npm run build`
 2. Open `chrome://extensions`, enable Developer Mode, click "Load unpacked", select `output/chrome-mv3/`
 
 **Firefox:**
-1. `pnpm install && pnpm build:firefox`
+1. `npm install && npm run build:firefox`
 2. Open `about:debugging#/runtime/this-firefox`, click "Load Temporary Add-on", select any file inside `output/firefox-mv2/`
 
 ## Install the MCP server
@@ -24,8 +24,8 @@ The MCP server is a local daemon that receives journey data from the extension o
 
 ```bash
 cd packages/mcp-server
-pnpm install
-pnpm build
+npm install
+npm run build
 ```
 
 This compiles TypeScript to `packages/mcp-server/dist/`.
@@ -95,7 +95,7 @@ cd packages/janus-cli
 npm install
 npm start -- echo "hello"          # runs via tsx directly
 npm start -- -n 100 rails server   # with flags
-echo "hello"|npm start             # pipe mode
+echo "hello" | npm start           # pipe mode
 ```
 
 Or from the repo root after installing tsx globally (`npm install -g tsx`):
@@ -135,7 +135,7 @@ Use that ID with `get_journey_by_id` or combine multiple journeys with `merge_jo
 ## Development
 
 ```bash
-pnpm dev          # extension hot-reload (Chrome)
-pnpm dev:firefox  # extension hot-reload (Firefox)
-pnpm test         # run tests
+npm run dev          # extension hot-reload (Chrome)
+npm run dev:firefox  # extension hot-reload (Firefox)
+npm test             # run tests
 ```
