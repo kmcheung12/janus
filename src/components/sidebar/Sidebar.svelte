@@ -17,7 +17,7 @@
   } = $props()
 
   let events = $state<CapturedEvent[]>(getEvents())
-  let journeyId = $state<string | null>(initialJourneyId)
+  let journeyId = $state<string | null>(untrack(() => initialJourneyId))
 
   onMount(() => {
     onPickingRef?.(() => { mode = 'picking' })

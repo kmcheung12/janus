@@ -28,7 +28,7 @@ export const CAPTURE_CONFIG_LABELS: Record<keyof CaptureConfig, string> = {
 
 const STORAGE_KEY = 'janus_capture_config'
 
-const DEFAULTS: CaptureConfig = {
+export const DEFAULTS: CaptureConfig = {
   click: true,
   keyboard: true,
   keyboard_keystrokes: false,
