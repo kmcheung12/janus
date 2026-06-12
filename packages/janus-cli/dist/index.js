@@ -40,6 +40,7 @@ async function main() {
     let status = 'recording';
     const client = new JanusWsClient('ws://localhost:3457', journeyId, () => ({ startTime, startUrl: '', tabTitle: title || 'cli', domain: 'cli', status }), () => buffer.toArray());
     client.connect();
+    await client.waitForOpen(2000);
     process.stderr.write(`[janus] journey: ${journeyId}\n`);
     function addLine(line, stream) {
         if (!title && isPipe)

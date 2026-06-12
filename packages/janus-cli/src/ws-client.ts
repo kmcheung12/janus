@@ -26,6 +26,7 @@ export class JanusWsClient {
   private reconnectDelay = 1000
   private closed = false
   private pendingStopped = false
+  private openCallbacks: Array<() => void> = []
 
   constructor(
     private readonly url: string,
@@ -45,6 +46,8 @@ export class JanusWsClient {
 
     this.ws.on('open', () => {
       this.reconnectDelay = 1000
+      const cbs = this.openCallbacks.splice(0)
+      cbs.forEach(cb => cb())
       if (this.pendingStopped) {
         this.send({ type: 'recording_stopped', journeyId: this.journeyId })
         this.ws?.close()
@@ -57,6 +60,18 @@ export class JanusWsClient {
 
     this.ws.on('close', () => {
       if (!this.closed) this.scheduleReconnect()
+    })
+  }
+
+  waitForOpen(timeoutMs = 2000): Promise<void> {
+    return new Promise((resolve) => {
+      if (this.ws?.readyState === WebSocket.OPEN) { resolve(); return }
+      const cb = () => resolve()
+      this.openCallbacks.push(cb)
+      setTimeout(() => {
+        this.openCallbacks = this.openCallbacks.filter(c => c !== cb)
+        resolve() // resolve anyway — command runs even if MCP is unreachable
+      }, timeoutMs)
     })
   }
 

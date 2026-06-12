@@ -52,6 +52,7 @@ async function main() {
     () => buffer.toArray(),
   )
   client.connect()
+  await client.waitForOpen(2000)
 
   process.stderr.write(`[janus] journey: ${journeyId}\n`)
 
