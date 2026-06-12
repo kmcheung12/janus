@@ -4,10 +4,16 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@janus/cli': 'link:'
+
 importers:
 
   .:
     dependencies:
+      '@janus/cli':
+        specifier: 'link:'
+        version: 'link:'
       ws:
         specifier: ^8.18.0
         version: 8.21.0
