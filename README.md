@@ -81,12 +81,27 @@ The `janus` CLI wraps any command and streams its output as a journey to the MCP
 
 ```bash
 cd packages/janus-cli
-pnpm install --ignore-workspace
-pnpm build
-pnpm link . --global
+npm install
+npm run build
+npm link
 ```
 
 This makes `janus` available on your PATH.
+
+### Development (no build step)
+
+```bash
+cd packages/janus-cli
+npm install
+npm start -- echo "hello"          # runs via tsx directly
+npm start -- -n 100 rails server   # with flags
+```
+
+Or from the repo root after installing tsx globally (`npm install -g tsx`):
+
+```bash
+tsx packages/janus-cli/src/index.ts echo "hello"
+```
 
 ### 2. Use it
 
