@@ -1,10 +1,74 @@
-# WXT + Svelte
+# Janus
 
-This template should help get you started developing with Svelte in WXT.
+Browser extension that captures user sessions and generates LLM prompts from them.
 
-## Recommended IDE Setup
+## Install the extension
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode).
-  To load the extension in Chrome:
-  1. npm run build → builds to dist/
-  2. Open chrome://extensions, enable Developer Mode, click "Load unpacked", select dist/chrome-mv3/
+**Chrome:**
+1. `pnpm install && pnpm build`
+2. Open `chrome://extensions`, enable Developer Mode, click "Load unpacked", select `output/chrome-mv3/`
+
+**Firefox:**
+1. `pnpm install && pnpm build:firefox`
+2. Open `about:debugging#/runtime/this-firefox`, click "Load Temporary Add-on", select any file inside `output/firefox-mv2/`
+
+## Install the MCP server
+
+The MCP server is a local daemon that receives journey data from the extension over WebSocket and exposes it to Claude Code via MCP tools (`list_journeys`, `get_journey_by_id`, etc.).
+
+### 1. Build the server
+
+```bash
+cd packages/mcp-server
+pnpm install
+pnpm build
+```
+
+This compiles TypeScript to `packages/mcp-server/dist/`.
+
+### 2. Start the daemon
+
+Run this in a terminal (keep it running while using Claude Code):
+
+```bash
+node /path/to/janus/packages/mcp-server/dist/index.js
+```
+
+The server listens on two ports:
+- `3456` — MCP SSE endpoint (`http://localhost:3456/sse`)
+- `3457` — WebSocket endpoint for the extension (`ws://localhost:3457`)
+
+### 3. Register with Claude Code
+
+The repo includes a `.mcp.json` that registers the server automatically when you open Claude Code from this directory:
+
+```json
+{
+  "mcpServers": {
+    "janus": {
+      "type": "sse",
+      "url": "http://localhost:3456/sse"
+    }
+  }
+}
+```
+
+To register globally instead (available in all Claude Code sessions), add the same block to `~/.claude/settings.json` under `"mcpServers"`.
+
+### 4. Verify
+
+In Claude Code, the `mcp__janus__list_journeys` tool should be available. Start a recording in the extension, then call `list_journeys` — the journey should appear.
+
+### Notes
+
+- The daemon must be running **before** Claude Code connects. If you start it after, restart Claude Code or reconnect the MCP server.
+- Journey data is in-memory only — it is lost when the daemon restarts. The extension will resync the active recording on reconnect, but stopped journeys are gone.
+- Attached files are written to `$TMPDIR/janus-mcp/<journeyId>/` and survive daemon restarts at the filesystem level, but the in-memory journey record referencing them does not.
+
+## Development
+
+```bash
+pnpm dev          # extension hot-reload (Chrome)
+pnpm dev:firefox  # extension hot-reload (Firefox)
+pnpm test         # run tests
+```
