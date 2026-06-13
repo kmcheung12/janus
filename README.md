@@ -12,11 +12,6 @@ No more copy-pasting interaction traces into Claude. Your browser and terminal c
 
 > Dev workflow for [splendor](https://github.com/kmcheung12/splendor).
 
-## Demo
-
-<video src="https://github.com/user-attachments/assets/c8d659cd-8827-429c-a4c5-610bba2647ee" controls width="100%"></video>
-
-> Dev workflow for [splendor](https://github.com/kmcheung12/splendor).
 
 ## Architecture
 
@@ -83,15 +78,15 @@ This compiles TypeScript to `packages/mcp-server/dist/`.
 
 ### 2. Start the daemon
 
-> Run from anywhere — keep this terminal open while using Claude Code
+> Run from anywhere - keep this terminal open while using Claude Code
 
 ```bash
 node /path/to/janus/packages/mcp-server/dist/index.js
 ```
 
 The server listens on two ports:
-- `3456` — MCP SSE endpoint (`http://localhost:3456/sse`) — Claude talks here
-- `3457` — WebSocket endpoint (`ws://localhost:3457`) — extension and CLI talk here
+- `3456` - MCP SSE endpoint (`http://localhost:3456/sse`) - Claude talks here
+- `3457` - WebSocket endpoint (`ws://localhost:3457`) - extension and CLI talk here
 
 ### 3. Register with Claude Code
 
@@ -116,12 +111,12 @@ To register globally instead (available in all projects), add the same block to 
 
 ### 4. Verify
 
-In Claude Code, the `mcp__janus__list_journeys` tool should be available. Start a recording in the extension, then call `list_journeys` — the journey should appear.
+In Claude Code, the `mcp__janus__list_journeys` tool should be available. Start a recording in the extension, then call `list_journeys` - the journey should appear.
 
 ### Notes
 
 - The daemon must be running **before** Claude Code connects. If you start it after, restart Claude Code or reconnect the MCP server.
-- Journey data is in-memory only — it is lost when the daemon restarts. The extension will resync the active recording on reconnect, but stopped journeys are gone.
+- Journey data is in-memory only - it is lost when the daemon restarts. The extension will resync the active recording on reconnect, but stopped journeys are gone.
 - Attached files are written to `$TMPDIR/janus-mcp/<journeyId>/` and survive daemon restarts at the filesystem level, but the in-memory journey record referencing them does not.
 
 ## Install the `janus` CLI
@@ -163,14 +158,14 @@ tsx /path/to/janus/packages/janus-cli/src/index.ts echo "hello"
 > Run from anywhere
 
 ```bash
-# Wrap a command — captures stdout and stderr separately
+# Wrap a command - captures stdout and stderr separately
 janus npm run dev
 janus python server.py
 
-# Rolling window — keep only the last N lines (useful for chatty daemons)
+# Rolling window - keep only the last N lines (useful for chatty daemons)
 janus -n 100 rails server
 
-# Pipe mode — filter output before it reaches Janus
+# Pipe mode - filter output before it reaches Janus
 long_running_command | grep ERROR | janus -n 50
 ```
 
@@ -186,8 +181,8 @@ Use that ID with `get_journey_by_id` or combine multiple journeys with `merge_jo
 
 ### Notes
 
-- The MCP server must be running before you use `janus` — if it's not reachable, the command runs normally with no MCP side effect
-- Without `-n`, all output is buffered in memory — use `-n` for long-running processes
+- The MCP server must be running before you use `janus` - if it's not reachable, the command runs normally with no MCP side effect
+- Without `-n`, all output is buffered in memory - use `-n` for long-running processes
 - `janus` exits with the wrapped command's exit code
 
 ## Development
