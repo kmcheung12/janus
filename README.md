@@ -8,7 +8,7 @@ No more copy-pasting interaction traces into Claude. Your browser and terminal c
 
 ## Demo
 
-<video src="https://github.com/kmcheung12/janus/raw/refs/heads/main/demo.mp4" controls width="100%"></video>
+<video src="https://github.com/user-attachments/assets/c956bf30-9810-4a03-9030-65a5ce0cfffc" controls width="100%"></video>
 
 > Dev workflow for [splendor](https://github.com/kmcheung12/splendor).
 
