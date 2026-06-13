@@ -1,10 +1,16 @@
 # Janus
 
-Software development isn't a pipeline from idea to product. A product is what generates the next idea — what broke, what confused users, what worked better than expected. Janus closes that loop.
+Software development isn't a pipeline from idea to product. A product is what generates the next idea - what broke, what confused users, what worked better than expected. Janus closes that loop.
 
-Most coding agents work from specs and diffs. They don't know what actually happened in the browser. Janus captures real sessions — interactions, errors, network calls — and pipes them directly into Claude, so your agent starts from what's true instead of what's assumed.
+Most coding agents work from specs and diffs. They don't know what actually happened in the browser. Janus captures real sessions - interactions, errors, network calls - and pipes them directly into Claude, so your agent starts from what's true instead of what's assumed.
 
-Stop copy-pasting stack traces into Claude. Your browser can do that itself.
+No more copy-pasting interaction traces into Claude. Your browser and terminal can do that itself.
+
+## Demo
+
+<video src="https://github.com/kmcheung12/janus/raw/refs/heads/main/demo.mp4" controls width="100%"></video>
+
+> Dev workflow for [splendor](https://github.com/kmcheung12/splendor).
 
 ## Demo
 
@@ -33,9 +39,9 @@ Stop copy-pasting stack traces into Claude. Your browser can do that itself.
              └─────────────┘
 ```
 
-**Extension** — works standalone without the MCP server. Captures interactions in the sidebar and lets you copy a formatted prompt directly. The MCP server adds ambient, queryable access for Claude.
+**Extension** - works standalone without the MCP server. Captures interactions in the sidebar and lets you copy a formatted prompt directly. The MCP server adds ambient, queryable access for Claude.
 
-**`janus` CLI** — without the MCP server it's a no-op passthrough. The MCP server is required for CLI journeys to be queryable.
+**`janus` CLI** - without the MCP server it's a no-op passthrough. The MCP server is required for CLI journeys to be queryable.
 
 ---
 
