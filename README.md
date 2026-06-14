@@ -86,6 +86,7 @@ node /path/to/janus/packages/mcp-server/dist/index.js
 
 The server listens on two ports:
 - `3456` - MCP SSE endpoint (`http://localhost:3456/sse`) - Claude talks here
+  - streamable http endpoint (`http://localhost:3456/mcp`) - OpenCode talks here
 - `3457` - WebSocket endpoint (`ws://localhost:3457`) - extension and CLI talk here
 
 ### 3a. Register with Claude Code
@@ -126,7 +127,11 @@ To register globally with OpenCode, add to ~/.config/opencode/config.json
 
 ### 4. Verify
 
-In Claude Code, the `mcp__janus__list_journeys` tool should be available. Start a recording in the extension, then call `list_journeys` - the journey should appear.
+In Claude Code, the `mcp__janus__list_journeys` tool should be available. Type `/mcp`, you should see janus connected. 
+
+In OpenCode, use `/mcps` to see available mcps.
+
+Start a recording in the extension, or wrap a command line call with `janus {cmd}`, then call `list_journeys` - the journey should appear.
 
 ### Notes
 
