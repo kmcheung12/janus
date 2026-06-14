@@ -147,6 +147,7 @@ export default defineContentScript({
         target: sidebarHost,
         props: {
           initialMode,
+          initialJourneyId: currentJourneyId,
           onClose: closeSidebar,
           onPickingRef: (fn) => { enterPickingMode = fn },
           onSidebarRef: (fn) => { enterEventsMode = fn },
@@ -154,7 +155,6 @@ export default defineContentScript({
           onJourneyIdRef: (fn: (id: string | null) => void) => { updateSidebarJourneyId = fn },
         },
       })
-      updateSidebarJourneyId?.(currentJourneyId)
 
       browser.runtime.sendMessage({ type: 'JANUS_SIDEBAR_OPENED' }).catch(() => {})
     }
@@ -196,9 +196,6 @@ export default defineContentScript({
             id: uuid(), type: 'navigation', timestamp: Date.now(),
             url: window.location.href, title: document.title,
           })
-        } else {
-          currentJourneyId = null
-          updateSidebarJourneyId?.(null)
         }
         return
       }
