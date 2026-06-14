@@ -88,7 +88,7 @@ The server listens on two ports:
 - `3456` - MCP SSE endpoint (`http://localhost:3456/sse`) - Claude talks here
 - `3457` - WebSocket endpoint (`ws://localhost:3457`) - extension and CLI talk here
 
-### 3. Register with Claude Code
+### 3a. Register with Claude Code
 
 > Run from the **root of the project you want to use Janus in** (not the Janus repo)
 
@@ -105,9 +105,24 @@ cat > .mcp.json << 'EOF'
 EOF
 ```
 
+### 3b. Register with OpenCode
+
+To configure Janus per project, add to opencode.json in project root:
+```json
+  {
+    "mcp": {
+      "janus": {
+        "type": "remote",
+        "url": "http://localhost:3456/mcp"
+      }
+    }
+  }
+```
+
 Claude Code picks this up automatically when you open that project.
 
 To register globally instead (available in all projects), add the same block to `~/.claude/settings.json` under `"mcpServers"`.
+To register globally with OpenCode, add to ~/.config/opencode/config.json
 
 ### 4. Verify
 
