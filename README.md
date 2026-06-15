@@ -1,10 +1,12 @@
 # Janus
 
-Software development isn't a pipeline from idea to product. A product is what generates the next idea - what broke, what confused users, what worked better than expected. Janus closes that loop.
+Software development isn't a pipeline from idea to product. The product generates the next idea: what broke, what confused users, what worked better than expected. Janus closes that loop.
 
-Most coding agents work from specs and diffs. They don't know what actually happened in the browser. Janus captures real sessions - interactions, errors, network calls - and pipes them directly into Claude, so your agent starts from what's true instead of what's assumed.
+Coding agents can read your code, but they can't see how your application is behaving. When a bug appears or the UX falls short, developers become translators: reproducing issues, copying logs, describing browser behavior, and pasting everything into chat.
 
-No more copy-pasting interaction traces into Claude. Your browser and terminal can do that itself.
+Janus captures real sessions—user interactions, console errors, network requests, screenshots, and terminal output—and streams them directly to your coding agent. Instead of working from second-hand descriptions, your agent works from what was actually observed.
+
+Stop translating interactions into prompts. Let Janus observe them.
 
 ## Demo
 
