@@ -1,12 +1,8 @@
 # Janus
 
-Software development isn't a pipeline from idea to product. The product generates the next idea: what broke, what confused users, what worked better than expected. Janus closes that loop.
+Janus lets your coding agent observe what you observe while you're testing - without you having to describe it. Coding agents can read your code but they can't see your running application. When something looks wrong, developers become translators: reproducing issues, copying logs, describing browser behavior, pasting everything into chat.
 
-Coding agents can read your code, but they can't see how your application is behaving. When a bug appears or the UX falls short, developers become translators: reproducing issues, copying logs, describing browser behavior, and pasting everything into chat.
-
-Janus captures real sessions—user interactions, console errors, network requests, screenshots, and terminal output—and streams them directly to your coding agent. Instead of working from second-hand descriptions, your agent works from what was actually observed.
-
-Stop translating interactions into prompts. Let Janus observe them.
+Janus captures real sessions — interactions, console errors, network requests, screenshots, terminal output — and streams them directly to your agent. Your agent works from what was actually observed, not your description of it.
 
 ## Demo
 
