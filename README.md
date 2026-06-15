@@ -108,26 +108,53 @@ EOF
 
 ### 3b. Register with OpenCode
 
-To configure Janus per project, add to opencode.json in project root:
+> **Scope:** project or global
+
+To configure Janus per project, add to `opencode.json` in the project root:
 ```json
-  {
-    "mcp": {
-      "janus": {
-        "type": "remote",
-        "url": "http://localhost:3456/mcp"
-      }
+{
+  "mcp": {
+    "janus": {
+      "type": "remote",
+      "url": "http://localhost:3456/mcp"
     }
   }
+}
 ```
 
-Claude Code picks this up automatically when you open that project.
+To register globally, add the same block to `~/.config/opencode/config.json`.
 
-To register globally instead (available in all projects), add the same block to `~/.claude/settings.json` under `"mcpServers"`.
-To register globally with OpenCode, add to ~/.config/opencode/config.json
+### 3c. Register with Cursor
+
+> **Scope:** project or global — uses **SSE** transport (`/sse` endpoint)
+
+To configure per project, add to `.cursor/mcp.json` in the project root:
+```json
+{
+  "mcpServers": {
+    "janus": {
+      "url": "http://localhost:3456/sse"
+    }
+  }
+}
+```
+
+To register globally, add the same block to `~/.cursor/mcp.json`.
+
+### 3d. Register with Codex CLI
+
+> **Scope:** global only — uses **Streamable HTTP** transport (`/mcp` endpoint)
+
+Codex does not support SSE transport. Add to `~/.codex/config.yaml`:
+```yaml
+mcpServers:
+  janus:
+    url: "http://localhost:3456/mcp"
+```
 
 ### 4. Verify
 
-In Claude Code, the `mcp__janus__list_journeys` tool should be available. Type `/mcp`, you should see janus connected. 
+In Claude Code, the `mcp__janus__list_journeys` tool should be available. Type `/mcp`, you should see janus connected.
 
 In OpenCode, use `/mcps` to see available mcps.
 
@@ -135,7 +162,7 @@ Start a recording in the extension, or wrap a command line call with `janus {cmd
 
 ### Notes
 
-- The daemon must be running **before** Claude Code connects. If you start it after, restart Claude Code or reconnect the MCP server.
+- The daemon must be running **before** your coding agent connects. If you start it after, restart the agent or reconnect the MCP server.
 - Journey data is in-memory only - it is lost when the daemon restarts. The extension will resync the active recording on reconnect, but stopped journeys are gone.
 - Attached files are written to `$TMPDIR/janus-mcp/<journeyId>/` and survive daemon restarts at the filesystem level, but the in-memory journey record referencing them does not.
 
