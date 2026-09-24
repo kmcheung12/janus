@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { startWsServer, wireQueue } from './ws-server.js'

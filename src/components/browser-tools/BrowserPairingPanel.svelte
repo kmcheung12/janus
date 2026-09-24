@@ -30,10 +30,21 @@
   let copied = $state(false)
   let busy = $state(false)
   let confirmingRotate = $state(false)
+  /**
+   * Whether this credential has ever been accepted. Before it has, a rejection
+   * means "the daemon has not been provisioned yet" — not "revoked". Telling
+   * the user to pair again there is actively harmful: it mints a new token and
+   * invalidates the payload they are holding, which loops forever.
+   */
+  let everConnected = $state(false)
+  const awaitingProvision = $derived(
+    paired && !everConnected && (status.state === 'unauthorized' || status.state === 'unreachable'),
+  )
 
   const statusLabel = $derived(
     status.state === 'connected' ? 'Connected'
     : status.state === 'connecting' ? 'Connecting…'
+    : awaitingProvision ? 'Awaiting daemon'
     : status.state === 'unauthorized' ? 'Authentication failed'
     : status.state === 'unreachable' ? 'Daemon unreachable'
     : paired ? 'Awaiting daemon' : 'Not paired',
@@ -43,9 +54,13 @@
     const state = await browser.runtime.sendMessage({ type: 'JANUS_BT_GET_STATE' })
     status = state?.status ?? { state: 'idle' }
     paired = status.state !== 'idle'
+    if (status.state === 'connected') everConnected = true
 
     browser.runtime.onMessage.addListener((msg: { type: string; status?: Status }) => {
-      if (msg.type === 'JANUS_BT_STATUS' && msg.status) status = msg.status
+      if (msg.type === 'JANUS_BT_STATUS' && msg.status) {
+        status = msg.status
+        if (msg.status.state === 'connected') everConnected = true
+      }
     })
   })
 
@@ -87,6 +102,7 @@
       // Shown once. The stored copy stays in background-only storage.
       pairingPayload = JSON.stringify({ pairingId: config.pairingId, token: config.token })
       paired = true
+      everConnected = false
       confirmingRotate = false
     } finally {
       busy = false
@@ -151,7 +167,14 @@
     <span>{statusLabel}</span>
   </div>
 
-  {#if status.state === 'unauthorized'}
+  {#if awaitingProvision}
+    <p class="desc">
+      Not provisioned yet. The daemon refuses a credential it has never been
+      told about, which is expected until you run the command below. Do not
+      pair again — that mints a new credential and invalidates the one you
+      just copied.
+    </p>
+  {:else if status.state === 'unauthorized'}
     <p class="error">
       The daemon rejected this credential. It may have been revoked or replaced.
       Pair again and re-provision it.
@@ -166,11 +189,15 @@
   {#if pairingPayload}
     <div class="handoff">
       <p class="desc">
-        Provision this browser with the local daemon. The secret is shown once
-        and is read from stdin, so it never appears in your shell history.
+        <strong>Step 1.</strong> Copy this, then paste it into the daemon. The
+        secret is shown once and is read from stdin, so it never appears in
+        your shell history.
       </p>
-      <code>janus-mcp pair --stdin</code>
+      <code>pbpaste | janus-mcp pair --stdin</code>
       <button onclick={copyPayload}>{copied ? 'Copied' : 'Copy pairing JSON'}</button>
+      <p class="desc step2">
+        <strong>Step 2.</strong> Then click Retry connection below.
+      </p>
     </div>
   {/if}
 
@@ -215,6 +242,7 @@
   .status[data-state='unauthorized'] .dot { background: #e74c3c; }
   .handoff { background: #f6f6f6; border-radius: 6px; padding: 12px; margin-bottom: 12px; }
   .handoff code { display: block; font-size: 12px; margin-bottom: 8px; }
+  .handoff .step2 { margin: 8px 0 0; }
   .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   button { padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background: #fff; cursor: pointer; font-size: 12px; }
   button.primary { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
