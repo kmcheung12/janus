@@ -161,8 +161,10 @@ import { expandFields, formatEvents } from '../../src/lib/prompts/engine'
 
 describe('defaultNoteTemplate', () => {
   it('click', () => {
+    // The selector is part of the template on purpose: a label and coordinates
+    // alone do not tell an agent which element was clicked.
     expect(defaultNoteTemplate({ id: '', type: 'click', timestamp: 0, selector: '', label: '', count: 1, x: 0, y: 0 }))
-      .toBe('Clicked {label} at ({x}, {y})')
+      .toBe('Clicked {label} at ({x}, {y}) on element {selector}')
   })
 
   it('navigation', () => {
@@ -219,7 +221,7 @@ describe('defaultNoteTemplate', () => {
 describe('formatEvents', () => {
   it('formats click using default template', () => {
     const e: CapturedEvent = { id: '1', type: 'click', timestamp: 0, selector: '#btn', label: 'Pay Now', count: 1, x: 854, y: 101 }
-    expect(formatEvents([e])).toBe('1. Clicked Pay Now at (854, 101)')
+    expect(formatEvents([e])).toBe('1. Clicked Pay Now at (854, 101) on element #btn')
   })
 
   it('uses note instead of default template when present', () => {
@@ -232,7 +234,7 @@ describe('formatEvents', () => {
     const click: CapturedEvent = { id: '2', type: 'click', timestamp: 1, selector: '#btn', label: 'Go', count: 1, x: 0, y: 0 }
     const result = formatEvents([pick, click])
     expect(result).not.toContain('element_pick')
-    expect(result).toBe('1. Clicked Go at (0, 0)')
+    expect(result).toBe('1. Clicked Go at (0, 0) on element #btn')
   })
 
   it('includes element_pick when it has a note', () => {
