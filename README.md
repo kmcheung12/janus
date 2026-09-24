@@ -40,8 +40,8 @@ Janus does two separate things over one daemon:
   `latest_journey`, `merge_journeys`. No pairing needed.
 - **Act** — the browser command bridge. An agent discovers and invokes tools on
   pages you explicitly enable: a site's own [WebMCP](https://webmachinelearning.github.io/webmcp/)
-  tools where it has them, or tools Janus generates where it doesn't. Requires
-  pairing, and is off by default.
+  tools where it has them, or tools Janus generates automatically where it
+  doesn't. Enabling a page is always explicit and off by default.
 
 The extension also works standalone: capture in the sidebar and copy a prompt.
 The `janus` CLI without the daemon is a no-op passthrough.
@@ -52,8 +52,9 @@ The `janus` CLI without the daemon is a no-op passthrough.
 
 - [Build everything](#build-everything)
 - [Run the daemon](#run-the-daemon)
-- [Observe: query journeys](#observe-query-journeys)
-- [Act: pair a browser and invoke page tools](#act-pair-a-browser-and-invoke-page-tools)
+- [Connect](#connect)
+- [What tools a page gets](#what-tools-a-page-gets)
+- [Manual pairing](#manual-pairing)
 - [`janus-mcp` command reference](#janus-mcp-command-reference)
 - [Install the `janus` CLI](#install-the-janus-cli)
 
@@ -98,46 +99,56 @@ npm link               # puts `janus-mcp` on your PATH
 
 ## Run the daemon
 
-> Keep this terminal open. Admin commands go in a second terminal.
+> Keep this terminal open.
 
 ```bash
 janus-mcp
 ```
 
-It prints a readiness line with its URLs and listens on:
+It prints its URLs and listens on:
 
 - `3456` — MCP, Streamable HTTP at `/mcp` and legacy SSE at `/sse`
 - `3457` — WebSocket for the extension and the `janus` CLI
 
 Both bind to loopback only. Options: `--mcp-port`, `--ws-port`, `--bind`,
-`--data-dir` (default `~/.janus`). Port `0` picks an ephemeral port.
+`--data-dir` (default `~/.janus`), `--no-auto-pair`. Port `0` picks an
+ephemeral port.
 
 ---
 
-## Observe: query journeys
+## Connect
 
-Journey capture itself needs no pairing, but the MCP endpoint always requires a
-bearer token.
+### 1. Pair, in one click
 
-> **Rough edge:** client tokens are scoped to a browser pairing, so
-> `client create` needs a `--pairing-id` that exists. Today that means even a
-> journeys-only setup has to pair a browser first ([step 1](#1-pair-the-browser)).
-> Scoping was designed for execution, and querying journeys inherited it.
+Extension **Settings → Browser connection → Pair with Janus**.
 
-Once you have a token:
+The extension asks the daemon to enrol it, and the daemon issues the
+credential. The panel then shows a ready-to-run command with an agent token
+already minted:
 
 ```bash
 claude mcp add --transport http janus http://127.0.0.1:3456/mcp \
   --header "Authorization: Bearer <token>"
 ```
 
-Then `/mcp` in Claude Code should show janus connected, and `list_journeys`
-should answer.
+Run it once. That is the whole setup.
+
+> **How this is bounded.** The daemon only enrols a browser while *no* browser
+> is paired. After the first one, the endpoint closes permanently and pairing
+> goes back through the CLI. `--no-auto-pair` disables it entirely.
+>
+> The trade is deliberate: a local process could race the browser to claim
+> first enrolment. It is loopback-only, single-use, and the daemon prints
+> exactly what it issued. A control that gets routed around is worth less than
+> a weaker one that gets used — but if you want the strict path, see
+> [manual pairing](#manual-pairing).
+
+Verify with `/mcp` in Claude Code, then ask it to call `list_journeys`.
 
 <details>
 <summary>Other clients</summary>
 
-**OpenCode** — `opencode.json` (project) or `~/.config/opencode/config.json`:
+**OpenCode** — `opencode.json` or `~/.config/opencode/config.json`:
 ```json
 {
   "mcp": {
@@ -172,89 +183,102 @@ mcpServers:
 ```
 </details>
 
-Start a recording in the extension, or wrap a command with `janus {cmd}`, then
-call `list_journeys`.
+At this point journeys work: record in the extension or wrap a command with
+`janus {cmd}`, then call `list_journeys`.
 
----
-
-## Act: pair a browser and invoke page tools
-
-Execution turns Janus from watching a session into driving one, so it is gated
-behind an explicit pairing and per-page enablement.
-
-### 1. Pair the browser
-
-Extension **Settings → Browser connection → Pair with Janus**.
-
-The extension generates a credential and immediately tries to connect. The
-daemon refuses it — it has never been told about it — and the panel shows
-**Awaiting daemon**. That is expected. Do **not** pair again; that mints a new
-credential and invalidates the one on screen.
-
-Click **Copy pairing JSON**, then in your second terminal:
-
-```bash
-pbpaste | janus-mcp pair --stdin        # macOS
-# wl-paste | janus-mcp pair --stdin     # Linux/Wayland
-```
-
-Back in settings, click **Retry connection**. Status becomes **Connected**.
-
-The secret is only ever passed on stdin, so it never reaches your shell history
-or `ps`. The daemon stores a SHA-256 of it, never the token itself.
-
-### 2. Mint a token for your agent
-
-```bash
-janus-mcp list                                   # find your pairing ID
-janus-mcp client create --pairing-id <id> --label "claude code"
-```
-
-Printed once. Add `--author` to allow tool authoring (see below).
-
-Register it with `claude mcp add` exactly as above. Scope notes:
-
-- `--scope local` (default) writes `~/.claude.json`, mode `0600`, not in git
-- avoid `--scope project` — that writes `.mcp.json`, and the token would be
-  committed
-
-### 3. Enable a page
+### 2. Enable a page
 
 Open the page, then the Janus popup → **Enable tools on this page**.
 
-- Off by default, one page at a time, and switching tabs never moves it
-- Navigating away invalidates the page handle; re-enable on the new document
-- The popup reports whether native WebMCP is available on that page
+- Off by default. Enabling is what turns Janus from watching a session into
+  driving one, so it is always explicit.
+- Several tabs can be enabled at once; each is its own page handle. Calls to
+  different pages run concurrently, calls to one page queue.
+- Navigating away invalidates that page handle — re-enable on the new document.
 
-### 4. Invoke
+### 3. Invoke
 
 Each enabled action is published as its own MCP tool named
-`web__<page>__<tool>__<id>`, carrying the site's real input schema. Ask your
-agent to `list_pages`, then call one.
+`web__<page>__<tool>__<id>`, carrying a real input schema. Ask your agent to
+`list_pages`, then call one.
 
 Names stay stable across revisions; the expected revision travels as a required
 argument, so a call built against a stale schema is rejected with
 `STALE_REVISION` rather than silently running.
 
-### Native WebMCP (Chrome)
+---
 
-For sites that ship their own tools, enable
-`chrome://flags/#enable-webmcp-testing` and relaunch. Without it
-`document.modelContext` is absent and only Janus-generated tools are available.
+## What tools a page gets
 
-Verified against <https://shopping-webmcp-demo.netlify.app/> on
-Chrome 153.0.8010.12 — 11 tools discovered and driven end to end. This is a
-flagged result, not an unflagged release claim.
+**If the site ships WebMCP**, its own tools are proxied through. They are always
+preferred — a site describes its actions better than anything we can infer.
 
-### Generating tools for sites without WebMCP
+Enable `chrome://flags/#enable-webmcp-testing` and relaunch Chrome, or
+`document.modelContext` is absent. Verified against
+<https://shopping-webmcp-demo.netlify.app/> on Chrome 153.0.8010.12: 11 tools
+discovered and driven end to end. That is a flagged result, not an unflagged
+release claim.
 
-With an `--author` token: capture a form on the enabled page, ask your agent to
-call `list_tool_drafts` / `get_tool_draft` / `submit_tool_definition`, then
-review and enable the result in **Settings → Saved tools**.
+**Otherwise Janus generates tools automatically**, with no authoring step and no
+model involved:
 
-The agent proposes a name, description, schema and which captured steps to
-keep. It cannot supply selectors, URLs or new steps — Janus copies those from
-the draft — and a submitted definition stays inactive until you enable it.
+| Tool | |
+| --- | --- |
+| `read_page()` | Title, headings, links and main text, with navigation stripped |
+| `find_text(query)` | Where a phrase appears, with the nearest link |
+| `list_forms()` | What is fillable on the page |
+
+These are read-only and publish the moment a page is enabled.
+
+**Form tools are separate.** They are derived automatically too, but publish only
+once you tick **Allow form tools** for that page, because submitting a form on a
+logged-in session is real authority. They are named from whatever the page says
+about itself — Hacker News's search box becomes `search(q)`, Wikipedia's becomes
+`search(search)`. Forms containing a password are skipped entirely, since
+submitting one without it can only fail.
+
+Bounds worth knowing: `read_page` caps at 8000 characters and reports
+`truncated: true` rather than silently cutting. For a long article, `find_text`
+is the better tool.
+
+### Authoring a better tool
+
+Automatic form tools are a floor, not a ceiling. With an authoring token you can
+have an agent write a proper one — parameter names, a description, result
+extraction — from a captured draft:
+
+```bash
+janus-mcp client create --pairing-id <id> --label authoring --author
+```
+
+The agent calls `list_tool_drafts` / `get_tool_draft` / `submit_tool_definition`.
+It proposes semantics only: it cannot supply selectors, URLs or new steps, and
+the result stays inactive until you enable it in **Settings → Saved tools**.
+
+---
+
+## Manual pairing
+
+If you disabled auto-pairing, or are re-pairing a browser:
+
+1. **Settings → Browser connection → Pair with Janus** (falls back automatically)
+2. **Copy pairing JSON**
+3. `pbpaste | janus-mcp pair --stdin`
+4. **Retry connection**
+
+The secret only ever travels on stdin, so it never reaches shell history or
+`ps`. The daemon stores a SHA-256 of it, never the token.
+
+Then mint an agent token:
+
+```bash
+janus-mcp list
+janus-mcp client create --pairing-id <id> --label "claude code"
+```
+
+Scope note: `claude mcp add --scope local` (the default) writes
+`~/.claude.json`, mode `0600`, outside git. Avoid `--scope project` — that
+writes `.mcp.json` and would commit the token.
 
 ---
 

@@ -233,6 +233,10 @@ function formLabel(form: HTMLFormElement, index: number): string {
     form.querySelector('legend')?.textContent,
     searchLike ? 'search' : '',
     form.getAttribute('name'),
+    // Older markup labels a form with a bare text node. Hacker News writes
+    // "Search:" directly inside the form — no label, aria-label or button — so
+    // without this its search box is named after its field, `q`.
+    leadingText(form),
     // A single-field form is named by that field.
     onlyFieldLabel(form),
     lastPathSegment(form.getAttribute('action')),
@@ -244,6 +248,20 @@ function formLabel(form: HTMLFormElement, index: number): string {
     if (cleaned && /[a-z]/i.test(cleaned) && !/^\d+$/.test(cleaned)) return cleaned
   }
   return `form ${index + 1}`
+}
+
+/**
+ * Text the form states about itself, before any control. Bounded to a short
+ * run so a form wrapping a page section cannot pull in its whole body.
+ */
+function leadingText(form: HTMLFormElement): string {
+  let text = ''
+  for (const node of form.childNodes) {
+    if (node.nodeType === Node.TEXT_NODE) text += node.textContent ?? ''
+    else if ((node as Element).tagName === 'LABEL') text += node.textContent ?? ''
+    else if (text.trim()) break // stop at the first control once we have something
+  }
+  return text.replace(/[:：]\s*$/, '').trim().slice(0, 40)
 }
 
 function onlyFieldLabel(form: HTMLFormElement): string {
