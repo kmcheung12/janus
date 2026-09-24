@@ -6,6 +6,15 @@ interface BaseEvent {
   timestamp: number
   note?: string
   excluded?: boolean
+  /**
+   * Who caused this event (§10). Absent on events recorded before provenance
+   * existed, which normalize to 'unknown' — absence is not evidence of a human
+   * action.
+   */
+  actor?: 'human' | 'janus' | 'page' | 'unknown'
+  /** Set when the event occurred during a Janus invocation. */
+  invocationId?: string
+  attributionEvidence?: 'synthesized' | 'agent_invoked_flag' | 'during_invocation'
 }
 
 export interface SessionEvent extends BaseEvent {

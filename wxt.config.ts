@@ -9,7 +9,7 @@ export default defineConfig({
     reloadCommand: 'Ctrl+Shift+R' // or false to disable
   },
   manifest: {
-    permissions: ['storage', 'tabs', 'scripting', 'webRequest'],
+    permissions: ['storage', 'tabs', 'scripting', 'webRequest', 'webNavigation'],
     browser_specific_settings: {
       gecko: {
         data_collection_permissions: {

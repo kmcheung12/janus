@@ -7,6 +7,10 @@ interface BaseEvent {
   timestamp: number
   note?: string
   excluded?: boolean
+  /** §10 provenance. Kept identical to the extension copy; see the drift test. */
+  actor?: 'human' | 'janus' | 'page' | 'unknown'
+  invocationId?: string
+  attributionEvidence?: 'synthesized' | 'agent_invoked_flag' | 'during_invocation'
 }
 
 export interface SessionEvent extends BaseEvent { type: 'session'; viewport: { width: number; height: number }; dpr: number; browser: string }

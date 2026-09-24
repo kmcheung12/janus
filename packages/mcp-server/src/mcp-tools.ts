@@ -3,6 +3,15 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 import type { Tool } from '@modelcontextprotocol/sdk/types.js'
 import { getById, getByDomain, getLatest, listAll } from './journey-store.js'
 import type { Journey, CapturedEvent } from './types.js'
+import type { ClientRecord } from './credentials.js'
+import { getPage } from './control/registry.js'
+import {
+  browserTools, callBrowserTool, listBrowserTools, listPages,
+  publishedToolsFor, toMcpTool, type InvokeArgs,
+} from './control/browser-tools.js'
+import {
+  authoringTools, getDraft, listDrafts, submitDefinition, type SubmitDeps,
+} from './control/drafts.js'
 
 function summarise(j: Journey) {
   return {
@@ -63,17 +72,71 @@ const TOOLS: Tool[] = [
   },
 ]
 
-export function createMcpServer(): Server {
+/**
+ * How a compiled definition reaches the owning extension for storage. Wired by
+ * the transport layer; defaults to refusing, so a misconfigured daemon reports
+ * a storage failure rather than claiming a definition was saved.
+ */
+let submitDeps: SubmitDeps = { store: async () => false }
+
+export function setSubmitDeps(deps: SubmitDeps): void {
+  submitDeps = deps
+}
+
+export function createMcpServer(principal: ClientRecord): Server {
   const server = new Server(
     { name: 'janus', version: '0.0.0' },
-    { capabilities: { tools: {} } },
+    // §8: listChanged is advertised because enabled pages publish and withdraw
+    // tools as the user navigates.
+    { capabilities: { tools: { listChanged: true } } },
   )
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }))
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    const published = publishedToolsFor(principal).map((p) => {
+      const page = getPage(p.pageId)
+      return toMcpTool(p, page?.descriptor.label ?? 'browser page')
+    })
+    // Authoring tools are only offered to a client that actually has the
+    // scope, so a read-only agent is not shown work it cannot do.
+    const authoring = principal.authoring ? authoringTools : []
+    return { tools: [...TOOLS, ...browserTools, ...authoring, ...published] }
+  })
 
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const { name, arguments: args = {} } = req.params
     const a = args as Record<string, string>
+
+    if (name === 'list_tool_drafts') return listDrafts(principal)
+    if (name === 'get_tool_draft') return getDraft(principal, a.draftId)
+    if (name === 'submit_tool_definition') {
+      const raw = args as unknown as Parameters<typeof submitDefinition>[1]
+      return submitDefinition(principal, raw, submitDeps)
+    }
+
+    if (name === 'list_pages') return listPages(principal)
+    if (name === 'list_page_tools') return listBrowserTools(principal, a.pageId)
+    if (name === 'call_page_tool') {
+      const raw = args as unknown as InvokeArgs
+      return callBrowserTool(principal, {
+        pageId: raw.pageId,
+        toolId: raw.toolId,
+        revision: raw.revision,
+        input: raw.input ?? {},
+      })
+    }
+
+    // Typed page tools carry their real business schema; the revision is a
+    // required argument so a stale caller fails before anything is dispatched.
+    const typed = publishedToolsFor(principal).find((p) => p.mcpName === name)
+    if (typed) {
+      const call = args as unknown as { revision?: number; input?: Record<string, never> }
+      return callBrowserTool(principal, {
+        pageId: typed.pageId,
+        toolId: typed.toolId,
+        revision: call.revision ?? -1,
+        input: call.input ?? {},
+      })
+    }
 
     if (name === 'list_journeys') {
       return { content: [{ type: 'text', text: JSON.stringify(listAll().map(summarise), null, 2) }] }

@@ -17,6 +17,10 @@ export function collapse(events: CapturedEvent[]): CapturedEvent[] {
 
 function canCollapse(a: CapturedEvent, b: CapturedEvent): boolean {
   if (a.type !== b.type) return false
+  // §10: collapsing must preserve actor and invocation boundaries, or a human
+  // click and an agent click become one indistinguishable entry.
+  if ((a.actor ?? 'unknown') !== (b.actor ?? 'unknown')) return false
+  if (a.invocationId !== b.invocationId) return false
   switch (a.type) {
     case 'click': {
       const ca = a as ClickEvent, cb = b as ClickEvent

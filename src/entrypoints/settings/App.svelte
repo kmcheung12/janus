@@ -2,6 +2,10 @@
   import { onMount } from 'svelte'
   import { loadCaptureConfig, saveCaptureConfig, CAPTURE_CONFIG_LABELS } from '../../lib/capture-config'
   import type { CaptureConfig } from '../../lib/capture-config'
+  import BrowserPairingPanel from '../../components/browser-tools/BrowserPairingPanel.svelte'
+  import ToolDraftReviewPanel from '../../components/browser-tools/ToolDraftReviewPanel.svelte'
+
+  let section = $state<'capture' | 'connection'>('capture')
 
   let config = $state<CaptureConfig>({
     click: true, keyboard: true, keyboard_keystrokes: false, navigation: true, api: true,
@@ -27,9 +31,24 @@
     <div class="sidebar-header">
       <span class="logo">Janus</span>
     </div>
-    <div class="nav-item active">Event capture</div>
+    <button class="nav-item" class:active={section === 'capture'} onclick={() => { section = 'capture' }}>
+      Event capture
+    </button>
+    <button class="nav-item" class:active={section === 'connection'} onclick={() => { section = 'connection' }}>
+      Browser connection
+    </button>
   </div>
 
+  {#if section === 'connection'}
+  <div class="main">
+    <div class="section-header">
+      <h2>Browser connection</h2>
+      <p class="desc">Pair this browser with the local Janus daemon so a coding agent can run tools on pages you enable.</p>
+    </div>
+    <BrowserPairingPanel />
+    <ToolDraftReviewPanel />
+  </div>
+  {:else}
   <div class="main">
     <div class="section-header">
       <h2>Event capture</h2>
@@ -58,6 +77,7 @@
       <p class="saved">Saved</p>
     {/if}
   </div>
+  {/if}
 </div>
 
 <style>
@@ -84,7 +104,7 @@
   .sidebar { width: 200px; border-right: 1px solid var(--janus-surface0); display: flex; flex-direction: column; flex-shrink: 0; }
   .sidebar-header { padding: 12px; border-bottom: 1px solid var(--janus-surface0); }
   .logo { font-weight: 700; color: var(--janus-mauve); font-size: 14px; }
-  .nav-item { padding: 10px 12px; font-size: 13px; color: var(--janus-subtext0); cursor: default; }
+  .nav-item { display: block; width: 100%; text-align: left; border: 0; background: none; font: inherit; padding: 10px 12px; font-size: 13px; color: var(--janus-subtext0); cursor: pointer; }
   .nav-item.active { background: var(--janus-surface0); color: var(--janus-mauve); }
   .main { flex: 1; padding: 24px; overflow-y: auto; }
   .section-header { margin-bottom: 16px; }

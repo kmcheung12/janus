@@ -1,0 +1,2166 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:janus:webmcp-contracts:v1",
+  "title": "Janus WebMCP v1 design contracts",
+  "description": "Normative design artifact. Select a named definition via a fragment; root validates a control message. Reject unknown properties and op/message variants.",
+  "$ref": "#/definitions/ControlMessage",
+  "definitions": {
+    "Id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,96}$"
+    },
+    "PageId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{32}$"
+    },
+    "Revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "ParameterName": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,47}$",
+      "not": {
+        "enum": [
+          "constructor",
+          "prototype",
+          "__proto__"
+        ]
+      }
+    },
+    "Json": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 262144
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Json"
+          },
+          "minItems": 0,
+          "maxItems": 1024
+        },
+        {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": {
+            "$ref": "#/definitions/Json"
+          }
+        }
+      ]
+    },
+    "Scalar": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 4096
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        }
+      ]
+    },
+    "JsonSchema": {
+      "type": "object",
+      "maxProperties": 128,
+      "additionalProperties": {
+        "$ref": "#/definitions/Json"
+      }
+    },
+    "ScalarSchema": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "string"
+            },
+            "description": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 512
+            },
+            "minLength": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4096
+            },
+            "maxLength": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4096
+            },
+            "enum": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 0,
+                "maxLength": 4096
+              },
+              "minItems": 1,
+              "maxItems": 100,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "enum": [
+                "number",
+                "integer"
+              ]
+            },
+            "description": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 512
+            },
+            "minimum": {
+              "type": "number"
+            },
+            "maximum": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "boolean"
+            },
+            "description": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 512
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "GeneratedInputSchema": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "object"
+        },
+        "properties": {
+          "type": "object",
+          "maxProperties": 16,
+          "additionalProperties": {
+            "$ref": "#/definitions/ScalarSchema"
+          },
+          "propertyNames": {
+            "$ref": "#/definitions/ParameterName"
+          }
+        },
+        "required": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ParameterName"
+          },
+          "minItems": 0,
+          "maxItems": 16,
+          "uniqueItems": true
+        },
+        "additionalProperties": {
+          "const": false
+        }
+      },
+      "required": [
+        "type",
+        "properties",
+        "required",
+        "additionalProperties"
+      ],
+      "additionalProperties": false
+    },
+    "ValueRef": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "literal"
+            },
+            "value": {
+              "$ref": "#/definitions/Scalar"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "slot"
+            },
+            "slotId": {
+              "$ref": "#/definitions/Id"
+            }
+          },
+          "required": [
+            "kind",
+            "slotId"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "JsonPointer": {
+      "type": "string",
+      "maxLength": 256,
+      "pattern": "^(?:/(?:[^~/]|~[01])*)*$"
+    },
+    "RequestValueMatch": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "location": {
+              "const": "query"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "expected": {
+              "$ref": "#/definitions/ValueRef"
+            }
+          },
+          "required": [
+            "location",
+            "key",
+            "expected"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "location": {
+              "const": "json_body"
+            },
+            "pointer": {
+              "$ref": "#/definitions/JsonPointer"
+            },
+            "expected": {
+              "$ref": "#/definitions/ValueRef"
+            }
+          },
+          "required": [
+            "location",
+            "pointer",
+            "expected"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "AuthoringBinding": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "control"
+            },
+            "id": {
+              "$ref": "#/definitions/Id"
+            },
+            "selector": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "control": {
+              "enum": [
+                "text",
+                "number",
+                "checkbox",
+                "select_one",
+                "button",
+                "form"
+              ]
+            },
+            "allowedValues": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 0,
+                "maxLength": 4096
+              },
+              "minItems": 1,
+              "maxItems": 100,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "selector",
+            "control"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "response"
+            },
+            "id": {
+              "$ref": "#/definitions/Id"
+            },
+            "origin": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            "pathname": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            "method": {
+              "enum": [
+                "GET",
+                "POST"
+              ]
+            },
+            "statuses": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 599
+              },
+              "minItems": 1,
+              "maxItems": 10,
+              "uniqueItems": true
+            },
+            "match": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/RequestValueMatch"
+              },
+              "minItems": 0,
+              "maxItems": 16
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "origin",
+            "pathname",
+            "method",
+            "statuses",
+            "match"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "dom_result"
+            },
+            "id": {
+              "$ref": "#/definitions/Id"
+            },
+            "targetId": {
+              "$ref": "#/definitions/Id"
+            },
+            "read": {
+              "enum": [
+                "text",
+                "value",
+                "checked"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "targetId",
+            "read"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "json_result"
+            },
+            "id": {
+              "$ref": "#/definitions/Id"
+            },
+            "observerStepId": {
+              "$ref": "#/definitions/Id"
+            },
+            "pointer": {
+              "$ref": "#/definitions/JsonPointer"
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "observerStepId",
+            "pointer"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "RecipeStep": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "set_field"
+            },
+            "id": {
+              "$ref": "#/definitions/Id"
+            },
+            "targetId": {
+              "$ref": "#/definitions/Id"
+            },
+            "value": {
+              "$ref": "#/definitions/ValueRef"
+            }
+          },
+          "required": [
+            "op",
+            "id",
+            "targetId",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "select_option"
+            },
+            "id": {
+              "$ref": "#/definitions/Id"
+            },
+            "targetId": {
+              "$ref": "#/definitions/Id"
+            },
+            "value": {
+              "$ref": "#/definitions/ValueRef"
+            }
+          },
+          "required": [
+            "op",
+            "id",
+            "targetId",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "click"
+            },
+            "id": {
+              "$ref": "#/definitions/Id"
+            },
+            "targetId": {
+              "$ref": "#/definitions/Id"
+            }
+          },
+          "required": [
+            "op",
+            "id",
+            "targetId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "submit_form"
+            },
+            "id": {
+              "$ref": "#/definitions/Id"
+            },
+            "targetId": {
+              "$ref": "#/definitions/Id"
+            }
+          },
+          "required": [
+            "op",
+            "id",
+            "targetId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "observe_response"
+            },
+            "id": {
+              "$ref": "#/definitions/Id"
+            },
+            "responseBindingId": {
+              "$ref": "#/definitions/Id"
+            }
+          },
+          "required": [
+            "op",
+            "id",
+            "responseBindingId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "await_condition"
+            },
+            "id": {
+              "$ref": "#/definitions/Id"
+            },
+            "timeoutMs": {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 10000
+            },
+            "condition": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "const": "dom"
+                    },
+                    "targetId": {
+                      "$ref": "#/definitions/Id"
+                    },
+                    "state": {
+                      "enum": [
+                        "visible",
+                        "hidden",
+                        "enabled"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "targetId",
+                    "state"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "const": "response"
+                    },
+                    "observerStepId": {
+                      "$ref": "#/definitions/Id"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "observerStepId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "id",
+            "timeoutMs",
+            "condition"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "extract_result"
+            },
+            "id": {
+              "$ref": "#/definitions/Id"
+            },
+            "fields": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "$ref": "#/definitions/ParameterName"
+                  },
+                  "bindingId": {
+                    "$ref": "#/definitions/Id"
+                  }
+                },
+                "required": [
+                  "name",
+                  "bindingId"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 16
+            }
+          },
+          "required": [
+            "op",
+            "id",
+            "fields"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ParameterSlot": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/Id"
+        },
+        "constraint": {
+          "$ref": "#/definitions/ScalarSchema"
+        },
+        "sensitive": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "constraint",
+        "sensitive"
+      ],
+      "additionalProperties": false
+    },
+    "ParameterBinding": {
+      "type": "object",
+      "properties": {
+        "slotId": {
+          "$ref": "#/definitions/Id"
+        },
+        "name": {
+          "$ref": "#/definitions/ParameterName"
+        }
+      },
+      "required": [
+        "slotId",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "Applicability": {
+      "type": "object",
+      "properties": {
+        "origin": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "pathnamePrefix": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "required": [
+        "origin",
+        "pathnamePrefix"
+      ],
+      "additionalProperties": false
+    },
+    "Evidence": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/Id"
+        },
+        "kind": {
+          "enum": [
+            "form",
+            "journey",
+            "test_response"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 2048
+        },
+        "sample": {
+          "$ref": "#/definitions/Json"
+        },
+        "completeness": {
+          "enum": [
+            "complete",
+            "truncated",
+            "unavailable"
+          ]
+        },
+        "attribution": {
+          "enum": [
+            "confirmed",
+            "temporal",
+            "unknown"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "summary",
+        "completeness",
+        "attribution"
+      ],
+      "additionalProperties": false
+    },
+    "ToolDraft": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/Id"
+        },
+        "revision": {
+          "$ref": "#/definitions/Revision"
+        },
+        "principalId": {
+          "$ref": "#/definitions/Id"
+        },
+        "browserSessionId": {
+          "$ref": "#/definitions/Id"
+        },
+        "pageId": {
+          "$ref": "#/definitions/PageId"
+        },
+        "documentId": {
+          "$ref": "#/definitions/Id"
+        },
+        "applicability": {
+          "$ref": "#/definitions/Applicability"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "submitted",
+            "expired"
+          ]
+        },
+        "createdAt": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "expiresAt": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AuthoringBinding"
+          },
+          "minItems": 0,
+          "maxItems": 64
+        },
+        "slots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ParameterSlot"
+          },
+          "minItems": 0,
+          "maxItems": 16
+        },
+        "candidateSteps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RecipeStep"
+          },
+          "minItems": 1,
+          "maxItems": 32
+        },
+        "requiredStepIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Id"
+          },
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Evidence"
+          },
+          "minItems": 0,
+          "maxItems": 16
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "principalId",
+        "browserSessionId",
+        "pageId",
+        "documentId",
+        "applicability",
+        "status",
+        "createdAt",
+        "expiresAt",
+        "bindings",
+        "slots",
+        "candidateSteps",
+        "requiredStepIds",
+        "evidence"
+      ],
+      "additionalProperties": false
+    },
+    "DefinitionProposal": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,47}$"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "inputSchema": {
+          "$ref": "#/definitions/GeneratedInputSchema"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ParameterBinding"
+          },
+          "minItems": 0,
+          "maxItems": 16
+        },
+        "stepIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Id"
+          },
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "inputSchema",
+        "parameters",
+        "stepIds"
+      ],
+      "additionalProperties": false
+    },
+    "ListToolDraftsInput": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "GetToolDraftInput": {
+      "type": "object",
+      "properties": {
+        "draftId": {
+          "$ref": "#/definitions/Id"
+        }
+      },
+      "required": [
+        "draftId"
+      ],
+      "additionalProperties": false
+    },
+    "SubmitToolDefinitionInput": {
+      "type": "object",
+      "properties": {
+        "draftId": {
+          "$ref": "#/definitions/Id"
+        },
+        "draftRevision": {
+          "$ref": "#/definitions/Revision"
+        },
+        "definition": {
+          "$ref": "#/definitions/DefinitionProposal"
+        }
+      },
+      "required": [
+        "draftId",
+        "draftRevision",
+        "definition"
+      ],
+      "additionalProperties": false
+    },
+    "GeneratedDefinition": {
+      "type": "object",
+      "properties": {
+        "formatVersion": {
+          "const": 1
+        },
+        "definitionId": {
+          "$ref": "#/definitions/Id"
+        },
+        "definitionRevision": {
+          "$ref": "#/definitions/Revision"
+        },
+        "principalId": {
+          "$ref": "#/definitions/Id"
+        },
+        "sourceDraft": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/definitions/Id"
+            },
+            "revision": {
+              "$ref": "#/definitions/Revision"
+            }
+          },
+          "required": [
+            "id",
+            "revision"
+          ],
+          "additionalProperties": false
+        },
+        "applicability": {
+          "$ref": "#/definitions/Applicability"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,47}$"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "inputSchema": {
+          "$ref": "#/definitions/GeneratedInputSchema"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ParameterBinding"
+          },
+          "minItems": 0,
+          "maxItems": 16
+        },
+        "slots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ParameterSlot"
+          },
+          "minItems": 0,
+          "maxItems": 16
+        },
+        "bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AuthoringBinding"
+          },
+          "minItems": 0,
+          "maxItems": 64
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RecipeStep"
+          },
+          "minItems": 1,
+          "maxItems": 32
+        },
+        "evidenceIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Id"
+          },
+          "minItems": 0,
+          "maxItems": 16,
+          "uniqueItems": true
+        },
+        "annotations": {
+          "type": "object",
+          "properties": {
+            "readOnly": {
+              "type": "boolean"
+            },
+            "consequential": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "readOnly",
+            "consequential"
+          ],
+          "additionalProperties": false
+        },
+        "createdAt": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "updatedAt": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "formatVersion",
+        "definitionId",
+        "definitionRevision",
+        "principalId",
+        "sourceDraft",
+        "applicability",
+        "name",
+        "description",
+        "inputSchema",
+        "parameters",
+        "slots",
+        "bindings",
+        "steps",
+        "evidenceIds",
+        "annotations",
+        "createdAt",
+        "updatedAt"
+      ],
+      "additionalProperties": false
+    },
+    "DefinitionApproval": {
+      "type": "object",
+      "properties": {
+        "definitionId": {
+          "$ref": "#/definitions/Id"
+        },
+        "definitionRevision": {
+          "$ref": "#/definitions/Revision"
+        },
+        "state": {
+          "enum": [
+            "pending",
+            "enabled",
+            "disabled"
+          ]
+        },
+        "reviewedAt": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "definitionId",
+        "definitionRevision",
+        "state"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "enabled"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "reviewedAt"
+            ]
+          }
+        }
+      ]
+    },
+    "ExecutionState": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "state": {
+              "const": "idle"
+            }
+          },
+          "required": [
+            "state"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "state": {
+              "const": "running"
+            },
+            "requestId": {
+              "$ref": "#/definitions/Id"
+            }
+          },
+          "required": [
+            "state",
+            "requestId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "state": {
+              "const": "unknown"
+            },
+            "requestId": {
+              "$ref": "#/definitions/Id"
+            }
+          },
+          "required": [
+            "state",
+            "requestId"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "PageDescriptor": {
+      "type": "object",
+      "properties": {
+        "pageId": {
+          "$ref": "#/definitions/PageId"
+        },
+        "browserSessionId": {
+          "$ref": "#/definitions/Id"
+        },
+        "tabId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "frameId": {
+          "const": 0
+        },
+        "documentId": {
+          "$ref": "#/definitions/Id"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 48
+        },
+        "title": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 512
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "origin": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "nativeCapability": {
+          "enum": [
+            "available",
+            "unavailable",
+            "untested"
+          ]
+        },
+        "execution": {
+          "$ref": "#/definitions/ExecutionState"
+        }
+      },
+      "required": [
+        "pageId",
+        "browserSessionId",
+        "tabId",
+        "frameId",
+        "documentId",
+        "label",
+        "title",
+        "url",
+        "origin",
+        "nativeCapability",
+        "execution"
+      ],
+      "additionalProperties": false
+    },
+    "ToolSource": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "native"
+            },
+            "nativeName": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "kind",
+            "nativeName"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "generated"
+            },
+            "definitionId": {
+              "$ref": "#/definitions/Id"
+            },
+            "definitionRevision": {
+              "$ref": "#/definitions/Revision"
+            }
+          },
+          "required": [
+            "kind",
+            "definitionId",
+            "definitionRevision"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ToolDescriptor": {
+      "type": "object",
+      "properties": {
+        "toolId": {
+          "$ref": "#/definitions/Id"
+        },
+        "toolRevision": {
+          "$ref": "#/definitions/Revision"
+        },
+        "source": {
+          "$ref": "#/definitions/ToolSource"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "inputSchema": {
+          "$ref": "#/definitions/JsonSchema"
+        },
+        "readOnlyHint": {
+          "type": "boolean"
+        },
+        "consequentialHint": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "toolId",
+        "toolRevision",
+        "source",
+        "name",
+        "description",
+        "inputSchema",
+        "readOnlyHint",
+        "consequentialHint"
+      ],
+      "additionalProperties": false
+    },
+    "LiveInstance": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "$ref": "#/definitions/PageDescriptor"
+        },
+        "descriptor": {
+          "$ref": "#/definitions/ToolDescriptor"
+        },
+        "mcpName": {
+          "type": "string",
+          "pattern": "^[a-z0-9_]{1,61}$"
+        },
+        "frozenSlug": {
+          "type": "string",
+          "pattern": "^[a-z0-9_]{1,20}$"
+        },
+        "identityDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "connectionId": {
+          "$ref": "#/definitions/Id"
+        },
+        "status": {
+          "enum": [
+            "ready",
+            "busy",
+            "unavailable"
+          ]
+        }
+      },
+      "required": [
+        "page",
+        "descriptor",
+        "mcpName",
+        "frozenSlug",
+        "identityDigest",
+        "connectionId",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "PageToolCall": {
+      "type": "object",
+      "properties": {
+        "revision": {
+          "$ref": "#/definitions/Revision"
+        },
+        "input": {
+          "type": "object",
+          "maxProperties": 128,
+          "additionalProperties": {
+            "$ref": "#/definitions/Json"
+          }
+        }
+      },
+      "required": [
+        "revision",
+        "input"
+      ],
+      "additionalProperties": false
+    },
+    "ToolError": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "enum": [
+            "INVALID_INPUT",
+            "UNAUTHORIZED",
+            "STALE_DOCUMENT",
+            "STALE_REVISION",
+            "TOOL_UNAVAILABLE",
+            "QUEUE_FULL",
+            "PAGE_BUSY",
+            "DEADLINE_EXCEEDED",
+            "CANCELLED",
+            "DISCONNECTED",
+            "TARGET_MISSING",
+            "TARGET_AMBIGUOUS",
+            "RESPONSE_MISSING",
+            "RESPONSE_AMBIGUOUS",
+            "CAPTURE_LIMIT",
+            "RESULT_LIMIT",
+            "DRAFT_STALE",
+            "DRAFT_EXPIRED",
+            "INVALID_DEFINITION",
+            "STORAGE_LIMIT",
+            "NAME_COLLISION",
+            "INTERNAL_ERROR"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "execution": {
+          "enum": [
+            "not_started",
+            "failed",
+            "outcome_unknown"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "execution"
+      ],
+      "additionalProperties": false
+    },
+    "ToolOutcome": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "completed"
+            },
+            "result": {
+              "$ref": "#/definitions/Json"
+            }
+          },
+          "required": [
+            "status",
+            "result"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "error"
+            },
+            "error": {
+              "$ref": "#/definitions/ToolError"
+            }
+          },
+          "required": [
+            "status",
+            "error"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Hello": {
+      "type": "object",
+      "properties": {
+        "protocolVersion": {
+          "const": 1
+        },
+        "type": {
+          "const": "hello"
+        },
+        "role": {
+          "const": "executor"
+        },
+        "pairingId": {
+          "$ref": "#/definitions/Id"
+        },
+        "token": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "browserSessionId": {
+          "$ref": "#/definitions/Id"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "role",
+        "pairingId",
+        "token",
+        "browserSessionId"
+      ],
+      "additionalProperties": false
+    },
+    "HelloAck": {
+      "type": "object",
+      "properties": {
+        "protocolVersion": {
+          "const": 1
+        },
+        "connectionId": {
+          "$ref": "#/definitions/Id"
+        },
+        "type": {
+          "const": "hello_ack"
+        },
+        "role": {
+          "const": "executor"
+        },
+        "heartbeatIntervalMs": {
+          "const": 15000
+        },
+        "inactivityTimeoutMs": {
+          "const": 45000
+        },
+        "authoringPrincipals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "$ref": "#/definitions/Id"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 48
+              }
+            },
+            "required": [
+              "id",
+              "label"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 8
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "connectionId",
+        "type",
+        "role",
+        "heartbeatIntervalMs",
+        "inactivityTimeoutMs",
+        "authoringPrincipals"
+      ],
+      "additionalProperties": false
+    },
+    "PagesSync": {
+      "type": "object",
+      "properties": {
+        "protocolVersion": {
+          "const": 1
+        },
+        "connectionId": {
+          "$ref": "#/definitions/Id"
+        },
+        "type": {
+          "const": "pages_sync"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "pages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PageDescriptor"
+          },
+          "minItems": 0,
+          "maxItems": 1
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "connectionId",
+        "type",
+        "sequence",
+        "pages"
+      ],
+      "additionalProperties": false
+    },
+    "ToolsChanged": {
+      "type": "object",
+      "properties": {
+        "protocolVersion": {
+          "const": 1
+        },
+        "connectionId": {
+          "$ref": "#/definitions/Id"
+        },
+        "type": {
+          "const": "tools_changed"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "pageId": {
+          "$ref": "#/definitions/PageId"
+        },
+        "documentId": {
+          "$ref": "#/definitions/Id"
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ToolDescriptor"
+          },
+          "minItems": 0,
+          "maxItems": 32
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "connectionId",
+        "type",
+        "sequence",
+        "pageId",
+        "documentId",
+        "tools"
+      ],
+      "additionalProperties": false
+    },
+    "ExecuteTool": {
+      "type": "object",
+      "properties": {
+        "protocolVersion": {
+          "const": 1
+        },
+        "connectionId": {
+          "$ref": "#/definitions/Id"
+        },
+        "type": {
+          "const": "execute_tool"
+        },
+        "requestId": {
+          "$ref": "#/definitions/Id"
+        },
+        "pageId": {
+          "$ref": "#/definitions/PageId"
+        },
+        "documentId": {
+          "$ref": "#/definitions/Id"
+        },
+        "toolId": {
+          "$ref": "#/definitions/Id"
+        },
+        "toolRevision": {
+          "$ref": "#/definitions/Revision"
+        },
+        "arguments": {
+          "type": "object",
+          "maxProperties": 128,
+          "additionalProperties": {
+            "$ref": "#/definitions/Json"
+          }
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30000
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "connectionId",
+        "type",
+        "requestId",
+        "pageId",
+        "documentId",
+        "toolId",
+        "toolRevision",
+        "arguments",
+        "timeoutMs"
+      ],
+      "additionalProperties": false
+    },
+    "ToolResult": {
+      "type": "object",
+      "properties": {
+        "protocolVersion": {
+          "const": 1
+        },
+        "connectionId": {
+          "$ref": "#/definitions/Id"
+        },
+        "type": {
+          "const": "tool_result"
+        },
+        "requestId": {
+          "$ref": "#/definitions/Id"
+        },
+        "pageId": {
+          "$ref": "#/definitions/PageId"
+        },
+        "documentId": {
+          "$ref": "#/definitions/Id"
+        },
+        "toolId": {
+          "$ref": "#/definitions/Id"
+        },
+        "toolRevision": {
+          "$ref": "#/definitions/Revision"
+        },
+        "outcome": {
+          "$ref": "#/definitions/ToolOutcome"
+        },
+        "executionStopped": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "connectionId",
+        "type",
+        "requestId",
+        "pageId",
+        "documentId",
+        "toolId",
+        "toolRevision",
+        "outcome",
+        "executionStopped"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "executionStopped": {
+                "const": false
+              }
+            },
+            "required": [
+              "executionStopped"
+            ]
+          },
+          "then": {
+            "properties": {
+              "outcome": {
+                "properties": {
+                  "status": {
+                    "const": "error"
+                  },
+                  "error": {
+                    "properties": {
+                      "execution": {
+                        "const": "outcome_unknown"
+                      }
+                    },
+                    "required": [
+                      "execution"
+                    ]
+                  }
+                },
+                "required": [
+                  "status",
+                  "error"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "CancelTool": {
+      "type": "object",
+      "properties": {
+        "protocolVersion": {
+          "const": 1
+        },
+        "connectionId": {
+          "$ref": "#/definitions/Id"
+        },
+        "type": {
+          "const": "cancel_tool"
+        },
+        "requestId": {
+          "$ref": "#/definitions/Id"
+        },
+        "pageId": {
+          "$ref": "#/definitions/PageId"
+        },
+        "documentId": {
+          "$ref": "#/definitions/Id"
+        },
+        "reason": {
+          "enum": [
+            "caller_cancelled",
+            "deadline",
+            "revoked"
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "connectionId",
+        "type",
+        "requestId",
+        "pageId",
+        "documentId",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "PageRemoved": {
+      "type": "object",
+      "properties": {
+        "protocolVersion": {
+          "const": 1
+        },
+        "connectionId": {
+          "$ref": "#/definitions/Id"
+        },
+        "type": {
+          "const": "page_removed"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "pageId": {
+          "$ref": "#/definitions/PageId"
+        },
+        "documentId": {
+          "$ref": "#/definitions/Id"
+        },
+        "reason": {
+          "enum": [
+            "navigation",
+            "closed",
+            "disabled"
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "connectionId",
+        "type",
+        "sequence",
+        "pageId",
+        "documentId",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "Heartbeat": {
+      "type": "object",
+      "properties": {
+        "protocolVersion": {
+          "const": 1
+        },
+        "connectionId": {
+          "$ref": "#/definitions/Id"
+        },
+        "type": {
+          "const": "heartbeat"
+        },
+        "kind": {
+          "enum": [
+            "ping",
+            "pong"
+          ]
+        },
+        "nonce": {
+          "$ref": "#/definitions/Id"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "connectionId",
+        "type",
+        "kind",
+        "nonce"
+      ],
+      "additionalProperties": false
+    },
+    "ExtensionToDaemon": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/Hello"
+        },
+        {
+          "$ref": "#/definitions/PagesSync"
+        },
+        {
+          "$ref": "#/definitions/ToolsChanged"
+        },
+        {
+          "$ref": "#/definitions/ToolResult"
+        },
+        {
+          "$ref": "#/definitions/PageRemoved"
+        },
+        {
+          "$ref": "#/definitions/Heartbeat"
+        },
+        {
+          "$ref": "#/definitions/DraftUpsert"
+        },
+        {
+          "$ref": "#/definitions/DraftRemoved"
+        },
+        {
+          "$ref": "#/definitions/DefinitionResult"
+        }
+      ]
+    },
+    "DaemonToExtension": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/HelloAck"
+        },
+        {
+          "$ref": "#/definitions/ExecuteTool"
+        },
+        {
+          "$ref": "#/definitions/CancelTool"
+        },
+        {
+          "$ref": "#/definitions/Heartbeat"
+        },
+        {
+          "$ref": "#/definitions/DefinitionProposed"
+        }
+      ]
+    },
+    "ControlMessage": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/Hello"
+        },
+        {
+          "$ref": "#/definitions/HelloAck"
+        },
+        {
+          "$ref": "#/definitions/PagesSync"
+        },
+        {
+          "$ref": "#/definitions/ToolsChanged"
+        },
+        {
+          "$ref": "#/definitions/ExecuteTool"
+        },
+        {
+          "$ref": "#/definitions/ToolResult"
+        },
+        {
+          "$ref": "#/definitions/CancelTool"
+        },
+        {
+          "$ref": "#/definitions/PageRemoved"
+        },
+        {
+          "$ref": "#/definitions/Heartbeat"
+        },
+        {
+          "$ref": "#/definitions/DraftUpsert"
+        },
+        {
+          "$ref": "#/definitions/DraftRemoved"
+        },
+        {
+          "$ref": "#/definitions/DefinitionProposed"
+        },
+        {
+          "$ref": "#/definitions/DefinitionResult"
+        }
+      ]
+    },
+    "DraftUpsert": {
+      "type": "object",
+      "properties": {
+        "protocolVersion": {
+          "const": 1
+        },
+        "connectionId": {
+          "$ref": "#/definitions/Id"
+        },
+        "type": {
+          "const": "draft_upsert"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "draft": {
+          "$ref": "#/definitions/ToolDraft"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "connectionId",
+        "type",
+        "sequence",
+        "draft"
+      ],
+      "additionalProperties": false
+    },
+    "DraftRemoved": {
+      "type": "object",
+      "properties": {
+        "protocolVersion": {
+          "const": 1
+        },
+        "connectionId": {
+          "$ref": "#/definitions/Id"
+        },
+        "type": {
+          "const": "draft_removed"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "draftId": {
+          "$ref": "#/definitions/Id"
+        },
+        "draftRevision": {
+          "$ref": "#/definitions/Revision"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "connectionId",
+        "type",
+        "sequence",
+        "draftId",
+        "draftRevision"
+      ],
+      "additionalProperties": false
+    },
+    "DefinitionProposed": {
+      "type": "object",
+      "properties": {
+        "protocolVersion": {
+          "const": 1
+        },
+        "connectionId": {
+          "$ref": "#/definitions/Id"
+        },
+        "type": {
+          "const": "definition_proposed"
+        },
+        "requestId": {
+          "$ref": "#/definitions/Id"
+        },
+        "draftId": {
+          "$ref": "#/definitions/Id"
+        },
+        "draftRevision": {
+          "$ref": "#/definitions/Revision"
+        },
+        "definition": {
+          "$ref": "#/definitions/GeneratedDefinition"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "connectionId",
+        "type",
+        "requestId",
+        "draftId",
+        "draftRevision",
+        "definition"
+      ],
+      "additionalProperties": false
+    },
+    "DefinitionResult": {
+      "type": "object",
+      "properties": {
+        "protocolVersion": {
+          "const": 1
+        },
+        "connectionId": {
+          "$ref": "#/definitions/Id"
+        },
+        "type": {
+          "const": "definition_result"
+        },
+        "requestId": {
+          "$ref": "#/definitions/Id"
+        },
+        "outcome": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "const": "saved"
+                },
+                "definitionId": {
+                  "$ref": "#/definitions/Id"
+                },
+                "definitionRevision": {
+                  "$ref": "#/definitions/Revision"
+                },
+                "state": {
+                  "const": "pending"
+                }
+              },
+              "required": [
+                "status",
+                "definitionId",
+                "definitionRevision",
+                "state"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "const": "error"
+                },
+                "error": {
+                  "$ref": "#/definitions/ToolError"
+                }
+              },
+              "required": [
+                "status",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "connectionId",
+        "type",
+        "requestId",
+        "outcome"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

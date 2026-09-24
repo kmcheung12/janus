@@ -1,6 +1,8 @@
 import type { CapturedEvent } from '../lib/event-capture/types'
 import { shortId } from '../lib/short-id'
 import { startJourney, syncEvents, stopJourney, sendFile } from '../lib/mcp/ws-client'
+import * as bridge from '../lib/browser-tools/background-bridge'
+import { getStatus } from '../lib/browser-tools/control-client'
 
 type Msg =
   | { type: 'JANUS_SYNC_EVENTS'; events: CapturedEvent[] }
@@ -12,6 +14,23 @@ type Msg =
   | { type: 'JANUS_SIDEBAR_OPENED' }
   | { type: 'JANUS_SIDEBAR_CLOSED' }
   | { type: 'JANUS_SEND_FILE'; filename: string; mimeType: string; data: ArrayBuffer }
+  | { type: 'JANUS_BT_GET_STATE' }
+  | { type: 'JANUS_BT_SAVE_PAIRING' }
+  | { type: 'JANUS_BT_ENABLE_PAGE' }
+  | { type: 'JANUS_BT_DISABLE_PAGE' }
+  | { type: 'JANUS_BT_SET_LABEL' }
+  | { type: 'JANUS_BT_SET_AUTO_WRITES' }
+  | { type: 'JANUS_BT_TOOLS_CHANGED' }
+  | { type: 'JANUS_BT_RECONNECT' }
+  | { type: 'JANUS_BT_GET_PROVISIONING_PAYLOAD' }
+  | { type: 'JANUS_BT_AUTHORING_STATE' }
+  | { type: 'JANUS_BT_CAPTURE_DRAFT' }
+  | { type: 'JANUS_BT_SET_APPROVAL' }
+  | { type: 'JANUS_BT_DELETE_DEFINITION' }
+  | { type: 'JANUS_BT_EXPORT_DEFINITION' }
+  | { type: 'JANUS_BT_TEST_DEFINITION' }
+  | { type: 'JANUS_BT_DEMO' }
+  | { type: 'JANUS_BT_DEMO_BUILD' }
 
 function setBadge(tabId: number, recording: boolean) {
   const api = (browser as any).action || (browser as any).browserAction
@@ -25,12 +44,111 @@ function setBadge(tabId: number, recording: boolean) {
 }
 
 export default defineBackground(() => {
+  // The control connection's lifetime is the pairing credential, not a
+  // recording: discovery and invocation must work with recording off (§14).
+  void bridge.loadPairing().then(() => bridge.reconnect())
+
   const tabEvents = new Map<number, CapturedEvent[]>()
   const tabRecording = new Map<number, boolean>()
   const tabSidebarOpen = new Map<number, boolean>()
   const tabJourneyId = new Map<number, string>()
 
   browser.runtime.onMessage.addListener((msg: Msg, sender) => {
+    // ── Browser tool bridge. Pairing, enablement and labels are privileged:
+    // they are only accepted from extension pages, never content scripts (§19).
+    //
+    // The test is the sender's origin, not the absence of a tab: settings and
+    // popup are extension pages that do run in tabs, while a content script
+    // reports the host page's URL and is refused.
+    const senderUrl = sender.url ?? ''
+    const fromExtensionPage = senderUrl.startsWith(browser.runtime.getURL('/'))
+    if (msg.type.startsWith('JANUS_BT_') && msg.type !== 'JANUS_BT_TOOLS_CHANGED') {
+      if (!fromExtensionPage) return Promise.resolve({ error: 'forbidden' })
+    }
+
+    if (msg.type === 'JANUS_BT_GET_STATE') {
+      const tabId = (msg as unknown as { tabId?: number }).tabId
+      return Promise.resolve({
+        status: getStatus(),
+        // The page for the tab being asked about, plus everything enabled, so
+        // the popup can show both "this tab" and "elsewhere".
+        page: tabId !== undefined ? bridge.getEnabledPage(tabId) : null,
+        pages: bridge.getEnabledPages(),
+      })
+    }
+    if (msg.type === 'JANUS_BT_SAVE_PAIRING') {
+      const m = msg as unknown as { config: Parameters<typeof bridge.savePairing>[0] }
+      return bridge.savePairing(m.config).then(() => ({ ok: true }))
+    }
+    if (msg.type === 'JANUS_BT_ENABLE_PAGE') {
+      const m = msg as unknown as { tabId: number; label?: string; allowAutoWrites?: boolean }
+      return bridge.enablePage(m.tabId, m.label, m.allowAutoWrites).then(
+        (page) => ({ page }),
+        (e: Error) => ({ error: e.message }),
+      )
+    }
+    if (msg.type === 'JANUS_BT_DISABLE_PAGE') {
+      const m = msg as unknown as { tabId?: number; all?: boolean }
+      if (m.all) bridge.disableAll('disabled')
+      else if (m.tabId !== undefined) bridge.disablePage(m.tabId, 'disabled')
+      return Promise.resolve({ ok: true, pages: bridge.getEnabledPages() })
+    }
+    if (msg.type === 'JANUS_BT_SET_AUTO_WRITES') {
+      const m = msg as unknown as { tabId: number; allow: boolean }
+      return bridge.setAutoWrites(m.tabId, m.allow).then((page) => ({ page }))
+    }
+    if (msg.type === 'JANUS_BT_SET_LABEL') {
+      const m = msg as unknown as { tabId: number; label: string }
+      try {
+        return Promise.resolve({ page: bridge.setLabel(m.tabId, m.label) })
+      } catch (e) {
+        return Promise.resolve({ error: (e as Error).message })
+      }
+    }
+    if (msg.type === 'JANUS_BT_GET_PROVISIONING_PAYLOAD') {
+      return Promise.resolve({ payload: bridge.provisioningPayload() })
+    }
+    if (msg.type === 'JANUS_BT_RECONNECT') {
+      return bridge.reconnect().then(() => ({ ok: true }))
+    }
+    if (msg.type === 'JANUS_BT_AUTHORING_STATE') {
+      return bridge.authoringState()
+    }
+    if (msg.type === 'JANUS_BT_CAPTURE_DRAFT') {
+      const m = msg as unknown as { tabId: number; principalId: string }
+      return bridge.captureDraft(m.tabId, m.principalId)
+    }
+    if (msg.type === 'JANUS_BT_SET_APPROVAL') {
+      const m = msg as unknown as { definitionId: string; state: 'enabled' | 'disabled' }
+      return bridge.setApproval(m.definitionId, m.state).then((approval) => ({ approval }))
+    }
+    if (msg.type === 'JANUS_BT_DELETE_DEFINITION') {
+      return bridge.deleteDefinition((msg as unknown as { definitionId: string }).definitionId)
+        .then(() => ({ ok: true }))
+    }
+    if (msg.type === 'JANUS_BT_EXPORT_DEFINITION') {
+      return bridge.exportDefinition((msg as unknown as { definitionId: string }).definitionId)
+        .then((json) => ({ json }))
+    }
+    if (msg.type === 'JANUS_BT_TEST_DEFINITION') {
+      const m = msg as unknown as { tabId: number; definitionId: string; input: Record<string, never> }
+      return bridge.testDefinition(m.tabId, m.definitionId, m.input)
+    }
+    if (msg.type === 'JANUS_BT_DEMO') {
+      const m = msg as unknown as { tabId: number; action: 'start' | 'stop' | 'state' }
+      return bridge.demo(m.tabId, m.action)
+    }
+    if (msg.type === 'JANUS_BT_DEMO_BUILD') {
+      const m = msg as unknown as {
+        tabId: number; recording: unknown; parameterIndices: number[]; resultIndex?: number
+      }
+      return bridge.buildDemoDraft(m.tabId, m.recording, m.parameterIndices, m.resultIndex)
+    }
+    if (msg.type === 'JANUS_BT_TOOLS_CHANGED') {
+      void bridge.refreshTools()
+      return
+    }
+
     if (msg.type === 'JANUS_TOGGLE_RECORDING') {
       const tabId = msg.tabId ?? sender.tab?.id
       if (!tabId) return
@@ -155,7 +273,14 @@ export default defineBackground(() => {
     setBadge(tabId, tabRecording.get(tabId) ?? false)
   })
 
+  // Navigation replaces the document, which invalidates the page handle. v1
+  // requires explicit re-enabling rather than silently following the user.
+  browser.webNavigation?.onCommitted?.addListener(({ tabId, frameId }) => {
+    if (frameId === 0) void bridge.onNavigated(tabId)
+  })
+
   browser.tabs.onRemoved.addListener((tabId) => {
+    bridge.disablePage(tabId, 'closed')
     tabEvents.delete(tabId)
     tabRecording.delete(tabId)
     tabSidebarOpen.delete(tabId)

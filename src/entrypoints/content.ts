@@ -14,6 +14,11 @@ import type { StoredShortcuts } from '../lib/shortcuts.svelte'
 import { loadCaptureConfig, DEFAULTS as CAPTURE_DEFAULTS } from '../lib/capture-config'
 import type { CaptureConfig } from '../lib/capture-config'
 import { uuid } from '../lib/uuid'
+import * as pageTools from '../lib/browser-tools/page-controller'
+import { attribute } from '../lib/browser-tools/provenance'
+import { scanForm } from '../lib/browser-tools/form-scanner'
+import { run as runRecipe } from '../lib/browser-tools/recipe-runtime'
+import * as demo from '../lib/browser-tools/demonstration-recorder'
 
 function sessionEvent(): SessionEvent {
   return {
@@ -44,6 +49,11 @@ export default defineContentScript({
 
     function filteredAddEvent(event: CapturedEvent) {
       if (!isRecording) return
+      // Tag provenance before any filtering, so agent effects stay
+      // distinguishable from human ones in the journey (§10). Events observed
+      // during an invocation are only marked 'unknown' — concurrent human
+      // input and background work remain possible.
+      Object.assign(event, attribute(false))
       if (event.type === 'console') {
         const c = event as ConsoleEvent
         if (c.level === 'error' && !captureConfig.console_error) return
@@ -185,6 +195,79 @@ export default defineContentScript({
         openEventsSidebar()
         return
       }
+      // ── Browser tool bridge (§6). These run regardless of recording state:
+      // discovery and invocation must work with recording off.
+      if (msg.type === 'JANUS_BT_DESCRIBE') {
+        return Promise.resolve({
+          documentId: pageTools.currentDocumentId(),
+          nativeCapability: pageTools.nativeCapability(),
+        })
+      }
+      if (msg.type === 'JANUS_BT_LIST_TOOLS') {
+        return pageTools.publish()
+      }
+      if (msg.type === 'JANUS_BT_INVOKE') {
+        const m = msg as unknown as {
+          requestId: string; toolId: string
+          input: Record<string, never>; timeoutMs: number
+        }
+        return pageTools.invoke(m.toolId, m.input, m.requestId, m.timeoutMs).then((outcome) => ({
+          outcome,
+          // Only an unknown outcome may leave execution unresolved; the
+          // runtime decides this, not the transport.
+          executionStopped: !(outcome.status === 'error' && outcome.error.execution === 'outcome_unknown'),
+        }))
+      }
+      if (msg.type === 'JANUS_BT_SCAN_FORM') {
+        const m = msg as unknown as {
+          principalId: string; browserSessionId: string; pageId: string; documentId: string
+        }
+        // Largest form on the page: a heuristic starting point the user
+        // reviews. Scanning never submits anything.
+        const forms = [...document.querySelectorAll('form')] as HTMLFormElement[]
+        const form = forms.sort((a, b) => b.elements.length - a.elements.length)[0]
+        if (!form) return Promise.resolve({ error: 'No form found' })
+        return Promise.resolve(scanForm({ form, ...m }))
+      }
+      if (msg.type === 'JANUS_BT_DEMO_START') {
+        return Promise.resolve(demo.start())
+      }
+      if (msg.type === 'JANUS_BT_DEMO_STATE') {
+        return Promise.resolve(demo.current())
+      }
+      if (msg.type === 'JANUS_BT_DEMO_STOP') {
+        return Promise.resolve(demo.stop('user'))
+      }
+      if (msg.type === 'JANUS_BT_DEMO_BUILD') {
+        const m = msg as unknown as Omit<Parameters<typeof demo.buildDraft>[0], 'recording'> & {
+          recording: Parameters<typeof demo.buildDraft>[0]['recording']
+        }
+        return Promise.resolve(demo.buildDraft(m))
+      }
+      if (msg.type === 'JANUS_BT_SET_AUTO_OPTIONS') {
+        const m = msg as unknown as { pageId: string; allowWrites: boolean }
+        pageTools.setAutoOptions({ pageId: m.pageId, allowWrites: m.allowWrites })
+        return Promise.resolve({ ok: true })
+      }
+      if (msg.type === 'JANUS_BT_SET_DEFINITIONS') {
+        pageTools.setDefinitions((msg as unknown as { definitions: never[] }).definitions)
+        return Promise.resolve({ ok: true })
+      }
+      if (msg.type === 'JANUS_BT_TEST_RUN') {
+        const m = msg as unknown as {
+          definition: Parameters<typeof runRecipe>[0]['definition']
+          input: Record<string, never>; timeoutMs: number
+        }
+        return runRecipe({
+          definition: m.definition, input: m.input,
+          signal: new AbortController().signal, timeoutMs: m.timeoutMs,
+        })
+      }
+      if (msg.type === 'JANUS_BT_CANCEL') {
+        pageTools.cancel((msg as unknown as { requestId: string }).requestId)
+        return
+      }
+
       if (msg.type === 'JANUS_RECORDING_CHANGED') {
         isRecording = msg.recording ?? false
         if (isRecording) {
@@ -199,6 +282,14 @@ export default defineContentScript({
         }
         return
       }
+    })
+
+    window.addEventListener('pagehide', () => { demo.stop('navigation') }, { once: true })
+
+    // Native registrations can change without navigation (§7), so republish
+    // whenever the page's tool set moves.
+    pageTools.observeToolChanges(() => {
+      browser.runtime.sendMessage({ type: 'JANUS_BT_TOOLS_CHANGED' }).catch(() => {})
     })
 
     // Keyboard shortcuts
