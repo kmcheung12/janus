@@ -13,7 +13,7 @@
  */
 
 import { randomBytes, timingSafeEqual, createHash } from 'node:crypto'
-import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 export type Role = 'executor' | 'client' | 'producer'
@@ -104,6 +104,11 @@ function readFile(path: string): CredentialFile {
   }
 }
 
+/** Mutation marker for the cross-process reload above; 0 when absent. */
+function mtimeOf(path: string): number {
+  try { return statSync(path).mtimeMs } catch { return 0 }
+}
+
 function writeFileAtomic(path: string, data: CredentialFile): void {
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
   const tmp = `${path}.tmp`
@@ -115,15 +120,31 @@ function writeFileAtomic(path: string, data: CredentialFile): void {
 export function openCredentialStore(dataDir: string): CredentialStore {
   const path = join(dataDir, 'credentials.json')
   let state = readFile(path)
+  let loadedAt = mtimeOf(path)
+
+  /**
+   * The admin CLI is a separate process writing the same file, and the
+   * documented flow is to start the daemon *then* provision a browser. Without
+   * this, a running daemon would keep rejecting a pairing that was added
+   * moments ago and the user would have to restart it.
+   */
+  const refresh = () => {
+    const mtime = mtimeOf(path)
+    if (mtime === loadedAt) return
+    state = readFile(path)
+    loadedAt = mtime
+  }
 
   const save = () => {
     writeFileAtomic(path, state)
+    loadedAt = mtimeOf(path)
   }
 
   return {
     path,
 
     verifyExecutor(pairingId, token) {
+      refresh()
       if (!TOKEN_PATTERN.test(token)) return undefined
       const record = state.executors.find((e) => e.pairingId === pairingId)
       // Hash regardless of whether the record exists, so a missing pairing ID
@@ -135,12 +156,14 @@ export function openCredentialStore(dataDir: string): CredentialStore {
     },
 
     verifyClient(token) {
+      refresh()
       if (!TOKEN_PATTERN.test(token)) return undefined
       const candidate = hashToken(token)
       return state.clients.find((c) => digestsMatch(c.tokenHash, candidate))
     },
 
     verifyProducer(token) {
+      refresh()
       if (!TOKEN_PATTERN.test(token)) return undefined
       const candidate = hashToken(token)
       return state.producers.find((p) => digestsMatch(p.tokenHash, candidate))

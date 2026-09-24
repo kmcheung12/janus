@@ -41,8 +41,25 @@
     : 'No native WebMCP — Janus-generated tools only',
   )
 
+  /**
+   * The tab this panel acts on.
+   *
+   * Normally the active tab. But the popup can itself be open in a tab — when
+   * debugging, or under the e2e harness — and it must never target itself, so
+   * fall back to the most recently accessed http(s) tab in the window.
+   */
+  async function resolveTargetTab() {
+    const [active] = await browser.tabs.query({ active: true, currentWindow: true })
+    if (active?.url?.startsWith('http')) return active
+
+    const candidates = await browser.tabs.query({ currentWindow: true })
+    return candidates
+      .filter((t) => t.url?.startsWith('http'))
+      .sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0))[0]
+  }
+
   onMount(async () => {
-    const [tab] = await browser.tabs.query({ active: true, currentWindow: true })
+    const tab = await resolveTargetTab()
     currentTab = tab ? { id: tab.id, title: tab.title, url: tab.url } : null
     await refresh()
 

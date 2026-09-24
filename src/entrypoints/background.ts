@@ -20,6 +20,7 @@ type Msg =
   | { type: 'JANUS_BT_DISABLE_PAGE' }
   | { type: 'JANUS_BT_SET_LABEL' }
   | { type: 'JANUS_BT_TOOLS_CHANGED' }
+  | { type: 'JANUS_BT_RECONNECT' }
   | { type: 'JANUS_BT_AUTHORING_STATE' }
   | { type: 'JANUS_BT_CAPTURE_DRAFT' }
   | { type: 'JANUS_BT_SET_APPROVAL' }
@@ -53,7 +54,12 @@ export default defineBackground(() => {
   browser.runtime.onMessage.addListener((msg: Msg, sender) => {
     // ── Browser tool bridge. Pairing, enablement and labels are privileged:
     // they are only accepted from extension pages, never content scripts (§19).
-    const fromExtensionPage = !sender.tab
+    //
+    // The test is the sender's origin, not the absence of a tab: settings and
+    // popup are extension pages that do run in tabs, while a content script
+    // reports the host page's URL and is refused.
+    const senderUrl = sender.url ?? ''
+    const fromExtensionPage = senderUrl.startsWith(browser.runtime.getURL('/'))
     if (msg.type.startsWith('JANUS_BT_') && msg.type !== 'JANUS_BT_TOOLS_CHANGED') {
       if (!fromExtensionPage) return Promise.resolve({ error: 'forbidden' })
     }
@@ -85,6 +91,9 @@ export default defineBackground(() => {
       } catch (e) {
         return Promise.resolve({ error: (e as Error).message })
       }
+    }
+    if (msg.type === 'JANUS_BT_RECONNECT') {
+      return bridge.reconnect().then(() => ({ ok: true }))
     }
     if (msg.type === 'JANUS_BT_AUTHORING_STATE') {
       return bridge.authoringState()

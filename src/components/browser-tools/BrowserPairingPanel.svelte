@@ -93,6 +93,19 @@
     }
   }
 
+  /**
+   * §19 Retry. The extension stops reconnecting after a 4401 on purpose —
+   * hammering a rejected credential just locks the record out — so once the
+   * user has provisioned the daemon, reconnecting is an explicit action.
+   * Retry keeps the same credential and never rotates it.
+   */
+  async function retry() {
+    busy = true
+    try {
+      await browser.runtime.sendMessage({ type: 'JANUS_BT_RECONNECT' })
+    } finally { busy = false }
+  }
+
   async function forget() {
     busy = true
     try {
@@ -169,6 +182,9 @@
       <button class="primary" onclick={pair} disabled={busy}>Rotate</button>
       <button onclick={() => { confirmingRotate = false }}>Cancel</button>
     {:else}
+      {#if status.state !== 'connected'}
+        <button class="primary" onclick={retry} disabled={busy}>Retry connection</button>
+      {/if}
       <button onclick={() => { confirmingRotate = true }} disabled={busy}>Rotate credential</button>
       <button onclick={forget} disabled={busy}>Forget</button>
     {/if}
