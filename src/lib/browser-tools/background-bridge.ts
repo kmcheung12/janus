@@ -62,6 +62,21 @@ export async function savePairing(config: PairingConfig | null): Promise<void> {
   await reconnect()
 }
 
+/**
+ * Re-show the pairing payload so the daemon can still be provisioned.
+ *
+ * The secret is displayed once, but "once" cannot mean "lost if you reload
+ * the settings page" — that strands the extension holding a credential the
+ * daemon has never been told about, with no way to hand it over except
+ * re-pairing. Only returned before the credential has ever been accepted, and
+ * only to an extension page; the background already holds it either way.
+ */
+export function provisioningPayload(): { pairingId: string; token: string } | null {
+  if (!pairing) return null
+  if (control.hasEverConnected()) return null
+  return { pairingId: pairing.pairingId, token: pairing.token }
+}
+
 export async function reconnect(): Promise<void> {
   control.stop()
   if (!pairing) return

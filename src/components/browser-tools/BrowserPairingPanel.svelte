@@ -56,6 +56,14 @@
     paired = status.state !== 'idle'
     if (status.state === 'connected') everConnected = true
 
+    // Survive a settings reload: while the daemon is still unprovisioned the
+    // payload is recoverable, so the user is never stranded holding a
+    // credential they cannot hand over.
+    if (paired && !everConnected) {
+      const stored = await browser.runtime.sendMessage({ type: 'JANUS_BT_GET_PROVISIONING_PAYLOAD' })
+      if (stored?.payload) pairingPayload = JSON.stringify(stored.payload)
+    }
+
     browser.runtime.onMessage.addListener((msg: { type: string; status?: Status }) => {
       if (msg.type === 'JANUS_BT_STATUS' && msg.status) {
         status = msg.status

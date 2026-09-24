@@ -57,6 +57,11 @@ let attempt = 0
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null
 let status: ControlStatus = { state: 'idle' }
+/**
+ * Whether the current credential has ever completed a handshake. Drives
+ * whether the pairing payload may still be re-shown for provisioning.
+ */
+let everConnected = false
 /** Last published snapshots, replayed after a reconnect (§17). */
 let pages: PageDescriptor[] = []
 let toolsByPage = new Map<PageId, { documentId: Id; tools: ToolDescriptor[] }>()
@@ -70,9 +75,14 @@ export function getStatus(): ControlStatus {
   return status
 }
 
+export function hasEverConnected(): boolean {
+  return everConnected
+}
+
 export function start(next: ControlClientOptions): void {
   options = next
   attempt = 0
+  everConnected = false
   connect()
 }
 
@@ -144,6 +154,7 @@ function handle(message: DaemonToExtension): void {
   if (message.type === 'hello_ack') {
     connectionId = message.connectionId
     attempt = 0
+    everConnected = true
     setStatus({ state: 'connected', connectionId })
 
     heartbeatTimer = setInterval(() => {

@@ -21,6 +21,7 @@ type Msg =
   | { type: 'JANUS_BT_SET_LABEL' }
   | { type: 'JANUS_BT_TOOLS_CHANGED' }
   | { type: 'JANUS_BT_RECONNECT' }
+  | { type: 'JANUS_BT_GET_PROVISIONING_PAYLOAD' }
   | { type: 'JANUS_BT_AUTHORING_STATE' }
   | { type: 'JANUS_BT_CAPTURE_DRAFT' }
   | { type: 'JANUS_BT_SET_APPROVAL' }
@@ -91,6 +92,9 @@ export default defineBackground(() => {
       } catch (e) {
         return Promise.resolve({ error: (e as Error).message })
       }
+    }
+    if (msg.type === 'JANUS_BT_GET_PROVISIONING_PAYLOAD') {
+      return Promise.resolve({ payload: bridge.provisioningPayload() })
     }
     if (msg.type === 'JANUS_BT_RECONNECT') {
       return bridge.reconnect().then(() => ({ ok: true }))
