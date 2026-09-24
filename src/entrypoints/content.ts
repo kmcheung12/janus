@@ -18,6 +18,7 @@ import * as pageTools from '../lib/browser-tools/page-controller'
 import { attribute } from '../lib/browser-tools/provenance'
 import { scanForm } from '../lib/browser-tools/form-scanner'
 import { run as runRecipe } from '../lib/browser-tools/recipe-runtime'
+import * as demo from '../lib/browser-tools/demonstration-recorder'
 
 function sessionEvent(): SessionEvent {
   return {
@@ -228,6 +229,21 @@ export default defineContentScript({
         if (!form) return Promise.resolve({ error: 'No form found' })
         return Promise.resolve(scanForm({ form, ...m }))
       }
+      if (msg.type === 'JANUS_BT_DEMO_START') {
+        return Promise.resolve(demo.start())
+      }
+      if (msg.type === 'JANUS_BT_DEMO_STATE') {
+        return Promise.resolve(demo.current())
+      }
+      if (msg.type === 'JANUS_BT_DEMO_STOP') {
+        return Promise.resolve(demo.stop('user'))
+      }
+      if (msg.type === 'JANUS_BT_DEMO_BUILD') {
+        const m = msg as unknown as Omit<Parameters<typeof demo.buildDraft>[0], 'recording'> & {
+          recording: Parameters<typeof demo.buildDraft>[0]['recording']
+        }
+        return Promise.resolve(demo.buildDraft(m))
+      }
       if (msg.type === 'JANUS_BT_SET_DEFINITIONS') {
         pageTools.setDefinitions((msg as unknown as { definitions: never[] }).definitions)
         return Promise.resolve({ ok: true })
@@ -262,6 +278,8 @@ export default defineContentScript({
         return
       }
     })
+
+    window.addEventListener('pagehide', () => { demo.stop('navigation') }, { once: true })
 
     // Native registrations can change without navigation (§7), so republish
     // whenever the page's tool set moves.

@@ -26,6 +26,8 @@ type Msg =
   | { type: 'JANUS_BT_DELETE_DEFINITION' }
   | { type: 'JANUS_BT_EXPORT_DEFINITION' }
   | { type: 'JANUS_BT_TEST_DEFINITION' }
+  | { type: 'JANUS_BT_DEMO' }
+  | { type: 'JANUS_BT_DEMO_BUILD' }
 
 function setBadge(tabId: number, recording: boolean) {
   const api = (browser as any).action || (browser as any).browserAction
@@ -105,6 +107,13 @@ export default defineBackground(() => {
     if (msg.type === 'JANUS_BT_TEST_DEFINITION') {
       const m = msg as unknown as { definitionId: string; input: Record<string, never> }
       return bridge.testDefinition(m.definitionId, m.input)
+    }
+    if (msg.type === 'JANUS_BT_DEMO') {
+      return bridge.demo((msg as unknown as { action: 'start' | 'stop' | 'state' }).action)
+    }
+    if (msg.type === 'JANUS_BT_DEMO_BUILD') {
+      const m = msg as unknown as { recording: unknown; parameterIndices: number[]; resultIndex?: number }
+      return bridge.buildDemoDraft(m.recording, m.parameterIndices, m.resultIndex)
     }
     if (msg.type === 'JANUS_BT_TOOLS_CHANGED') {
       void bridge.refreshTools()

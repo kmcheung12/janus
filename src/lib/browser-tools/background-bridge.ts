@@ -227,6 +227,36 @@ export async function testDefinition(definitionId: string, input: Record<string,
   })
 }
 
+/** Demonstration authoring (M3). Ordered capture lives in the page. */
+export async function demo(action: 'start' | 'stop' | 'state'): Promise<unknown> {
+  if (!enabled) return { error: 'No page is enabled' }
+  const type = action === 'start' ? 'JANUS_BT_DEMO_START'
+    : action === 'stop' ? 'JANUS_BT_DEMO_STOP' : 'JANUS_BT_DEMO_STATE'
+  return browser.tabs.sendMessage(enabled.tabId, { type })
+}
+
+export async function buildDemoDraft(
+  recording: unknown, parameterIndices: number[], resultIndex?: number,
+): Promise<{ draft?: ToolDraft; excluded?: unknown; error?: string }> {
+  if (!enabled) return { error: 'No page is enabled' }
+  const result = await browser.tabs.sendMessage(enabled.tabId, {
+    type: 'JANUS_BT_DEMO_BUILD',
+    recording,
+    principalId: 'local',
+    browserSessionId: pairing?.browserSessionId ?? 'browser',
+    pageId: enabled.pageId,
+    documentId: enabled.documentId,
+    parameterIndices,
+    resultIndex,
+  }) as { draft: ToolDraft; excluded: unknown }
+
+  if (result?.draft) {
+    await store.putDraft(result.draft)
+    control.publishDraft(result.draft)
+  }
+  return result
+}
+
 export async function refreshTools(): Promise<void> {
   if (!enabled) return
   try {
