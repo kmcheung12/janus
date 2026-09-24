@@ -1,16 +1,51 @@
 import { createServer } from 'node:http'
-import { startWsServer } from './ws-server.js'
+import type { AddressInfo } from 'node:net'
+import { startWsServer, wireQueue } from './ws-server.js'
 import { createHttpHandler } from './http-server.js'
+import { parseConfig } from './config.js'
+import { openCredentialStore } from './credentials.js'
+import { runCli } from './cli.js'
 
-const WS_PORT = 3457
-const MCP_PORT = 3456
+const ADMIN_COMMANDS = new Set(['pair', 'revoke', 'client', 'producer', 'list', 'help'])
 
-startWsServer(WS_PORT)
+async function main(): Promise<number | undefined> {
+  const argv = process.argv.slice(2)
 
-const httpServer = createServer(createHttpHandler())
+  if (argv[0] && ADMIN_COMMANDS.has(argv[0])) {
+    return runCli(argv)
+  }
 
-httpServer.listen(MCP_PORT, () => {
-  console.error(`[janus-mcp] MCP SSE          → http://localhost:${MCP_PORT}/sse`)
-  console.error(`[janus-mcp] MCP Streamable   → http://localhost:${MCP_PORT}/mcp`)
-  console.error(`[janus-mcp] WebSocket        → ws://localhost:${WS_PORT}`)
-})
+  const config = parseConfig(argv)
+  const credentials = openCredentialStore(config.dataDir)
+
+  wireQueue()
+  const wss = startWsServer({ port: config.wsPort, host: config.bind, credentials })
+  const httpServer = createServer(createHttpHandler({ credentials }))
+
+  await new Promise<void>((res) => httpServer.listen(config.mcpPort, config.bind, res))
+
+  const mcpPort = (httpServer.address() as AddressInfo).port
+  const wsPort = (wss.address() as AddressInfo).port
+  const host = config.bind.includes(':') ? `[${config.bind}]` : config.bind
+
+  // §20: an explicit readiness record so the harness can discover ephemeral
+  // ports without scraping log prose. Never contains credentials.
+  console.error(JSON.stringify({
+    janus: 'ready',
+    mcpSse: `http://${host}:${mcpPort}/sse`,
+    mcpStreamable: `http://${host}:${mcpPort}/mcp`,
+    webSocket: `ws://${host}:${wsPort}`,
+    dataDir: config.dataDir,
+  }))
+
+  if (credentials.listExecutors().length === 0) {
+    console.error('[janus-mcp] No paired browser. Run: janus-mcp pair --stdin')
+  }
+
+  return undefined
+}
+
+main().then(
+  (code) => { if (code !== undefined) process.exit(code) },
+  (err: Error) => { console.error(`[janus-mcp] ${err.message}`); process.exit(1) },
+)

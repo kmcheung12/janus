@@ -1,12 +1,23 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createServer, type Server } from 'node:http'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { createHttpHandler } from '../src/http-server.js'
+import { generateToken, openCredentialStore } from '../src/credentials.js'
 
 let server: Server
 let baseUrl: string
+let dataDir: string
+let clientToken: string
 
 beforeAll(async () => {
-  server = createServer(createHttpHandler())
+  dataDir = mkdtempSync(join(tmpdir(), 'janus-http-'))
+  const credentials = openCredentialStore(dataDir)
+  credentials.upsertExecutor('pair_1', generateToken(), 'test browser')
+  clientToken = credentials.createClient('pair_1', 'test client', false).token
+
+  server = createServer(createHttpHandler({ credentials }))
   await new Promise<void>(resolve => server.listen(0, resolve))
   const addr = server.address() as { port: number }
   baseUrl = `http://localhost:${addr.port}`
@@ -16,14 +27,16 @@ afterAll(async () => {
   await new Promise<void>((resolve, reject) =>
     server.close(err => (err ? reject(err) : resolve()))
   )
+  rmSync(dataDir, { recursive: true, force: true })
 })
 
-async function mcpPost(body: object, sessionId?: string) {
+async function mcpPost(body: object, sessionId?: string, token = clientToken) {
   return fetch(`${baseUrl}/mcp`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json, text/event-stream',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(sessionId ? { 'mcp-session-id': sessionId } : {}),
     },
     body: JSON.stringify(body),
@@ -57,6 +70,16 @@ describe('Streamable HTTP transport (/mcp)', () => {
     const res = await mcpPost(INIT_REQUEST)
     expect(res.status).toBe(200)
     expect(res.headers.get('mcp-session-id')).toBeTruthy()
+  })
+
+  it('rejects a request with no bearer token', async () => {
+    const res = await mcpPost(INIT_REQUEST, undefined, '')
+    expect(res.status).toBe(401)
+  })
+
+  it('rejects an unknown bearer token', async () => {
+    const res = await mcpPost(INIT_REQUEST, undefined, generateToken())
+    expect(res.status).toBe(401)
   })
 
   it('tools/list returns all five janus tools', async () => {

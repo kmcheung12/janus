@@ -3,6 +3,12 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 import type { Tool } from '@modelcontextprotocol/sdk/types.js'
 import { getById, getByDomain, getLatest, listAll } from './journey-store.js'
 import type { Journey, CapturedEvent } from './types.js'
+import type { ClientRecord } from './credentials.js'
+import { getPage } from './control/registry.js'
+import {
+  browserTools, callBrowserTool, listBrowserTools, listPages,
+  publishedToolsFor, toMcpTool, type InvokeArgs,
+} from './control/browser-tools.js'
 
 function summarise(j: Journey) {
   return {
@@ -63,17 +69,50 @@ const TOOLS: Tool[] = [
   },
 ]
 
-export function createMcpServer(): Server {
+export function createMcpServer(principal: ClientRecord): Server {
   const server = new Server(
     { name: 'janus', version: '0.0.0' },
-    { capabilities: { tools: {} } },
+    // §8: listChanged is advertised because enabled pages publish and withdraw
+    // tools as the user navigates.
+    { capabilities: { tools: { listChanged: true } } },
   )
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }))
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    const published = publishedToolsFor(principal).map((p) => {
+      const page = getPage(p.pageId)
+      return toMcpTool(p, page?.descriptor.label ?? 'browser page')
+    })
+    return { tools: [...TOOLS, ...browserTools, ...published] }
+  })
 
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const { name, arguments: args = {} } = req.params
     const a = args as Record<string, string>
+
+    if (name === 'list_pages') return listPages(principal)
+    if (name === 'list_page_tools') return listBrowserTools(principal, a.pageId)
+    if (name === 'call_page_tool') {
+      const raw = args as unknown as InvokeArgs
+      return callBrowserTool(principal, {
+        pageId: raw.pageId,
+        toolId: raw.toolId,
+        revision: raw.revision,
+        input: raw.input ?? {},
+      })
+    }
+
+    // Typed page tools carry their real business schema; the revision is a
+    // required argument so a stale caller fails before anything is dispatched.
+    const typed = publishedToolsFor(principal).find((p) => p.mcpName === name)
+    if (typed) {
+      const call = args as unknown as { revision?: number; input?: Record<string, never> }
+      return callBrowserTool(principal, {
+        pageId: typed.pageId,
+        toolId: typed.toolId,
+        revision: call.revision ?? -1,
+        input: call.input ?? {},
+      })
+    }
 
     if (name === 'list_journeys') {
       return { content: [{ type: 'text', text: JSON.stringify(listAll().map(summarise), null, 2) }] }
