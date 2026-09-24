@@ -121,7 +121,12 @@ describe('invocation', () => {
 
     const outcome = await native.invoke(encodeNativeToolId('search'), { query: 'x' })
     expect(outcome).toEqual({ status: 'completed', result: { items: 3 } })
-    expect(execute).toHaveBeenCalledWith(expect.objectContaining({ name: 'search' }), { query: 'x' })
+    // Chrome takes arguments as a JSON string, symmetric with returning
+    // inputSchema as one. Passing an object fails inside the site's handler.
+    expect(execute).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'search' }),
+      JSON.stringify({ query: 'x' }),
+    )
   })
 
   it('reports a handler throw as failed, not not_started', async () => {
@@ -169,5 +174,75 @@ describe('tool ID encoding', () => {
 
   it('returns undefined for an ID that is not native', () => {
     expect(decodeNativeToolId('g_def_1')).toBeUndefined()
+  })
+})
+
+describe('Chrome calling conventions', () => {
+  // Every case here was observed against Chrome 153/154 on the Basketful
+  // fixture; each one silently broke the lane before it was handled.
+
+  it('accepts inputSchema delivered as a JSON string', async () => {
+    install([{ name: 'search', inputSchema: JSON.stringify(schema) }])
+    const [tool] = await native.discover()
+    expect(tool?.inputSchema).toEqual(schema)
+  })
+
+  it('ignores an unparseable schema rather than publishing a broken tool', async () => {
+    install([{ name: 'broken', inputSchema: '{not json' }])
+    expect(await native.discover()).toHaveLength(0)
+  })
+
+  it('reads consequentialHint, which is what Chrome actually sets', async () => {
+    install([
+      { name: 'safe', inputSchema: schema, annotations: { readOnlyHint: true, consequentialHint: false } },
+      { name: 'risky', inputSchema: schema, annotations: { readOnlyHint: false, consequentialHint: true } },
+    ])
+    const [safe, risky] = await native.discover()
+    expect(safe.consequentialHint).toBe(false)
+    expect(risky.consequentialHint).toBe(true)
+  })
+
+  it('falls back to the tool name when title is an empty string', async () => {
+    // Chrome sets title to '' rather than omitting it. An empty name fails
+    // contract validation, which rejects the entire tools_changed frame.
+    install([{ name: 'search_products', title: '', inputSchema: schema }])
+    const [tool] = await native.discover()
+    expect(tool.name).toBe('search_products')
+  })
+
+  it('excludes a tool registered by a subframe window', async () => {
+    // Identity against our own `window` cannot be used: a content script runs
+    // in an isolated world whose window differs from the page's.
+    const top = { top: undefined as unknown }
+    top.top = top
+    const frame = { top }
+    install([
+      { name: 'ours', inputSchema: schema, window: top as unknown as Window },
+      { name: 'theirs', inputSchema: schema, window: frame as unknown as Window },
+    ])
+    expect((await native.discover()).map((t) => t.name)).toEqual(['ours'])
+  })
+
+  it.each([
+    ['plain value', { items: 3 }, { items: 3 }],
+    ['JSON string', JSON.stringify({ items: 3 }), { items: 3 }],
+    ['content envelope', JSON.stringify({ content: [{ type: 'text', text: 'hello' }] }), 'hello'],
+    ['envelope wrapping JSON', JSON.stringify({ content: [{ type: 'text', text: '{"a":1}' }] }), { a: 1 }],
+    ['prose', 'Showing 2 results', 'Showing 2 results'],
+  ])('unwraps a result delivered as %s', async (_label, returned, expected) => {
+    install([{ name: 'search', inputSchema: schema }], { execute: async () => returned })
+    await native.discover()
+    const outcome = await native.invoke(encodeNativeToolId('search'), {})
+    expect(outcome).toEqual({ status: 'completed', result: expected })
+  })
+
+  it('preserves a site\'s own error payload for the agent to act on', async () => {
+    // Basketful answers "No store is open yet. Call choose_store first" this
+    // way; discarding it would strip the recovery instruction.
+    const envelope = { content: [{ type: 'text', text: 'Call choose_store first.' }], isError: true }
+    install([{ name: 'search', inputSchema: schema }], { execute: async () => JSON.stringify(envelope) })
+    await native.discover()
+    const outcome = await native.invoke(encodeNativeToolId('search'), {})
+    expect(JSON.stringify(outcome)).toContain('choose_store')
   })
 })

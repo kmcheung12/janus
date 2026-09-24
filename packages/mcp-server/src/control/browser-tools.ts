@@ -282,6 +282,11 @@ export function formatOutcome(outcome: ToolOutcome) {
       // an explicit failure, because the caller cannot tell it is incomplete.
       return errorText(`RESULT_LIMIT: result exceeds ${LIMITS.toolResultMaxBytes} bytes and was not truncated`)
     }
+    // A site is free to answer in prose. JSON-encoding a string result would
+    // hand the agent escaped newlines and quotes to undo for no reason.
+    if (typeof outcome.result === 'string') {
+      return { content: [{ type: 'text' as const, text: outcome.result }] }
+    }
     return text(outcome.result)
   }
   const { code, message, execution } = outcome.error

@@ -14,11 +14,36 @@ import { LIMITS, jsonBytes } from './limits'
 
 interface NativeTool {
   name: string
+  title?: string
   description?: string
+  /**
+   * Chrome 154 hands this back as a JSON *string*, not an object. Treating it
+   * as an object silently drops every tool on the page.
+   */
   inputSchema?: unknown
-  annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean }
-  /** Present on some builds; used only for descendant-frame filtering. */
+  annotations?: {
+    readOnlyHint?: boolean
+    /** Chrome's name. The MCP-side spelling is `destructiveHint`. */
+    consequentialHint?: boolean
+    destructiveHint?: boolean
+    untrustedContentHint?: boolean
+  }
+  /** Set by Chrome; the authoritative signal for descendant-frame filtering. */
   origin?: string
+  window?: Window
+}
+
+/** Accept either an object or Chrome's JSON-encoded string form. */
+function parseSchema(raw: unknown): Record<string, unknown> | undefined {
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw) as unknown
+      return parsed && typeof parsed === 'object' ? parsed as Record<string, unknown> : undefined
+    } catch {
+      return undefined
+    }
+  }
+  return raw && typeof raw === 'object' ? raw as Record<string, unknown> : undefined
 }
 
 interface NativeModelContext {
@@ -51,6 +76,22 @@ export function capability(): NativeCapability {
  * own origin is not published.
  */
 function ownedByThisDocument(tool: NativeTool): boolean {
+  // Chrome exposes the registering window. Comparing it to our own `window`
+  // does not work here: a content script runs in an isolated world whose
+  // `window` is a different object from the page's, so identity would reject
+  // every tool on the page.
+  //
+  // Asking whether the registering window is its own top frame is world-
+  // independent and answers the actual question — is this a descendant
+  // document — including for a same-origin iframe, which shares our origin.
+  if (tool.window) {
+    try {
+      return tool.window.top === tool.window
+    } catch {
+      // Cross-origin access threw, which itself proves a foreign frame.
+      return false
+    }
+  }
   if (tool.origin === undefined) return true
   return tool.origin === window.location.origin
 }
@@ -110,21 +151,28 @@ export function decodeNativeToolId(toolId: string): string | undefined {
 }
 
 function toDescriptor(tool: NativeTool): ToolDescriptor | undefined {
-  const schema = tool.inputSchema
-  if (!schema || typeof schema !== 'object') return undefined
+  const schema = parseSchema(tool.inputSchema)
+  if (!schema) return undefined
   if (jsonBytes(schema) > LIMITS.nativeBusinessSchemaMaxBytes) return undefined
+
+  // Chrome spells this `consequentialHint`; MCP spells it `destructiveHint`.
+  // Accept either, and treat an absent hint as consequential (§17) — an
+  // unannotated checkout is not safe just because nobody labelled it.
+  const declared = tool.annotations?.consequentialHint ?? tool.annotations?.destructiveHint
 
   return {
     // A native tool's name is its logical identity within this document.
     toolId: encodeNativeToolId(tool.name),
     toolRevision: 1,
     source: { kind: 'native', nativeName: tool.name },
-    name: tool.name,
-    description: tool.description ?? tool.name,
+    // `||`, not `??`: Chrome sets `title` to an empty string rather than
+    // omitting it, and an empty name fails contract validation — which rejects
+    // the whole tools_changed frame, not just this tool.
+    name: tool.title || tool.name,
+    description: tool.description || tool.name,
     inputSchema: schema as ToolDescriptor['inputSchema'],
     readOnlyHint: tool.annotations?.readOnlyHint === true,
-    // Unknown effects default to consequential (§17).
-    consequentialHint: tool.annotations?.destructiveHint !== false,
+    consequentialHint: declared !== false,
   }
 }
 
@@ -141,13 +189,48 @@ export async function invoke(toolId: string, input: Record<string, Json>): Promi
   }
 
   try {
-    const result = await context.executeTool(tool, input)
-    return { status: 'completed', result: (result ?? null) as Json }
+    // Chrome's executeTool takes arguments as a JSON string, symmetric with
+    // returning inputSchema as one. Passing an object fails inside the site's
+    // own handler with "Failed to parse input arguments", which looks like a
+    // site bug rather than a calling-convention mismatch.
+    let raw: unknown
+    try {
+      raw = await context.executeTool(tool, JSON.stringify(input))
+    } catch (stringFormFailed) {
+      // Fall back to the object form for builds that expect it.
+      raw = await context.executeTool(tool, input)
+    }
+    return { status: 'completed', result: normalizeResult(raw) }
   } catch (e) {
     // The site's handler ran and threw. It may well have had effects, so this
     // is a failure of the call, not proof that nothing happened.
     return error('INTERNAL_ERROR', `The page's handler failed: ${String((e as Error)?.message ?? e)}`, 'failed')
   }
+}
+
+/**
+ * Results may arrive as a value, as a JSON string, or as MCP-style content
+ * blocks. Unwrap a single text block so the agent gets structured data rather
+ * than a transport envelope, but never discard anything we cannot interpret.
+ */
+function normalizeResult(raw: unknown): Json {
+  if (raw === undefined || raw === null) return null
+
+  // Chrome returns a JSON string, and what it encodes is usually an MCP-style
+  // envelope. Parse first, then unwrap — doing it the other way round leaves
+  // the agent reading transport structure instead of the site's answer.
+  let value: unknown = raw
+  if (typeof value === 'string') {
+    try { value = JSON.parse(value) } catch { return value as Json }
+  }
+
+  const blocks = (value as { content?: Array<{ type?: string; text?: string }> })?.content
+  if (Array.isArray(blocks) && blocks.length === 1 && typeof blocks[0]?.text === 'string') {
+    const text = blocks[0].text
+    try { return JSON.parse(text) as Json } catch { return text }
+  }
+
+  return value as Json
 }
 
 function error(
