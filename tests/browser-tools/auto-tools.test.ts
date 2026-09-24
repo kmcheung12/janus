@@ -148,3 +148,79 @@ describe('tool id routing', () => {
     expect(isAutoToolId(id)).toBe(false)
   })
 })
+
+describe('semantic naming', () => {
+  const nameOf = (html: string) => {
+    markup(html)
+    return autoFormDefinitions('0'.repeat(32), 'doc_1').map((d) => d.name)
+  }
+
+  it('names a search form "search" rather than by position', () => {
+    // Observed on Wikipedia, which produced submit_form_1 and submit_form_5.
+    expect(nameOf(`
+      <form role="search"><input name="search" type="search"><button type="submit">Search</button></form>
+    `)).toEqual(['search'])
+  })
+
+  it('uses the submit button text', () => {
+    expect(nameOf(`
+      <form><input name="email" type="text"><button type="submit">Subscribe</button></form>
+    `)).toEqual(['subscribe'])
+  })
+
+  it('prefers an explicit aria-label, and skips the submit_ prefix when the label already reads as a verb', () => {
+    expect(nameOf(`
+      <form aria-label="Filter results"><input name="q" type="text"><button type="submit">Go</button></form>
+    `)).toEqual(['filter_results'])
+  })
+
+  it('prefixes submit_ when the label is a noun', () => {
+    expect(nameOf(`
+      <form aria-label="Delivery address"><input name="line1" type="text"></form>
+    `)).toEqual(['submit_delivery_address'])
+  })
+
+  it('falls back to a single field\'s label', () => {
+    expect(nameOf('<form><input name="postcode" type="text"></form>')).toEqual(['submit_postcode'])
+  })
+
+  it('never emits a bare number as a name', () => {
+    for (const name of nameOf('<form><input name="2" type="text"></form>')) {
+      expect(name).not.toMatch(/^\d+$/)
+      expect(name).toMatch(/^[a-z][a-z0-9_]*$/)
+    }
+  })
+
+  it('publishes one tool for a form duplicated across breakpoints', () => {
+    // Sites commonly render desktop and mobile copies of the same search form.
+    const names = nameOf(`
+      <form role="search" action="/s"><input name="q" type="search"></form>
+      <form role="search" action="/s"><input name="q" type="search"></form>
+    `)
+    expect(names).toEqual(['search'])
+  })
+
+  it('disambiguates genuinely different forms sharing a name', () => {
+    const names = nameOf(`
+      <form action="/a"><input name="q" type="text"><button type="submit">Go</button></form>
+      <form action="/b"><input name="term" type="text"><button type="submit">Go</button></form>
+    `)
+    expect(new Set(names).size).toBe(names.length)
+  })
+
+  it('skips a form containing a credential field entirely', () => {
+    // Submitting a login form without its password only fails, so publishing
+    // a partial version would mislead rather than help.
+    expect(nameOf(`
+      <form><input name="user" type="text"><input name="pass" type="password"></form>
+    `)).toEqual([])
+  })
+
+  it('describes what the tool does and where', () => {
+    markup('<form role="search"><input name="search" type="search"></form>')
+    const [definition] = autoFormDefinitions('0'.repeat(32), 'doc_1')
+    expect(definition.description).toContain(window.location.hostname)
+    expect(definition.description).toContain('search')
+    expect(definition.description).toMatch(/derived automatically/i)
+  })
+})

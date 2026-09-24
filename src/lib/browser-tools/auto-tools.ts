@@ -208,14 +208,82 @@ export function invokeReadTool(toolId: string, input: Record<string, Json>): Too
 
 // ── Form tools ─────────────────────────────────────────────────────────────
 
+/**
+ * A human name for a form, from whatever the page actually says.
+ *
+ * "form 1" is useless to an agent choosing between several. Real pages almost
+ * always name a form somewhere — its submit button, an aria-label, a search
+ * role — it is just never in one consistent place.
+ */
 function formLabel(form: HTMLFormElement, index: number): string {
-  const named = form.getAttribute('name')
-    || form.getAttribute('aria-label')
-    || form.querySelector('legend, h1, h2, h3')?.textContent
-    || form.querySelector('button[type="submit"], input[type="submit"]')?.textContent
-    || (form.querySelector('input[type="submit"]') as HTMLInputElement | null)?.value
-  const cleaned = clamp(named ?? '', 40)
-  return cleaned || `form ${index + 1}`
+  const submitText = () => {
+    const button = form.querySelector('button[type="submit"], input[type="submit"], button:not([type])')
+    if (!button) return ''
+    return button instanceof HTMLInputElement ? button.value : (button.textContent ?? '')
+  }
+
+  const searchLike = form.getAttribute('role') === 'search'
+    || form.querySelector('input[type="search"]')
+    || /search/i.test(form.getAttribute('action') ?? '')
+
+  const candidates = [
+    form.getAttribute('aria-label'),
+    form.getAttribute('title'),
+    submitText(),
+    form.querySelector('legend')?.textContent,
+    searchLike ? 'search' : '',
+    form.getAttribute('name'),
+    // A single-field form is named by that field.
+    onlyFieldLabel(form),
+    lastPathSegment(form.getAttribute('action')),
+  ]
+
+  for (const candidate of candidates) {
+    const cleaned = clamp(candidate ?? '', 40)
+    // Reject pure punctuation/icons and bare numbers.
+    if (cleaned && /[a-z]/i.test(cleaned) && !/^\d+$/.test(cleaned)) return cleaned
+  }
+  return `form ${index + 1}`
+}
+
+function onlyFieldLabel(form: HTMLFormElement): string {
+  const fields = [...form.elements].filter((el) => {
+    const type = (el as HTMLInputElement).type
+    return type && !['submit', 'button', 'reset', 'image', 'hidden'].includes(type)
+  })
+  if (fields.length !== 1) return ''
+  const field = fields[0] as HTMLInputElement
+  return field.getAttribute('aria-label') || field.placeholder || field.name || ''
+}
+
+function lastPathSegment(action: string | null): string {
+  if (!action) return ''
+  try {
+    const path = new URL(action, window.location.href).pathname
+    return path.split('/').filter(Boolean).at(-1)?.replace(/\.[a-z]+$/i, '') ?? ''
+  } catch {
+    return ''
+  }
+}
+
+/** Forms that do the same thing, to avoid publishing a desktop and mobile pair. */
+function formSignature(form: HTMLFormElement): string {
+  const fields = [...form.elements]
+    .map((el) => (el as HTMLInputElement).name || (el as HTMLElement).id)
+    .filter(Boolean)
+    .sort()
+  return `${form.method}|${form.getAttribute('action') ?? ''}|${fields.join(',')}`
+}
+
+/** A form with a credential field cannot be driven correctly without it. */
+function hasSensitiveField(form: HTMLFormElement): boolean {
+  return [...form.elements].some((el) => {
+    const type = (el as HTMLInputElement).type
+    const autocomplete = el.getAttribute('autocomplete') ?? ''
+    return type === 'password'
+      || type === 'file'
+      || /password|cc-number|cc-csc|one-time-code/.test(autocomplete)
+  })
 }
 
 function slug(text: string): string {
@@ -235,9 +303,21 @@ function slug(text: string): string {
  */
 export function autoFormDefinitions(pageId: string, documentId: string): GeneratedDefinition[] {
   const definitions: GeneratedDefinition[] = []
-  const forms = [...document.querySelectorAll('form')].slice(0, 8) as HTMLFormElement[]
+  const forms = [...document.querySelectorAll('form')].slice(0, 16) as HTMLFormElement[]
+  const seenSignature = new Set<string>()
+  const usedNames = new Set<string>()
 
   for (const [index, form] of forms.entries()) {
+    // A login form is not partially usable: submitting it without the password
+    // just fails, so publishing it would only mislead.
+    if (hasSensitiveField(form)) continue
+
+    // Sites commonly render the same form twice for desktop and mobile. Two
+    // identical tools with different numbers is worse than one named tool.
+    const signature = formSignature(form)
+    if (seenSignature.has(signature)) continue
+    seenSignature.add(signature)
+
     let scanned
     try {
       scanned = scanForm({
@@ -264,6 +344,16 @@ export function autoFormDefinitions(pageId: string, documentId: string): Generat
     }
 
     const label = formLabel(form, index)
+    let name = slug(label)
+    if (name.startsWith('submit_') === false && !/^(search|find|filter|subscribe|sign|log)/.test(name)) {
+      name = `submit_${name}`
+    }
+    // Names must be unique within a page, but a numeric suffix is a last resort.
+    let unique = name
+    for (let n = 2; usedNames.has(unique); n++) unique = `${name}_${n}`
+    usedNames.add(unique)
+
+    const fieldNames = parameters.map((p) => p.name).join(', ')
 
     definitions.push({
       formatVersion: 1,
@@ -272,10 +362,11 @@ export function autoFormDefinitions(pageId: string, documentId: string): Generat
       principalId: 'auto',
       sourceDraft: { id: draft.id, revision: draft.revision },
       applicability: draft.applicability,
-      name: `submit_${slug(label)}`,
+      name: unique,
       description:
-        `Fill and submit the "${label}" form on this page, then read the result. `
-        + `Automatically derived from the page, not authored — verify the outcome.`,
+        `${label.charAt(0).toUpperCase()}${label.slice(1)} on ${window.location.hostname}`
+        + `${fieldNames ? ` — fills ${fieldNames}` : ''}, submits the form and returns the result. `
+        + `Derived automatically from the page rather than authored, so verify the outcome.`,
       inputSchema: {
         type: 'object',
         properties: properties as never,
