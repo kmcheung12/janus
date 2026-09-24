@@ -224,3 +224,8 @@ export function isRunning(requestId: string): boolean {
 export function nativeCapability() {
   return native.capability()
 }
+
+/** How many tools the *site* registers, which is not the same as API support. */
+export async function nativeToolCount(): Promise<number> {
+  return (await native.discover()).length
+}

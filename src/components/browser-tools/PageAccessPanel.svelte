@@ -16,6 +16,7 @@
     url: string
     origin: string
     nativeCapability: 'available' | 'unavailable' | 'untested'
+    nativeToolCount: number
     allowAutoWrites: boolean
   }
 
@@ -37,12 +38,21 @@
   })
   const supported = $derived(origin.startsWith('http'))
 
+  /**
+   * §5: an unavailable browser API and a supported page that registers no
+   * tools are different things. Saying "available" on a site with zero tools
+   * reads as "this site is agent-ready", which is the opposite of the truth.
+   */
   const capabilityLabel = $derived(
-    page?.nativeCapability === 'available' ? 'Native WebMCP available'
-    : page?.nativeCapability === 'untested' ? 'Native WebMCP present but unverified'
-    : 'No native WebMCP — Janus generates read tools automatically',
+    page?.nativeToolCount
+      ? `Site provides ${page.nativeToolCount} WebMCP tool${page.nativeToolCount === 1 ? '' : 's'}`
+      : page?.nativeCapability === 'available'
+        ? 'Browser supports WebMCP, but this site publishes none — Janus generates tools instead'
+        : page?.nativeCapability === 'untested'
+          ? 'WebMCP present but unverified — Janus generates tools instead'
+          : 'No WebMCP here — Janus generates tools automatically',
   )
-  const usesAutoTools = $derived(page?.nativeCapability !== 'available')
+  const usesAutoTools = $derived(!page?.nativeToolCount)
 
   /**
    * The tab this panel acts on.

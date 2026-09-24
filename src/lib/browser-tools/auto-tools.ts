@@ -48,6 +48,31 @@ function visible(element: Element): boolean {
   return !element.closest('[hidden], [aria-hidden="true"]')
 }
 
+/** Chrome that is navigation, not content. Including it wastes most of the budget. */
+const CHROME_SELECTORS = [
+  'nav', 'header', 'footer', 'aside', 'script', 'style', 'noscript', 'template',
+  '[role="navigation"]', '[role="banner"]', '[role="contentinfo"]', '[role="search"]',
+  '[role="complementary"]', '[aria-hidden="true"]', '[hidden]',
+].join(', ')
+
+/**
+ * The page's actual prose.
+ *
+ * Reading `body.textContent` on a real site returns mostly menus — a Wikipedia
+ * article filled the entire 8k budget with "Toggle the table of contents / Edit
+ * links / Article Talk / Read Edit View history" before reaching a sentence.
+ * So: prefer a content root, then strip navigation from a clone.
+ */
+function mainText(): string {
+  const root = document.querySelector(
+    '#mw-content-text, main, [role="main"], article, #content, .content',
+  ) ?? document.body
+
+  const clone = root.cloneNode(true) as HTMLElement
+  for (const element of clone.querySelectorAll(CHROME_SELECTORS)) element.remove()
+  return (clone.textContent ?? '').replace(/\s+/g, ' ').trim()
+}
+
 // ── Read tools ─────────────────────────────────────────────────────────────
 
 const READ_TOOLS: Array<{
@@ -80,15 +105,15 @@ const READ_TOOLS: Array<{
         }))
         .filter((l) => l.text)
 
-      const main = document.querySelector('main, [role="main"], article') ?? document.body
+      const body = mainText()
 
       return {
         title: document.title,
         url: window.location.href,
         headings,
         links,
-        text: clamp(main.textContent ?? '', MAX_TEXT),
-        truncated: (main.textContent ?? '').length > MAX_TEXT,
+        text: clamp(body, MAX_TEXT),
+        truncated: body.length > MAX_TEXT,
       } as Json
     },
   },
@@ -227,9 +252,10 @@ export function autoFormDefinitions(pageId: string, documentId: string): Generat
     // A form whose only inputs are sensitive has nothing safe to parameterize.
     if (usable.length === 0) continue
 
+    const used = new Set<string>()
     const parameters = usable.map((slot, i) => ({
       slotId: slot.id,
-      name: parameterName(draft.candidateSteps, slot.id, i),
+      name: parameterName(draft, slot.id, i, used),
     }))
 
     const properties: Record<string, unknown> = {}
@@ -271,17 +297,48 @@ export function autoFormDefinitions(pageId: string, documentId: string): Generat
   return definitions
 }
 
-/** Name a parameter after the control it fills, falling back to a position. */
-function parameterName(steps: GeneratedDefinition['steps'], slotId: string, index: number): string {
-  for (const step of steps) {
-    if ((step.op === 'set_field' || step.op === 'select_option')
-      && step.value.kind === 'slot' && step.value.slotId === slotId) {
-      const described = (step as { targetId: string }).targetId
-      const named = slug(described.replace(/^b_/, '')) || `field_${index + 1}`
-      return named === 'form' ? `field_${index + 1}` : named
+/**
+ * Name a parameter after the control it fills.
+ *
+ * Resolved through the binding to the live element, because the binding ID is
+ * a positional token — naming from it produced a parameter literally called
+ * "0" on Wikipedia's search form.
+ */
+function parameterName(
+  draft: { candidateSteps: GeneratedDefinition['steps']; bindings: GeneratedDefinition['bindings'] },
+  slotId: string,
+  index: number,
+  used: Set<string>,
+): string {
+  let candidate = ''
+
+  for (const step of draft.candidateSteps) {
+    if ((step.op !== 'set_field' && step.op !== 'select_option')
+      || step.value.kind !== 'slot' || step.value.slotId !== slotId) continue
+
+    const binding = draft.bindings.find((b) => b.id === (step as { targetId: string }).targetId)
+    if (binding?.kind !== 'control') break
+
+    const element = document.querySelector(binding.selector) as HTMLElement | null
+    if (element) {
+      candidate = slug(
+        (element as HTMLInputElement).name
+        || element.getAttribute('aria-label')
+        || element.getAttribute('placeholder')
+        || element.id
+        || element.closest('label')?.textContent
+        || '',
+      )
     }
+    break
   }
-  return `field_${index + 1}`
+
+  // A purely numeric or empty name is no better than a position, and is
+  // awkward for a caller to pass.
+  let name = candidate && !/^\d+$/.test(candidate) ? candidate : `field_${index + 1}`
+  while (used.has(name)) name = `${name}_${index + 1}`
+  used.add(name)
+  return name
 }
 
 export function autoFormToolId(definitionId: string): string {

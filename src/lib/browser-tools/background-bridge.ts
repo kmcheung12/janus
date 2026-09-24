@@ -22,6 +22,8 @@ export interface EnabledPage {
   url: string
   origin: string
   nativeCapability: PageDescriptor['nativeCapability']
+  /** Tools the site itself registers. API support without tools is not readiness. */
+  nativeToolCount: number
   /** Whether auto-derived form tools (which submit) may publish for this page. */
   allowAutoWrites: boolean
 }
@@ -122,6 +124,7 @@ export async function enablePage(
   const info = await browser.tabs.sendMessage(tabId, { type: 'JANUS_BT_DESCRIBE' }) as {
     documentId: string
     nativeCapability: PageDescriptor['nativeCapability']
+    nativeToolCount?: number
   }
 
   if (!enabledPages.has(tabId) && enabledPages.size >= LIMITS.enabledPagesPerSession) {
@@ -145,6 +148,7 @@ export async function enablePage(
     url,
     origin,
     nativeCapability: info.nativeCapability,
+    nativeToolCount: info.nativeToolCount ?? 0,
     allowAutoWrites: previous?.allowAutoWrites ?? allowAutoWrites,
   }
   enabledPages.set(tabId, enabled)

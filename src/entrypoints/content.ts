@@ -198,10 +198,11 @@ export default defineContentScript({
       // ── Browser tool bridge (§6). These run regardless of recording state:
       // discovery and invocation must work with recording off.
       if (msg.type === 'JANUS_BT_DESCRIBE') {
-        return Promise.resolve({
+        return pageTools.nativeToolCount().then((nativeToolCount) => ({
           documentId: pageTools.currentDocumentId(),
           nativeCapability: pageTools.nativeCapability(),
-        })
+          nativeToolCount,
+        }))
       }
       if (msg.type === 'JANUS_BT_LIST_TOOLS') {
         return pageTools.publish()
