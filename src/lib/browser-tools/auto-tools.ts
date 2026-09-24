@@ -251,17 +251,32 @@ function formLabel(form: HTMLFormElement, index: number): string {
 }
 
 /**
- * Text the form states about itself, before any control. Bounded to a short
- * run so a form wrapping a page section cannot pull in its whole body.
+ * Text the form states about itself, before its first control.
+ *
+ * Walks in document order rather than over direct children, because sites
+ * label a form in every shape imaginable — a bare text node (Hacker News), a
+ * wrapping div, a heading. Reading only direct children handled Hacker News
+ * and missed the other two.
+ *
+ * Stops at the first control, so a form wrapping a page section cannot be
+ * named after its body copy.
  */
 function leadingText(form: HTMLFormElement): string {
+  const walker = document.createTreeWalker(form, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT)
   let text = ''
-  for (const node of form.childNodes) {
-    if (node.nodeType === Node.TEXT_NODE) text += node.textContent ?? ''
-    else if ((node as Element).tagName === 'LABEL') text += node.textContent ?? ''
-    else if (text.trim()) break // stop at the first control once we have something
+
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const tag = (node as Element).tagName
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'BUTTON') break
+      continue
+    }
+    text += ` ${node.textContent ?? ''}`
+    // Enough to name something; anything more is body copy.
+    if (text.trim().length > 60) break
   }
-  return text.replace(/[:：]\s*$/, '').trim().slice(0, 40)
+
+  return text.replace(/\s+/g, ' ').trim().replace(/[:：]\s*$/, '').slice(0, 40)
 }
 
 function onlyFieldLabel(form: HTMLFormElement): string {
