@@ -244,6 +244,11 @@ export default defineContentScript({
         }
         return Promise.resolve(demo.buildDraft(m))
       }
+      if (msg.type === 'JANUS_BT_SET_AUTO_OPTIONS') {
+        const m = msg as unknown as { pageId: string; allowWrites: boolean }
+        pageTools.setAutoOptions({ pageId: m.pageId, allowWrites: m.allowWrites })
+        return Promise.resolve({ ok: true })
+      }
       if (msg.type === 'JANUS_BT_SET_DEFINITIONS') {
         pageTools.setDefinitions((msg as unknown as { definitions: never[] }).definitions)
         return Promise.resolve({ ok: true })

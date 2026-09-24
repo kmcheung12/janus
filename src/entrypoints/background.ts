@@ -19,6 +19,7 @@ type Msg =
   | { type: 'JANUS_BT_ENABLE_PAGE' }
   | { type: 'JANUS_BT_DISABLE_PAGE' }
   | { type: 'JANUS_BT_SET_LABEL' }
+  | { type: 'JANUS_BT_SET_AUTO_WRITES' }
   | { type: 'JANUS_BT_TOOLS_CHANGED' }
   | { type: 'JANUS_BT_RECONNECT' }
   | { type: 'JANUS_BT_GET_PROVISIONING_PAYLOAD' }
@@ -80,8 +81,8 @@ export default defineBackground(() => {
       return bridge.savePairing(m.config).then(() => ({ ok: true }))
     }
     if (msg.type === 'JANUS_BT_ENABLE_PAGE') {
-      const m = msg as unknown as { tabId: number; label?: string }
-      return bridge.enablePage(m.tabId, m.label).then(
+      const m = msg as unknown as { tabId: number; label?: string; allowAutoWrites?: boolean }
+      return bridge.enablePage(m.tabId, m.label, m.allowAutoWrites).then(
         (page) => ({ page }),
         (e: Error) => ({ error: e.message }),
       )
@@ -91,6 +92,10 @@ export default defineBackground(() => {
       if (m.all) bridge.disableAll('disabled')
       else if (m.tabId !== undefined) bridge.disablePage(m.tabId, 'disabled')
       return Promise.resolve({ ok: true, pages: bridge.getEnabledPages() })
+    }
+    if (msg.type === 'JANUS_BT_SET_AUTO_WRITES') {
+      const m = msg as unknown as { tabId: number; allow: boolean }
+      return bridge.setAutoWrites(m.tabId, m.allow).then((page) => ({ page }))
     }
     if (msg.type === 'JANUS_BT_SET_LABEL') {
       const m = msg as unknown as { tabId: number; label: string }

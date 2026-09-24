@@ -174,6 +174,56 @@ test('an invocation against an unknown page fails explicitly', async () => {
   expect(result.text).toContain('UNAUTHORIZED')
 })
 
+test('a page with no native WebMCP gets read tools automatically', async () => {
+  const page = await extension.context.newPage()
+  await page.goto(site.url)
+  const popup = await extension.popup()
+  await enablePageThroughUi(popup)
+
+  const client = await agent('auto')
+  const names = await client.listToolNames()
+  const published = names.filter((n) => n.startsWith('web__'))
+
+  // Nothing was authored and the fixture exposes no native tools, yet the page
+  // is immediately usable.
+  expect(published.length).toBeGreaterThan(0)
+
+  const listed = await client.call('list_page_tools', {
+    pageId: JSON.parse((await client.call('list_pages', {})).text)[0].pageId,
+  })
+  expect(listed.text).toContain('read_page')
+  expect(listed.text).toContain('find_text')
+
+  // Form tools submit, so they stay out until the page is opted in.
+  expect(listed.text).not.toContain('submit_')
+
+  await popup.close()
+  await page.close()
+})
+
+test('automatic read tools return page content without a DOM snapshot', async () => {
+  const page = await extension.context.newPage()
+  await page.goto(site.url)
+  const popup = await extension.popup()
+  await enablePageThroughUi(popup)
+  await popup.close()
+
+  const client = await agent('auto-read')
+  const pages = JSON.parse((await client.call('list_pages', {})).text) as Array<{ pageId: string }>
+  const tools = JSON.parse((await client.call('list_page_tools', { pageId: pages[0].pageId })).text) as {
+    tools: Array<{ toolId: string; revision: number; name: string }>
+  }
+  const readPage = tools.tools.find((t) => t.name === 'read_page')!
+
+  const result = await client.call('call_page_tool', {
+    pageId: pages[0].pageId, toolId: readPage.toolId, revision: readPage.revision, input: {},
+  })
+  expect(result.isError, result.text).toBe(false)
+  expect(result.text).toContain('Fixture shop')
+
+  await page.close()
+})
+
 test('journey capture still works alongside the bridge', async () => {
   const client = await agent('journeys')
   const result = await client.call('list_journeys', {})

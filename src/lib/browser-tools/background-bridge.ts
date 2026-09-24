@@ -22,6 +22,8 @@ export interface EnabledPage {
   url: string
   origin: string
   nativeCapability: PageDescriptor['nativeCapability']
+  /** Whether auto-derived form tools (which submit) may publish for this page. */
+  allowAutoWrites: boolean
 }
 
 export interface PairingConfig {
@@ -109,7 +111,9 @@ export async function reconnect(): Promise<void> {
 }
 
 /** Resolve the tab's real top-level document before claiming success (§19). */
-export async function enablePage(tabId: number, label?: string): Promise<EnabledPage> {
+export async function enablePage(
+  tabId: number, label?: string, allowAutoWrites = false,
+): Promise<EnabledPage> {
   const tab = await browser.tabs.get(tabId)
   const url = tab.url ?? ''
   const origin = (() => { try { return new URL(url).origin } catch { return '' } })()
@@ -141,9 +145,11 @@ export async function enablePage(tabId: number, label?: string): Promise<Enabled
     url,
     origin,
     nativeCapability: info.nativeCapability,
+    allowAutoWrites: previous?.allowAutoWrites ?? allowAutoWrites,
   }
   enabledPages.set(tabId, enabled)
 
+  await pushAutoOptions(enabled)
   publishPages()
   await refreshTools(tabId)
   await syncDefinitions(tabId)
@@ -174,6 +180,30 @@ export function setLabel(tabId: number, label: string): EnabledPage | null {
   const updated = { ...page, label: trimmed }
   enabledPages.set(tabId, updated)
   publishPages()
+  return updated
+}
+
+/** Tell the page which auto tools it may publish. */
+async function pushAutoOptions(page: EnabledPage): Promise<void> {
+  try {
+    await browser.tabs.sendMessage(page.tabId, {
+      type: 'JANUS_BT_SET_AUTO_OPTIONS',
+      pageId: page.pageId,
+      allowWrites: page.allowAutoWrites,
+    })
+  } catch {
+    disablePage(page.tabId, 'closed')
+  }
+}
+
+/** Opt a page in or out of auto-derived form tools, which submit. */
+export async function setAutoWrites(tabId: number, allow: boolean): Promise<EnabledPage | null> {
+  const page = enabledPages.get(tabId)
+  if (!page) return null
+  const updated = { ...page, allowAutoWrites: allow }
+  enabledPages.set(tabId, updated)
+  await pushAutoOptions(updated)
+  await refreshTools(tabId)
   return updated
 }
 

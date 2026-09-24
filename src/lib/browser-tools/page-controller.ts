@@ -9,6 +9,7 @@
 import type { GeneratedDefinition, Json, ToolDescriptor, ToolOutcome } from './contract'
 import type { BrowserLiveInstance } from './contract'
 import * as native from './native-adapter'
+import * as auto from './auto-tools'
 import { run } from './recipe-runtime'
 import { setInvocationActor } from './provenance'
 
@@ -23,6 +24,15 @@ let liveInstances: BrowserLiveInstance[] = []
 let definitions: GeneratedDefinition[] = []
 let documentId = crypto.randomUUID()
 let onToolsChanged: (() => void) | null = null
+/** Auto-generated form tools publish only when the user opts this page in. */
+let allowAutoWrites = false
+let autoPageId = ''
+let autoForms: GeneratedDefinition[] = []
+
+export function setAutoOptions(options: { pageId: string; allowWrites: boolean }): void {
+  autoPageId = options.pageId
+  allowAutoWrites = options.allowWrites
+}
 
 export function currentDocumentId(): string {
   return documentId
@@ -75,8 +85,23 @@ export async function publish(): Promise<ToolDescriptor[]> {
   const nativeTools = await native.discover()
   const generated = definitions.filter(applicable).map(generatedDescriptor)
 
+  // Automatic tools fill the gap on pages that expose nothing themselves. A
+  // site's own tools are better than anything we can infer, so they are not
+  // added where native WebMCP already answers.
+  const hasNative = nativeTools.length > 0
+  const automatic: ToolDescriptor[] = []
+  autoForms = []
+
+  if (!hasNative) {
+    automatic.push(...auto.readToolDescriptors())
+    if (allowAutoWrites) {
+      autoForms = auto.autoFormDefinitions(autoPageId || documentId, documentId)
+      automatic.push(...autoForms.map(auto.formToolDescriptor))
+    }
+  }
+
   registerGenerated(generated)
-  const tools = [...nativeTools, ...generated]
+  const tools = [...nativeTools, ...generated, ...automatic]
   onToolsChanged?.()
   return tools
 }
@@ -145,6 +170,29 @@ export async function invoke(
   try {
     if (toolId.startsWith('n_')) {
       return await native.invoke(toolId, input)
+    }
+
+    if (auto.isAutoToolId(toolId)) {
+      const formDefinition = autoForms.find(
+        (d) => d.definitionId === auto.autoFormDefinitionId(toolId),
+      )
+      if (formDefinition) {
+        if (!allowAutoWrites) {
+          return {
+            status: 'error',
+            error: {
+              code: 'UNAUTHORIZED',
+              message: 'Form tools are not enabled for this page. Turn them on in the Janus popup.',
+              execution: 'not_started',
+            },
+          }
+        }
+        const outcome = await run({
+          definition: formDefinition, input, signal: controller.signal, timeoutMs,
+        })
+        return outcome.outcome
+      }
+      return auto.invokeReadTool(toolId, input)
     }
 
     const definitionId = toolId.replace(/^g_/, '')

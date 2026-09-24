@@ -4,10 +4,16 @@ import { decodeNativeToolId, encodeNativeToolId } from '../../src/lib/browser-to
 
 interface FakeTool {
   name: string
+  title?: string
   description?: string
   inputSchema?: unknown
-  annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean }
+  annotations?: {
+    readOnlyHint?: boolean
+    consequentialHint?: boolean
+    destructiveHint?: boolean
+  }
   origin?: string
+  window?: Window
 }
 
 function install(tools: FakeTool[], options: { execute?: (t: unknown, i: unknown) => Promise<unknown>; honourFromOrigins?: boolean } = {}) {
