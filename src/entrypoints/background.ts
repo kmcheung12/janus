@@ -1,6 +1,8 @@
 import type { CapturedEvent } from '../lib/event-capture/types'
 import { shortId } from '../lib/short-id'
 import { startJourney, syncEvents, stopJourney, sendFile } from '../lib/mcp/ws-client'
+import * as bridge from '../lib/browser-tools/background-bridge'
+import { getStatus } from '../lib/browser-tools/control-client'
 
 type Msg =
   | { type: 'JANUS_SYNC_EVENTS'; events: CapturedEvent[] }
@@ -12,6 +14,12 @@ type Msg =
   | { type: 'JANUS_SIDEBAR_OPENED' }
   | { type: 'JANUS_SIDEBAR_CLOSED' }
   | { type: 'JANUS_SEND_FILE'; filename: string; mimeType: string; data: ArrayBuffer }
+  | { type: 'JANUS_BT_GET_STATE' }
+  | { type: 'JANUS_BT_SAVE_PAIRING' }
+  | { type: 'JANUS_BT_ENABLE_PAGE' }
+  | { type: 'JANUS_BT_DISABLE_PAGE' }
+  | { type: 'JANUS_BT_SET_LABEL' }
+  | { type: 'JANUS_BT_TOOLS_CHANGED' }
 
 function setBadge(tabId: number, recording: boolean) {
   const api = (browser as any).action || (browser as any).browserAction
@@ -25,12 +33,56 @@ function setBadge(tabId: number, recording: boolean) {
 }
 
 export default defineBackground(() => {
+  // The control connection's lifetime is the pairing credential, not a
+  // recording: discovery and invocation must work with recording off (§14).
+  void bridge.loadPairing().then(() => bridge.reconnect())
+
   const tabEvents = new Map<number, CapturedEvent[]>()
   const tabRecording = new Map<number, boolean>()
   const tabSidebarOpen = new Map<number, boolean>()
   const tabJourneyId = new Map<number, string>()
 
   browser.runtime.onMessage.addListener((msg: Msg, sender) => {
+    // ── Browser tool bridge. Pairing, enablement and labels are privileged:
+    // they are only accepted from extension pages, never content scripts (§19).
+    const fromExtensionPage = !sender.tab
+    if (msg.type.startsWith('JANUS_BT_') && msg.type !== 'JANUS_BT_TOOLS_CHANGED') {
+      if (!fromExtensionPage) return Promise.resolve({ error: 'forbidden' })
+    }
+
+    if (msg.type === 'JANUS_BT_GET_STATE') {
+      return Promise.resolve({
+        status: getStatus(),
+        page: bridge.getEnabledPage(),
+      })
+    }
+    if (msg.type === 'JANUS_BT_SAVE_PAIRING') {
+      const m = msg as unknown as { config: Parameters<typeof bridge.savePairing>[0] }
+      return bridge.savePairing(m.config).then(() => ({ ok: true }))
+    }
+    if (msg.type === 'JANUS_BT_ENABLE_PAGE') {
+      const m = msg as unknown as { tabId: number; label?: string }
+      return bridge.enablePage(m.tabId, m.label).then(
+        (page) => ({ page }),
+        (e: Error) => ({ error: e.message }),
+      )
+    }
+    if (msg.type === 'JANUS_BT_DISABLE_PAGE') {
+      bridge.disablePage('disabled')
+      return Promise.resolve({ ok: true })
+    }
+    if (msg.type === 'JANUS_BT_SET_LABEL') {
+      try {
+        return Promise.resolve({ page: bridge.setLabel((msg as unknown as { label: string }).label) })
+      } catch (e) {
+        return Promise.resolve({ error: (e as Error).message })
+      }
+    }
+    if (msg.type === 'JANUS_BT_TOOLS_CHANGED') {
+      void bridge.refreshTools()
+      return
+    }
+
     if (msg.type === 'JANUS_TOGGLE_RECORDING') {
       const tabId = msg.tabId ?? sender.tab?.id
       if (!tabId) return
@@ -155,7 +207,14 @@ export default defineBackground(() => {
     setBadge(tabId, tabRecording.get(tabId) ?? false)
   })
 
+  // Navigation replaces the document, which invalidates the page handle. v1
+  // requires explicit re-enabling rather than silently following the user.
+  browser.webNavigation?.onCommitted?.addListener(({ tabId, frameId }) => {
+    if (frameId === 0) void bridge.onNavigated(tabId)
+  })
+
   browser.tabs.onRemoved.addListener((tabId) => {
+    if (bridge.getEnabledPage()?.tabId === tabId) bridge.disablePage('closed')
     tabEvents.delete(tabId)
     tabRecording.delete(tabId)
     tabSidebarOpen.delete(tabId)

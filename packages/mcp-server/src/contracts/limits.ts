@@ -109,7 +109,12 @@ export function jsonDepth(value: unknown, depth = 1): number {
   return max
 }
 
-/** UTF-8 byte length of a value's JSON encoding. */
+/**
+ * UTF-8 byte length of a value's JSON encoding. Uses TextEncoder rather than
+ * Buffer so the extension can enforce the same limit as the daemon.
+ */
+const encoder = new TextEncoder()
+
 export function jsonBytes(value: unknown): number {
-  return Buffer.byteLength(JSON.stringify(value) ?? '', 'utf8')
+  return encoder.encode(JSON.stringify(value) ?? '').byteLength
 }
