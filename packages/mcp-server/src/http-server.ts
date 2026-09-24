@@ -3,11 +3,15 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { createMcpServer } from './mcp-tools.js'
-import type { ClientRecord, CredentialStore } from './credentials.js'
+import { generateId, generateToken, type ClientRecord, type CredentialStore } from './credentials.js'
 import { getSession, registerSession, unregisterSession } from './control/sessions.js'
 
 export interface HttpHandlerOptions {
   credentials: CredentialStore
+  /** Refuse first-run self-enrolment; see the /pair handler below. */
+  noAutoPair?: boolean
+  /** Advertised to the extension so the user never has to know two ports. */
+  webSocketUrl?: string
 }
 
 /**
@@ -29,6 +33,57 @@ export function createHttpHandler(options: HttpHandlerOptions) {
 
   return async (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url ?? '/', 'http://localhost')
+
+    /**
+     * First-run enrolment.
+     *
+     * Requiring the user to copy a credential into a CLI before anything
+     * worked made the product unusable, so the daemon issues the browser's
+     * credential itself — but only while no browser is paired at all. Once one
+     * is, this closes permanently and re-pairing goes back through the CLI.
+     *
+     * The trade is explicit: a local process could race the browser to claim
+     * this. It is loopback-only, it closes after a single use, the daemon says
+     * loudly what it issued, and --no-auto-pair turns it off. That is a better
+     * bargain than a setup nobody finishes.
+     */
+    if (req.method === 'POST' && url.pathname === '/pair') {
+      if (options.noAutoPair) {
+        res.writeHead(403, { 'content-type': 'text/plain' })
+        res.end('Automatic pairing is disabled. Use: janus-mcp pair --stdin')
+        return
+      }
+      if (credentials.listExecutors().length > 0) {
+        res.writeHead(409, { 'content-type': 'text/plain' })
+        res.end('A browser is already paired. Use: janus-mcp pair --stdin')
+        return
+      }
+
+      const pairingId = generateId('pair')
+      const token = generateToken()
+      credentials.upsertExecutor(pairingId, token, 'browser (auto-paired)')
+
+      // An agent token is issued alongside it, because minting that separately
+      // was the other half of the setup cost.
+      const client = credentials.createClient(pairingId, 'local agent', true)
+      const port = req.socket.localPort ?? 3456
+
+      console.error(
+        `[janus-mcp] Auto-paired a browser (${pairingId}); automatic pairing is now closed.\n`
+        + `[janus-mcp] Connect an agent with:\n\n`
+        + `  claude mcp add --transport http janus http://127.0.0.1:${port}/mcp \\\n`
+        + `    --header "Authorization: Bearer ${client.token}"\n`,
+      )
+
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({
+        pairingId,
+        token,
+        webSocket: options.webSocketUrl,
+        agentToken: client.token,
+      }))
+      return
+    }
 
     const principal = authenticate(req, credentials)
     if (!principal) {

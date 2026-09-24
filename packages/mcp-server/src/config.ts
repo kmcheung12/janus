@@ -15,6 +15,8 @@ export interface DaemonConfig {
   /** Loopback only. §12 requires both listeners to be bound explicitly. */
   bind: string
   dataDir: string
+  /** Refuse first-run self-enrolment; pairing must go through the CLI. */
+  noAutoPair: boolean
 }
 
 export const DEFAULT_MCP_PORT = 3456
@@ -41,6 +43,7 @@ export function parseConfig(argv: string[]): DaemonConfig {
     wsPort: DEFAULT_WS_PORT,
     bind: DEFAULT_BIND,
     dataDir: defaultDataDir(),
+    noAutoPair: false,
   }
 
   for (let i = 0; i < argv.length; i++) {
@@ -55,6 +58,7 @@ export function parseConfig(argv: string[]): DaemonConfig {
       case '--ws-port': config.wsPort = parsePort(next(), arg); break
       case '--bind': config.bind = next(); break
       case '--data-dir': config.dataDir = resolve(next()); break
+      case '--no-auto-pair': config.noAutoPair = true; break
       default:
         throw new Error(`Unknown option: ${arg}`)
     }

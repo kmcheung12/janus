@@ -19,7 +19,7 @@
     | { state: 'idle' } | { state: 'connecting' } | { state: 'connected'; connectionId: string }
     | { state: 'unreachable' } | { state: 'unauthorized' }
 
-  const DEFAULT_URL = 'ws://127.0.0.1:3457'
+  const DEFAULT_URL = 'http://127.0.0.1:3456'
   const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1'])
 
   let url = $state(DEFAULT_URL)
@@ -30,6 +30,9 @@
   let copied = $state(false)
   let busy = $state(false)
   let confirmingRotate = $state(false)
+  let agentCommand = $state('')
+  let copiedCommand = $state(false)
+  let manualReason = $state('')
   /**
    * Whether this credential has ever been accepted. Before it has, a rejection
    * means "the daemon has not been provisioned yet" — not "revoked". Telling
@@ -79,8 +82,8 @@
    */
   function validateUrl(value: string): string {
     let parsed: URL
-    try { parsed = new URL(value) } catch { return 'Enter a WebSocket URL' }
-    if (parsed.protocol !== 'ws:') return 'Must start with ws://'
+    try { parsed = new URL(value) } catch { return 'Enter the daemon address' }
+    if (parsed.protocol !== 'http:') return 'Must start with http://'
     if (!LOOPBACK_HOSTS.has(parsed.hostname)) return 'Must be a loopback address'
     if (parsed.username || parsed.password) return 'Credentials are not allowed in the URL'
     if (parsed.search || parsed.hash) return 'Query and fragment are not allowed'
@@ -95,26 +98,84 @@
     return [...buffer].map((b) => b.toString(16).padStart(2, '0')).join('')
   }
 
+  /**
+   * Ask the daemon to enrol this browser.
+   *
+   * It issues the credential instead of us generating one and making the user
+   * carry it to a terminal. That only works while nothing is paired yet; after
+   * that the daemon refuses and the manual path applies.
+   */
   async function pair() {
     urlError = validateUrl(url)
     if (urlError || busy) return
     busy = true
+    manualReason = ''
     try {
-      const config: PairingConfig = {
-        url,
-        pairingId: `pair_${randomHex(8)}`,
-        token: randomHex(32), // 256 bits
-        browserSessionId: `browser_${randomHex(8)}`,
+      let response: Response
+      try {
+        response = await fetch(new URL('/pair', url).href, { method: 'POST' })
+      } catch {
+        urlError = 'Could not reach the daemon. Is janus-mcp running?'
+        return
       }
-      await browser.runtime.sendMessage({ type: 'JANUS_BT_SAVE_PAIRING', config })
-      // Shown once. The stored copy stays in background-only storage.
-      pairingPayload = JSON.stringify({ pairingId: config.pairingId, token: config.token })
+
+      if (!response.ok) {
+        // Already paired, or auto-pairing disabled. Fall back rather than
+        // silently doing nothing.
+        manualReason = await response.text()
+        await pairManually()
+        return
+      }
+
+      const issued = await response.json() as {
+        pairingId: string; token: string; webSocket: string; agentToken?: string
+      }
+
+      await browser.runtime.sendMessage({
+        type: 'JANUS_BT_SAVE_PAIRING',
+        config: {
+          url: issued.webSocket,
+          pairingId: issued.pairingId,
+          token: issued.token,
+          browserSessionId: `browser_${randomHex(8)}`,
+        } satisfies PairingConfig,
+      })
+
       paired = true
       everConnected = false
       confirmingRotate = false
+      pairingPayload = null
+      agentCommand = issued.agentToken
+        ? `claude mcp add --transport http janus ${new URL('/mcp', url).href} `
+          + `--header "Authorization: Bearer ${issued.agentToken}"`
+        : ''
     } finally {
       busy = false
     }
+  }
+
+  /** The original flow, for a daemon that will not enrol us. */
+  async function pairManually() {
+    const parsed = new URL(url)
+    const config: PairingConfig = {
+      // The WebSocket listener sits one port above the MCP one by default.
+      url: `ws://${parsed.hostname}:${Number(parsed.port) + 1}/`,
+      pairingId: `pair_${randomHex(8)}`,
+      token: randomHex(32), // 256 bits
+      browserSessionId: `browser_${randomHex(8)}`,
+    }
+    await browser.runtime.sendMessage({ type: 'JANUS_BT_SAVE_PAIRING', config })
+    pairingPayload = JSON.stringify({ pairingId: config.pairingId, token: config.token })
+    paired = true
+    everConnected = false
+    confirmingRotate = false
+  }
+
+  async function copyCommand() {
+    if (!agentCommand) return
+    await navigator.clipboard.writeText(agentCommand)
+    copiedCommand = true
+    setTimeout(() => { copiedCommand = false }, 1500)
   }
 
   /**
@@ -192,6 +253,21 @@
       Paired, but the daemon is not answering. Start it, then provision this
       browser with the command below.
     </p>
+  {/if}
+
+  {#if agentCommand}
+    <div class="handoff">
+      <p class="desc">
+        Paired. Run this once to connect your coding agent — the token appears
+        only here.
+      </p>
+      <code>{agentCommand}</code>
+      <button onclick={copyCommand}>{copiedCommand ? 'Copied' : 'Copy command'}</button>
+    </div>
+  {/if}
+
+  {#if manualReason}
+    <p class="desc">{manualReason}</p>
   {/if}
 
   {#if pairingPayload}

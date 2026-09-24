@@ -28,13 +28,25 @@ async function main(): Promise<number | undefined> {
       storeDefinition(pairingId, draft, definition, LIMITS.authoringStoreDeadlineMs),
   })
   const wss = startWsServer({ port: config.wsPort, host: config.bind, credentials })
-  const httpServer = createServer(createHttpHandler({ credentials }))
-
-  await new Promise<void>((res) => httpServer.listen(config.mcpPort, config.bind, res))
-
-  const mcpPort = (httpServer.address() as AddressInfo).port
+  // address() is null until the socket is actually listening, and the WS URL is
+  // now needed up front to hand to the extension during enrolment.
+  await new Promise<void>((res) => {
+    if (wss.address()) { res(); return }
+    wss.once('listening', () => res())
+  })
   const wsPort = (wss.address() as AddressInfo).port
   const host = config.bind.includes(':') ? `[${config.bind}]` : config.bind
+
+  const httpServer = createServer(createHttpHandler({
+    credentials,
+    noAutoPair: config.noAutoPair,
+    // Handed to the extension during enrolment so the user never has to know
+    // that there are two ports.
+    webSocketUrl: `ws://${host}:${wsPort}`,
+  }))
+
+  await new Promise<void>((res) => httpServer.listen(config.mcpPort, config.bind, res))
+  const mcpPort = (httpServer.address() as AddressInfo).port
 
   // §20: an explicit readiness record so the harness can discover ephemeral
   // ports without scraping log prose. Never contains credentials.
@@ -47,7 +59,12 @@ async function main(): Promise<number | undefined> {
   }))
 
   if (credentials.listExecutors().length === 0) {
-    console.error('[janus-mcp] No paired browser. Run: janus-mcp pair --stdin')
+    console.error(
+      config.noAutoPair
+        ? '[janus-mcp] No paired browser. Run: janus-mcp pair --stdin'
+        : '[janus-mcp] No browser paired yet. Open the Janus extension and click Pair — it will '
+          + 'provision itself, and the agent connect command will be printed here.',
+    )
   }
 
   return undefined

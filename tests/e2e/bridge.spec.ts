@@ -24,7 +24,7 @@ test.beforeAll(async () => {
   extension = await launchExtension()
 
   const settings = await extension.settings()
-  pairingId = await pairThroughUi(settings, daemon.wsUrl, daemon.pair)
+  ;({ pairingId } = await pairThroughUi(settings, daemon.mcpUrl))
   await settings.close()
 })
 

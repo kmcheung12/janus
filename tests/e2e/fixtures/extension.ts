@@ -64,34 +64,35 @@ export async function launchExtension(): Promise<ExtensionHandle> {
  * Pair through the settings UI and hand the generated payload to the daemon,
  * exactly as a user would. Returns the pairing ID.
  */
+/**
+ * Pair through the UI. One click: the extension asks the daemon to enrol it,
+ * so there is no credential for the user to carry to a terminal.
+ *
+ * Returns the pairing ID and the agent token the daemon issued alongside it.
+ */
 export async function pairThroughUi(
   settings: Page,
-  wsUrl: string,
-  provision: (pairingId: string, token: string) => Promise<void>,
-): Promise<string> {
+  mcpUrl: string,
+): Promise<{ pairingId: string; agentToken: string }> {
   await settings.getByRole('button', { name: 'Browser connection' }).click()
 
   const address = settings.getByLabel('Daemon address').or(settings.locator('input[type="text"]').first())
-  await address.fill(wsUrl)
+  await address.fill(new URL(mcpUrl).origin)
 
   await settings.getByRole('button', { name: 'Pair with Janus' }).click()
-  await settings.getByRole('button', { name: /Copy pairing JSON/ }).waitFor()
-
-  // Read the payload the extension generated rather than inventing one, so the
-  // test exercises the real credential path.
-  const payload = await settings.evaluate(async () => {
-    const stored = await chrome.storage.local.get('janus_browser_tools')
-    return stored.janus_browser_tools as { pairingId: string; token: string }
-  })
-
-  // The extension already tried to connect and was rejected: the daemon did
-  // not know this pairing yet. It deliberately does not retry a rejected
-  // credential on a schedule, so reconnecting is an explicit user action.
-  await provision(payload.pairingId, payload.token)
-  await settings.getByRole('button', { name: 'Retry connection' }).click()
   await settings.getByText('Connected').waitFor({ timeout: 20_000 })
 
-  return payload.pairingId
+  const agentToken = await settings.evaluate(() => {
+    const code = document.querySelector('.handoff code')?.textContent ?? ''
+    return code.match(/Bearer ([0-9a-f]{64})/)?.[1] ?? ''
+  })
+
+  const pairingId = await settings.evaluate(async () => {
+    const stored = await chrome.storage.local.get('janus_browser_tools')
+    return (stored.janus_browser_tools as { pairingId: string }).pairingId
+  })
+
+  return { pairingId, agentToken }
 }
 
 export async function enablePageThroughUi(popup: Page): Promise<void> {
