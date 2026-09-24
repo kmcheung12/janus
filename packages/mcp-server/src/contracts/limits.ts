@@ -10,8 +10,13 @@
  */
 
 export const LIMITS = {
-  /** Enabled pages per executor/browser session; replacing requires an explicit action. */
-  enabledPagesPerSession: 1,
+  /**
+   * Enabled pages per executor/browser session. Each is its own handle with its
+   * own tools; execution stays serialized per page, so enabling several lets an
+   * agent work across tabs without any of them interleaving on one document.
+   * Bounded because every enabled page is standing execution authority.
+   */
+  enabledPagesPerSession: 8,
   /** Concurrent executions per browser document, across every MCP session. */
   activeExecutionsPerDocument: 1,
 

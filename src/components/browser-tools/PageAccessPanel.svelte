@@ -22,13 +22,14 @@
 
   let status = $state<Status>({ state: 'idle' })
   let page = $state<EnabledPage | null>(null)
+  let pages = $state<EnabledPage[]>([])
   let currentTab = $state<{ id?: number; title?: string; url?: string } | null>(null)
   let error = $state('')
   let busy = $state(false)
 
   const connected = $derived(status.state === 'connected')
-  const isThisTab = $derived(!!page && page.tabId === currentTab?.id)
-  const otherPage = $derived(page && !isThisTab ? page : null)
+  const isThisTab = $derived(!!page)
+  const others = $derived(pages.filter((p) => p.tabId !== currentTab?.id))
 
   const origin = $derived.by(() => {
     try { return new URL(currentTab?.url ?? '').origin } catch { return '' }
@@ -69,9 +70,12 @@
   })
 
   async function refresh() {
-    const state = await browser.runtime.sendMessage({ type: 'JANUS_BT_GET_STATE' })
+    const state = await browser.runtime.sendMessage({
+      type: 'JANUS_BT_GET_STATE', tabId: currentTab?.id,
+    })
     status = state?.status ?? { state: 'idle' }
     page = state?.page ?? null
+    pages = state?.pages ?? []
   }
 
   async function enable() {
@@ -85,24 +89,29 @@
         type: 'JANUS_BT_ENABLE_PAGE', tabId: currentTab.id, label: currentTab.title,
       })
       if (result?.error) error = result.error
-      else page = result.page
+      else { page = result.page; await refresh() }
     } finally {
       busy = false
     }
   }
 
-  async function disable() {
+  async function disable(tabId?: number) {
     busy = true
     try {
-      await browser.runtime.sendMessage({ type: 'JANUS_BT_DISABLE_PAGE' })
-      page = null
+      await browser.runtime.sendMessage({
+        type: 'JANUS_BT_DISABLE_PAGE', tabId: tabId ?? currentTab?.id,
+      })
+      if (tabId === undefined || tabId === currentTab?.id) page = null
+      await refresh()
     } finally {
       busy = false
     }
   }
 
   async function saveLabel(next: string): Promise<string | null> {
-    const result = await browser.runtime.sendMessage({ type: 'JANUS_BT_SET_LABEL', label: next })
+    const result = await browser.runtime.sendMessage({
+      type: 'JANUS_BT_SET_LABEL', tabId: currentTab?.id, label: next,
+    })
     if (result?.error) return result.error
     page = result.page
     return null
@@ -124,21 +133,12 @@
     <button onclick={() => browser.runtime.openOptionsPage()}>Open connection settings</button>
   {:else if !supported}
     <p class="desc">Tools can only be enabled on http(s) pages.</p>
-  {:else if otherPage}
-    <p class="desc">
-      Tools are enabled on <strong>{otherPage.label}</strong>. Janus controls one
-      page at a time, and never moves because you switched tabs.
-    </p>
-    <div class="actions">
-      <button class="primary" onclick={enable} disabled={busy}>Replace enabled page</button>
-      <button onclick={disable} disabled={busy}>Disable</button>
-    </div>
   {:else if isThisTab && page}
     <PageLabelField label={page.label} onsave={saveLabel} />
     <p class="desc cap">{capabilityLabel}</p>
     <p class="desc mono">{page.origin}</p>
     <div class="actions">
-      <button onclick={disable} disabled={busy}>Disable tools on this page</button>
+      <button onclick={() => disable()} disabled={busy}>Disable tools on this page</button>
     </div>
     <p class="desc note">
       Disabling withdraws the tools immediately and cancels queued work. If a
@@ -152,6 +152,18 @@
     <p class="desc mono">{origin}</p>
     <div class="actions">
       <button class="primary" onclick={enable} disabled={busy}>Enable tools on this page</button>
+    </div>
+  {/if}
+
+  {#if others.length}
+    <div class="others">
+      <p class="desc">Also enabled ({others.length}):</p>
+      {#each others as other (other.pageId)}
+        <div class="other">
+          <span class="other-label" title={other.url}>{other.label}</span>
+          <button onclick={() => disable(other.tabId)} disabled={busy}>Disable</button>
+        </div>
+      {/each}
     </div>
   {/if}
 
@@ -170,6 +182,9 @@
   .note { margin-top: 8px; }
   .error { color: #c0392b; font-size: 11px; margin: 8px 0 0; }
   .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .others { margin-top: 12px; padding-top: 8px; border-top: 1px solid #f0f0f0; }
+  .other { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+  .other-label { font-size: 11px; color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   button { padding: 5px 10px; border: 1px solid #ddd; border-radius: 4px; background: #fff; cursor: pointer; font-size: 11px; }
   button.primary { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
   button:disabled { opacity: 0.5; cursor: default; }

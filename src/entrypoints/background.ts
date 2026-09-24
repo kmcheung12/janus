@@ -66,9 +66,13 @@ export default defineBackground(() => {
     }
 
     if (msg.type === 'JANUS_BT_GET_STATE') {
+      const tabId = (msg as unknown as { tabId?: number }).tabId
       return Promise.resolve({
         status: getStatus(),
-        page: bridge.getEnabledPage(),
+        // The page for the tab being asked about, plus everything enabled, so
+        // the popup can show both "this tab" and "elsewhere".
+        page: tabId !== undefined ? bridge.getEnabledPage(tabId) : null,
+        pages: bridge.getEnabledPages(),
       })
     }
     if (msg.type === 'JANUS_BT_SAVE_PAIRING') {
@@ -83,12 +87,15 @@ export default defineBackground(() => {
       )
     }
     if (msg.type === 'JANUS_BT_DISABLE_PAGE') {
-      bridge.disablePage('disabled')
-      return Promise.resolve({ ok: true })
+      const m = msg as unknown as { tabId?: number; all?: boolean }
+      if (m.all) bridge.disableAll('disabled')
+      else if (m.tabId !== undefined) bridge.disablePage(m.tabId, 'disabled')
+      return Promise.resolve({ ok: true, pages: bridge.getEnabledPages() })
     }
     if (msg.type === 'JANUS_BT_SET_LABEL') {
+      const m = msg as unknown as { tabId: number; label: string }
       try {
-        return Promise.resolve({ page: bridge.setLabel((msg as unknown as { label: string }).label) })
+        return Promise.resolve({ page: bridge.setLabel(m.tabId, m.label) })
       } catch (e) {
         return Promise.resolve({ error: (e as Error).message })
       }
@@ -103,7 +110,8 @@ export default defineBackground(() => {
       return bridge.authoringState()
     }
     if (msg.type === 'JANUS_BT_CAPTURE_DRAFT') {
-      return bridge.captureDraft((msg as unknown as { principalId: string }).principalId)
+      const m = msg as unknown as { tabId: number; principalId: string }
+      return bridge.captureDraft(m.tabId, m.principalId)
     }
     if (msg.type === 'JANUS_BT_SET_APPROVAL') {
       const m = msg as unknown as { definitionId: string; state: 'enabled' | 'disabled' }
@@ -118,15 +126,18 @@ export default defineBackground(() => {
         .then((json) => ({ json }))
     }
     if (msg.type === 'JANUS_BT_TEST_DEFINITION') {
-      const m = msg as unknown as { definitionId: string; input: Record<string, never> }
-      return bridge.testDefinition(m.definitionId, m.input)
+      const m = msg as unknown as { tabId: number; definitionId: string; input: Record<string, never> }
+      return bridge.testDefinition(m.tabId, m.definitionId, m.input)
     }
     if (msg.type === 'JANUS_BT_DEMO') {
-      return bridge.demo((msg as unknown as { action: 'start' | 'stop' | 'state' }).action)
+      const m = msg as unknown as { tabId: number; action: 'start' | 'stop' | 'state' }
+      return bridge.demo(m.tabId, m.action)
     }
     if (msg.type === 'JANUS_BT_DEMO_BUILD') {
-      const m = msg as unknown as { recording: unknown; parameterIndices: number[]; resultIndex?: number }
-      return bridge.buildDemoDraft(m.recording, m.parameterIndices, m.resultIndex)
+      const m = msg as unknown as {
+        tabId: number; recording: unknown; parameterIndices: number[]; resultIndex?: number
+      }
+      return bridge.buildDemoDraft(m.tabId, m.recording, m.parameterIndices, m.resultIndex)
     }
     if (msg.type === 'JANUS_BT_TOOLS_CHANGED') {
       void bridge.refreshTools()
@@ -264,7 +275,7 @@ export default defineBackground(() => {
   })
 
   browser.tabs.onRemoved.addListener((tabId) => {
-    if (bridge.getEnabledPage()?.tabId === tabId) bridge.disablePage('closed')
+    bridge.disablePage(tabId, 'closed')
     tabEvents.delete(tabId)
     tabRecording.delete(tabId)
     tabSidebarOpen.delete(tabId)

@@ -33,9 +33,20 @@ export interface PairingConfig {
 
 const STORAGE_KEY = 'janus_browser_tools'
 
-/** At most one enabled page in v1 (§18); replacement is explicit. */
-let enabled: EnabledPage | null = null
+/**
+ * Enabled pages, keyed by tab.
+ *
+ * Several tabs can be enabled at once; each is its own page handle with its own
+ * tool set. The daemon already serializes execution per page, so calls to
+ * different pages run concurrently while calls to one page still queue.
+ */
+const enabledPages = new Map<number, EnabledPage>()
 let pairing: PairingConfig | null = null
+
+function pageById(pageId: PageId): EnabledPage | undefined {
+  for (const page of enabledPages.values()) if (page.pageId === pageId) return page
+  return undefined
+}
 
 function randomPageId(): PageId {
   const bytes = new Uint8Array(16)
@@ -43,8 +54,14 @@ function randomPageId(): PageId {
   return [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-export function getEnabledPage(): EnabledPage | null {
-  return enabled
+export function getEnabledPages(): EnabledPage[] {
+  return [...enabledPages.values()]
+}
+
+/** The enabled page for one tab, if any. */
+export function getEnabledPage(tabId?: number): EnabledPage | null {
+  if (tabId === undefined) return enabledPages.values().next().value ?? null
+  return enabledPages.get(tabId) ?? null
 }
 
 export async function loadPairing(): Promise<PairingConfig | null> {
@@ -103,13 +120,19 @@ export async function enablePage(tabId: number, label?: string): Promise<Enabled
     nativeCapability: PageDescriptor['nativeCapability']
   }
 
-  if (enabled && enabled.tabId !== tabId) {
-    // Never move execution implicitly because the user switched tabs.
-    control.removePage(enabled.pageId, enabled.documentId, 'disabled')
+  if (!enabledPages.has(tabId) && enabledPages.size >= LIMITS.enabledPagesPerSession) {
+    throw new Error(
+      `At most ${LIMITS.enabledPagesPerSession} pages can be enabled at once. Disable one first.`,
+    )
   }
 
+  // Re-enabling a tab replaces its handle rather than accumulating handles for
+  // documents that no longer exist.
+  const previous = enabledPages.get(tabId)
+  if (previous) control.removePage(previous.pageId, previous.documentId, 'disabled')
+
   const trimmed = (label ?? tab.title ?? origin).trim().slice(0, LIMITS.pageLabelMaxLength)
-  enabled = {
+  const enabled: EnabledPage = {
     pageId: randomPageId(),
     tabId,
     documentId: info.documentId,
@@ -119,50 +142,66 @@ export async function enablePage(tabId: number, label?: string): Promise<Enabled
     origin,
     nativeCapability: info.nativeCapability,
   }
+  enabledPages.set(tabId, enabled)
 
   publishPages()
-  await refreshTools()
+  await refreshTools(tabId)
+  await syncDefinitions(tabId)
   return enabled
 }
 
-export function disablePage(reason: 'navigation' | 'closed' | 'disabled' = 'disabled'): void {
-  if (!enabled) return
-  control.removePage(enabled.pageId, enabled.documentId, reason)
-  enabled = null
+export function disablePage(
+  tabId: number,
+  reason: 'navigation' | 'closed' | 'disabled' = 'disabled',
+): void {
+  const page = enabledPages.get(tabId)
+  if (!page) return
+  control.removePage(page.pageId, page.documentId, reason)
+  enabledPages.delete(tabId)
   publishPages()
 }
 
-export function setLabel(label: string): EnabledPage | null {
-  if (!enabled) return null
+export function disableAll(reason: 'navigation' | 'closed' | 'disabled' = 'disabled'): void {
+  for (const tabId of [...enabledPages.keys()]) disablePage(tabId, reason)
+}
+
+export function setLabel(tabId: number, label: string): EnabledPage | null {
+  const page = enabledPages.get(tabId)
+  if (!page) return null
   const trimmed = label.trim().slice(0, LIMITS.pageLabelMaxLength)
   if (trimmed.length < LIMITS.pageLabelMinLength) throw new Error('Label cannot be empty')
   // A label is display metadata; it never affects identity or revision (§7).
-  enabled = { ...enabled, label: trimmed }
+  const updated = { ...page, label: trimmed }
+  enabledPages.set(tabId, updated)
   publishPages()
-  return enabled
+  return updated
 }
 
+/** A complete snapshot: anything absent here is withdrawn by definition. */
 function publishPages(): void {
-  control.publishPages(enabled ? [{
-    pageId: enabled.pageId,
+  control.publishPages([...enabledPages.values()].map((page) => ({
+    pageId: page.pageId,
     browserSessionId: pairing?.browserSessionId ?? 'browser',
-    tabId: enabled.tabId,
-    frameId: 0,
-    documentId: enabled.documentId,
-    label: enabled.label,
-    title: enabled.title,
-    url: enabled.url,
-    origin: enabled.origin,
-    nativeCapability: enabled.nativeCapability,
-    execution: { state: 'idle' },
-  }] : [])
+    tabId: page.tabId,
+    frameId: 0 as const,
+    documentId: page.documentId,
+    label: page.label,
+    title: page.title,
+    url: page.url,
+    origin: page.origin,
+    nativeCapability: page.nativeCapability,
+    execution: { state: 'idle' as const },
+  })))
 }
 
 // ── Authoring (M2) ─────────────────────────────────────────────────────────
 
 /** Capture a draft from the enabled page and offer it to the agent. */
-export async function captureDraft(principalId: string): Promise<{ draft?: ToolDraft; unsupported?: unknown; error?: string }> {
-  if (!enabled) return { error: 'No page is enabled' }
+export async function captureDraft(
+  tabId: number, principalId: string,
+): Promise<{ draft?: ToolDraft; unsupported?: unknown; error?: string }> {
+  const enabled = enabledPages.get(tabId)
+  if (!enabled) return { error: 'This tab is not enabled' }
   try {
     const result = await browser.tabs.sendMessage(enabled.tabId, {
       type: 'JANUS_BT_SCAN_FORM',
@@ -194,16 +233,33 @@ async function onDefinitionProposed(
   return result.ok
 }
 
+/** Definitions are matched by route, so every enabled page re-evaluates them. */
+async function forEachEnabled(fn: (page: EnabledPage) => Promise<void>): Promise<void> {
+  await Promise.all([...enabledPages.values()].map(async (page) => {
+    try {
+      await fn(page)
+    } catch {
+      // The tab is gone; its document is effectively destroyed.
+      disablePage(page.tabId, 'closed')
+    }
+  }))
+}
+
 /** Push currently enabled definitions to the page and republish its tools. */
-export async function syncDefinitions(): Promise<void> {
-  if (!enabled) return
+export async function syncDefinitions(tabId?: number): Promise<void> {
   const definitions = await store.enabledDefinitions()
-  try {
-    await browser.tabs.sendMessage(enabled.tabId, { type: 'JANUS_BT_SET_DEFINITIONS', definitions })
-    await refreshTools()
-  } catch {
-    disablePage('closed')
-  }
+  const targets = tabId !== undefined
+    ? [enabledPages.get(tabId)].filter(Boolean) as EnabledPage[]
+    : [...enabledPages.values()]
+
+  await Promise.all(targets.map(async (page) => {
+    try {
+      await browser.tabs.sendMessage(page.tabId, { type: 'JANUS_BT_SET_DEFINITIONS', definitions })
+      await refreshTools(page.tabId)
+    } catch {
+      disablePage(page.tabId, 'closed')
+    }
+  }))
 }
 
 export async function authoringState() {
@@ -231,8 +287,11 @@ export async function exportDefinition(definitionId: string): Promise<string | u
 }
 
 /** A test is an explicit human action and runs outside the daemon queue. */
-export async function testDefinition(definitionId: string, input: Record<string, never>) {
-  if (!enabled) return { error: 'No page is enabled' }
+export async function testDefinition(
+  tabId: number, definitionId: string, input: Record<string, never>,
+) {
+  const enabled = enabledPages.get(tabId)
+  if (!enabled) return { error: 'This tab is not enabled' }
   const definitions = await store.allDefinitions()
   const definition = definitions.find((d) => d.definitionId === definitionId)
   if (!definition) return { error: 'No such definition' }
@@ -243,17 +302,19 @@ export async function testDefinition(definitionId: string, input: Record<string,
 }
 
 /** Demonstration authoring (M3). Ordered capture lives in the page. */
-export async function demo(action: 'start' | 'stop' | 'state'): Promise<unknown> {
-  if (!enabled) return { error: 'No page is enabled' }
+export async function demo(tabId: number, action: 'start' | 'stop' | 'state'): Promise<unknown> {
+  const enabled = enabledPages.get(tabId)
+  if (!enabled) return { error: 'This tab is not enabled' }
   const type = action === 'start' ? 'JANUS_BT_DEMO_START'
     : action === 'stop' ? 'JANUS_BT_DEMO_STOP' : 'JANUS_BT_DEMO_STATE'
   return browser.tabs.sendMessage(enabled.tabId, { type })
 }
 
 export async function buildDemoDraft(
-  recording: unknown, parameterIndices: number[], resultIndex?: number,
+  tabId: number, recording: unknown, parameterIndices: number[], resultIndex?: number,
 ): Promise<{ draft?: ToolDraft; excluded?: unknown; error?: string }> {
-  if (!enabled) return { error: 'No page is enabled' }
+  const enabled = enabledPages.get(tabId)
+  if (!enabled) return { error: 'This tab is not enabled' }
   const result = await browser.tabs.sendMessage(enabled.tabId, {
     type: 'JANUS_BT_DEMO_BUILD',
     recording,
@@ -272,28 +333,32 @@ export async function buildDemoDraft(
   return result
 }
 
-export async function refreshTools(): Promise<void> {
-  if (!enabled) return
-  try {
-    const tools = await browser.tabs.sendMessage(enabled.tabId, { type: 'JANUS_BT_LIST_TOOLS' }) as ToolDescriptor[]
-    control.publishTools(enabled.pageId, enabled.documentId, tools ?? [])
-  } catch {
-    // The content script is gone, so the document is effectively destroyed.
-    disablePage('closed')
-  }
+export async function refreshTools(tabId?: number): Promise<void> {
+  const targets = tabId !== undefined
+    ? [enabledPages.get(tabId)].filter(Boolean) as EnabledPage[]
+    : [...enabledPages.values()]
+
+  await Promise.all(targets.map(async (page) => {
+    try {
+      const tools = await browser.tabs.sendMessage(page.tabId, { type: 'JANUS_BT_LIST_TOOLS' }) as ToolDescriptor[]
+      control.publishTools(page.pageId, page.documentId, tools ?? [])
+    } catch {
+      // The content script is gone, so the document is effectively destroyed.
+      disablePage(page.tabId, 'closed')
+    }
+  }))
 }
 
-/** Navigation replaces the document, which invalidates the page handle (§7). */
+/** Navigation replaces the document, which invalidates that page handle (§7). */
 export async function onNavigated(tabId: number): Promise<void> {
-  if (!enabled || enabled.tabId !== tabId) return
-  disablePage('navigation')
+  disablePage(tabId, 'navigation')
 }
 
 async function executeInTab(request: control.ExecuteRequest): Promise<control.ExecuteResponse> {
-  const page = enabled
-  if (!page || page.pageId !== request.pageId) {
-    return unknownPage('The page is no longer enabled')
-  }
+  // Routed by page handle, never by "the active tab": several pages can be
+  // enabled, and the caller named exactly one.
+  const page = pageById(request.pageId)
+  if (!page) return unknownPage('The page is no longer enabled')
   if (page.documentId !== request.documentId) {
     return unknownPage('The document changed before dispatch')
   }
@@ -332,8 +397,11 @@ function unknownPage(message: string): control.ExecuteResponse {
 }
 
 function cancelInTab(requestId: Id): void {
-  if (!enabled) return
-  void browser.tabs.sendMessage(enabled.tabId, { type: 'JANUS_BT_CANCEL', requestId }).catch(() => {})
+  // The request ID is not page-scoped here, so ask every enabled page; only the
+  // one actually running it has anything to cancel.
+  for (const page of enabledPages.values()) {
+    void browser.tabs.sendMessage(page.tabId, { type: 'JANUS_BT_CANCEL', requestId }).catch(() => {})
+  }
 }
 
 export function outcomeText(outcome: ToolOutcome): string {
