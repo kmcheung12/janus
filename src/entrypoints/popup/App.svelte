@@ -3,6 +3,7 @@
   import { loadShortcuts, saveShortcuts, matchesShortcut } from '../../lib/shortcuts.svelte'
   import type { StoredShortcuts, Shortcut } from '../../lib/shortcuts.svelte'
   import ShortcutButton from '../../components/popup/ShortcutButton.svelte'
+  import PageAccessPanel from '../../components/browser-tools/PageAccessPanel.svelte'
 
   let shortcuts = $state<StoredShortcuts>({
     record: { key: 'KeyK', ctrl: false, alt: true, shift: true, meta: false },
@@ -168,6 +169,7 @@
   {#if configuringFor}
     <p class="hint">Press a combo to set · <kbd>Del</kbd> to clear · <kbd>Esc</kbd> to cancel</p>
   {/if}
+  <PageAccessPanel />
 </div>
 
 <style>

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as native from '../../src/lib/browser-tools/native-adapter'
+import { decodeNativeToolId, encodeNativeToolId } from '../../src/lib/browser-tools/native-adapter'
 
 interface FakeTool {
   name: string
@@ -54,7 +55,7 @@ describe('discovery', () => {
     install([{ name: 'search', description: 'Search', inputSchema: schema, annotations: { readOnlyHint: true, destructiveHint: false } }])
     const [tool] = await native.discover()
     expect(tool).toMatchObject({
-      toolId: 'native:search',
+      toolId: encodeNativeToolId('search'),
       source: { kind: 'native', nativeName: 'search' },
       readOnlyHint: true,
       consequentialHint: false,
@@ -118,7 +119,7 @@ describe('invocation', () => {
     install([{ name: 'search', inputSchema: schema }], { execute })
     await native.discover()
 
-    const outcome = await native.invoke('native:search', { query: 'x' })
+    const outcome = await native.invoke(encodeNativeToolId('search'), { query: 'x' })
     expect(outcome).toEqual({ status: 'completed', result: { items: 3 } })
     expect(execute).toHaveBeenCalledWith(expect.objectContaining({ name: 'search' }), { query: 'x' })
   })
@@ -129,21 +130,44 @@ describe('invocation', () => {
       execute: async () => { throw new Error('card declined') },
     })
     await native.discover()
-    const outcome = await native.invoke('native:buy', {})
+    const outcome = await native.invoke(encodeNativeToolId('buy'), {})
     expect(outcome).toMatchObject({ status: 'error', error: { execution: 'failed' } })
   })
 
   it('refuses a tool that was never discovered', async () => {
     install([{ name: 'search', inputSchema: schema }])
     await native.discover()
-    const outcome = await native.invoke('native:ghost', {})
+    const outcome = await native.invoke(encodeNativeToolId('ghost'), {})
     expect(outcome).toMatchObject({
       status: 'error', error: { code: 'TOOL_UNAVAILABLE', execution: 'not_started' },
     })
   })
 
   it('refuses when the API is unavailable', async () => {
-    const outcome = await native.invoke('native:search', {})
+    const outcome = await native.invoke(encodeNativeToolId('search'), {})
     expect(outcome).toMatchObject({ error: { code: 'TOOL_UNAVAILABLE', execution: 'not_started' } })
+  })
+})
+
+describe('tool ID encoding', () => {
+  it('produces an ID matching the contract pattern', () => {
+    for (const name of ['search', 'Search products', 'add to cart / basket', '商品を検索', 'a+b/c=d']) {
+      expect(encodeNativeToolId(name)).toMatch(/^[A-Za-z0-9_-]{1,96}$/)
+    }
+  })
+
+  it('round-trips arbitrary names', () => {
+    for (const name of ['search', 'Search products', '商品を検索', 'a+b/c=d']) {
+      expect(decodeNativeToolId(encodeNativeToolId(name))).toBe(name)
+    }
+  })
+
+  it('never collapses two distinct names onto one ID', () => {
+    // A sanitizing replace would map both of these to the same string.
+    expect(encodeNativeToolId('add to cart')).not.toBe(encodeNativeToolId('add/to/cart'))
+  })
+
+  it('returns undefined for an ID that is not native', () => {
+    expect(decodeNativeToolId('g_def_1')).toBeUndefined()
   })
 })

@@ -55,7 +55,7 @@ function applicable(definition: GeneratedDefinition): boolean {
 
 function generatedDescriptor(definition: GeneratedDefinition): ToolDescriptor {
   return {
-    toolId: `generated:${definition.definitionId}`,
+    toolId: `g_${definition.definitionId}`,
     toolRevision: definition.definitionRevision,
     source: {
       kind: 'generated',
@@ -143,11 +143,11 @@ export async function invoke(
   const release = setInvocationActor(requestId)
 
   try {
-    if (toolId.startsWith('native:')) {
+    if (toolId.startsWith('n_')) {
       return await native.invoke(toolId, input)
     }
 
-    const definitionId = toolId.replace(/^generated:/, '')
+    const definitionId = toolId.replace(/^g_/, '')
     const definition = definitions.find((d) => d.definitionId === definitionId)
     if (!definition) {
       return {

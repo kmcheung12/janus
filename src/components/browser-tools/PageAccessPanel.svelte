@@ -1,0 +1,159 @@
+<script lang="ts">
+  /**
+   * §19 page access. Disabled by default: enabling a page is the moment Janus
+   * goes from observing a session to controlling it, so it is always an
+   * explicit act, never a side effect of switching tabs.
+   */
+  import { onMount } from 'svelte'
+  import PageLabelField from './PageLabelField.svelte'
+
+  interface EnabledPage {
+    pageId: string
+    tabId: number
+    documentId: string
+    label: string
+    title: string
+    url: string
+    origin: string
+    nativeCapability: 'available' | 'unavailable' | 'untested'
+  }
+
+  type Status = { state: string; connectionId?: string }
+
+  let status = $state<Status>({ state: 'idle' })
+  let page = $state<EnabledPage | null>(null)
+  let currentTab = $state<{ id?: number; title?: string; url?: string } | null>(null)
+  let error = $state('')
+  let busy = $state(false)
+
+  const connected = $derived(status.state === 'connected')
+  const isThisTab = $derived(!!page && page.tabId === currentTab?.id)
+  const otherPage = $derived(page && !isThisTab ? page : null)
+
+  const origin = $derived.by(() => {
+    try { return new URL(currentTab?.url ?? '').origin } catch { return '' }
+  })
+  const supported = $derived(origin.startsWith('http'))
+
+  const capabilityLabel = $derived(
+    page?.nativeCapability === 'available' ? 'Native WebMCP available'
+    : page?.nativeCapability === 'untested' ? 'Native WebMCP present but unverified'
+    : 'No native WebMCP — Janus-generated tools only',
+  )
+
+  onMount(async () => {
+    const [tab] = await browser.tabs.query({ active: true, currentWindow: true })
+    currentTab = tab ? { id: tab.id, title: tab.title, url: tab.url } : null
+    await refresh()
+
+    browser.runtime.onMessage.addListener((msg: { type: string; status?: Status }) => {
+      if (msg.type === 'JANUS_BT_STATUS' && msg.status) status = msg.status
+    })
+  })
+
+  async function refresh() {
+    const state = await browser.runtime.sendMessage({ type: 'JANUS_BT_GET_STATE' })
+    status = state?.status ?? { state: 'idle' }
+    page = state?.page ?? null
+  }
+
+  async function enable() {
+    if (!currentTab?.id || busy) return
+    busy = true
+    error = ''
+    try {
+      // The background resolves the real top-level document and obtains a new
+      // page ID before this reports success.
+      const result = await browser.runtime.sendMessage({
+        type: 'JANUS_BT_ENABLE_PAGE', tabId: currentTab.id, label: currentTab.title,
+      })
+      if (result?.error) error = result.error
+      else page = result.page
+    } finally {
+      busy = false
+    }
+  }
+
+  async function disable() {
+    busy = true
+    try {
+      await browser.runtime.sendMessage({ type: 'JANUS_BT_DISABLE_PAGE' })
+      page = null
+    } finally {
+      busy = false
+    }
+  }
+
+  async function saveLabel(next: string): Promise<string | null> {
+    const result = await browser.runtime.sendMessage({ type: 'JANUS_BT_SET_LABEL', label: next })
+    if (result?.error) return result.error
+    page = result.page
+    return null
+  }
+</script>
+
+<section class="panel">
+  <div class="head">
+    <h3>Agent tools</h3>
+    {#if isThisTab}<span class="badge on">Enabled</span>{/if}
+  </div>
+
+  {#if !connected}
+    <p class="desc">
+      {status.state === 'unauthorized'
+        ? 'This browser is not authorized. Re-pair in settings.'
+        : 'Not connected to the Janus daemon.'}
+    </p>
+    <button onclick={() => browser.runtime.openOptionsPage()}>Open connection settings</button>
+  {:else if !supported}
+    <p class="desc">Tools can only be enabled on http(s) pages.</p>
+  {:else if otherPage}
+    <p class="desc">
+      Tools are enabled on <strong>{otherPage.label}</strong>. Janus controls one
+      page at a time, and never moves because you switched tabs.
+    </p>
+    <div class="actions">
+      <button class="primary" onclick={enable} disabled={busy}>Replace enabled page</button>
+      <button onclick={disable} disabled={busy}>Disable</button>
+    </div>
+  {:else if isThisTab && page}
+    <PageLabelField label={page.label} onsave={saveLabel} />
+    <p class="desc cap">{capabilityLabel}</p>
+    <p class="desc mono">{page.origin}</p>
+    <div class="actions">
+      <button onclick={disable} disabled={busy}>Disable tools on this page</button>
+    </div>
+    <p class="desc note">
+      Disabling withdraws the tools immediately and cancels queued work. If a
+      running action cannot be confirmed stopped, its outcome is reported as
+      unknown.
+    </p>
+  {:else}
+    <p class="desc">
+      Let a connected agent run this page's tools. Off by default.
+    </p>
+    <p class="desc mono">{origin}</p>
+    <div class="actions">
+      <button class="primary" onclick={enable} disabled={busy}>Enable tools on this page</button>
+    </div>
+  {/if}
+
+  {#if error}<p class="error">{error}</p>{/if}
+</section>
+
+<style>
+  .panel { padding: 12px 0; border-top: 1px solid #eee; }
+  .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  h3 { margin: 0; font-size: 13px; }
+  .badge { font-size: 10px; padding: 2px 6px; border-radius: 10px; background: #eee; color: #555; }
+  .badge.on { background: #d5f5e3; color: #1e8449; }
+  .desc { color: #888; font-size: 11px; margin: 0 0 8px; line-height: 1.5; }
+  .desc.mono { font-family: monospace; }
+  .desc.cap { color: #666; }
+  .note { margin-top: 8px; }
+  .error { color: #c0392b; font-size: 11px; margin: 8px 0 0; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  button { padding: 5px 10px; border: 1px solid #ddd; border-radius: 4px; background: #fff; cursor: pointer; font-size: 11px; }
+  button.primary { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  button:disabled { opacity: 0.5; cursor: default; }
+</style>

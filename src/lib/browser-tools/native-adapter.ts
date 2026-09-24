@@ -87,14 +87,36 @@ export async function discover(): Promise<ToolDescriptor[]> {
   return owned.map(toDescriptor).filter((d): d is ToolDescriptor => d !== undefined)
 }
 
-function toDescriptor(tool: NativeTool, index: number): ToolDescriptor | undefined {
+/**
+ * A tool ID must match `[A-Za-z0-9_-]{1,96}`, but a native tool's name is
+ * arbitrary text. base64url encode it: the alphabet is exactly the allowed
+ * set, and the mapping is reversible, so two differently-named tools can never
+ * collapse onto one ID the way a sanitizing replace would allow.
+ */
+export function encodeNativeToolId(name: string): string {
+  const base64 = btoa(String.fromCharCode(...new TextEncoder().encode(name)))
+  return `n_${base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`
+}
+
+export function decodeNativeToolId(toolId: string): string | undefined {
+  if (!toolId.startsWith('n_')) return undefined
+  const base64 = toolId.slice(2).replace(/-/g, '+').replace(/_/g, '/')
+  try {
+    const binary = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '='))
+    return new TextDecoder().decode(Uint8Array.from(binary, (c) => c.charCodeAt(0)))
+  } catch {
+    return undefined
+  }
+}
+
+function toDescriptor(tool: NativeTool): ToolDescriptor | undefined {
   const schema = tool.inputSchema
   if (!schema || typeof schema !== 'object') return undefined
   if (jsonBytes(schema) > LIMITS.nativeBusinessSchemaMaxBytes) return undefined
 
   return {
     // A native tool's name is its logical identity within this document.
-    toolId: `native:${tool.name}`,
+    toolId: encodeNativeToolId(tool.name),
     toolRevision: 1,
     source: { kind: 'native', nativeName: tool.name },
     name: tool.name,
@@ -112,7 +134,7 @@ export async function invoke(toolId: string, input: Record<string, Json>): Promi
     return error('TOOL_UNAVAILABLE', 'Native WebMCP is not available on this page', 'not_started')
   }
 
-  const name = toolId.startsWith('native:') ? toolId.slice('native:'.length) : toolId
+  const name = decodeNativeToolId(toolId) ?? toolId
   const tool = cache.find((t) => t.name === name)
   if (!tool) {
     return error('TOOL_UNAVAILABLE', `No native tool "${name}" is registered`, 'not_started')
