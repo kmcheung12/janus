@@ -9,6 +9,9 @@ import {
   browserTools, callBrowserTool, listBrowserTools, listPages,
   publishedToolsFor, toMcpTool, type InvokeArgs,
 } from './control/browser-tools.js'
+import {
+  authoringTools, getDraft, listDrafts, submitDefinition, type SubmitDeps,
+} from './control/drafts.js'
 
 function summarise(j: Journey) {
   return {
@@ -69,6 +72,17 @@ const TOOLS: Tool[] = [
   },
 ]
 
+/**
+ * How a compiled definition reaches the owning extension for storage. Wired by
+ * the transport layer; defaults to refusing, so a misconfigured daemon reports
+ * a storage failure rather than claiming a definition was saved.
+ */
+let submitDeps: SubmitDeps = { store: async () => false }
+
+export function setSubmitDeps(deps: SubmitDeps): void {
+  submitDeps = deps
+}
+
 export function createMcpServer(principal: ClientRecord): Server {
   const server = new Server(
     { name: 'janus', version: '0.0.0' },
@@ -82,12 +96,22 @@ export function createMcpServer(principal: ClientRecord): Server {
       const page = getPage(p.pageId)
       return toMcpTool(p, page?.descriptor.label ?? 'browser page')
     })
-    return { tools: [...TOOLS, ...browserTools, ...published] }
+    // Authoring tools are only offered to a client that actually has the
+    // scope, so a read-only agent is not shown work it cannot do.
+    const authoring = principal.authoring ? authoringTools : []
+    return { tools: [...TOOLS, ...browserTools, ...authoring, ...published] }
   })
 
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const { name, arguments: args = {} } = req.params
     const a = args as Record<string, string>
+
+    if (name === 'list_tool_drafts') return listDrafts(principal)
+    if (name === 'get_tool_draft') return getDraft(principal, a.draftId)
+    if (name === 'submit_tool_definition') {
+      const raw = args as unknown as Parameters<typeof submitDefinition>[1]
+      return submitDefinition(principal, raw, submitDeps)
+    }
 
     if (name === 'list_pages') return listPages(principal)
     if (name === 'list_page_tools') return listBrowserTools(principal, a.pageId)

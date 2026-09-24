@@ -20,6 +20,12 @@ type Msg =
   | { type: 'JANUS_BT_DISABLE_PAGE' }
   | { type: 'JANUS_BT_SET_LABEL' }
   | { type: 'JANUS_BT_TOOLS_CHANGED' }
+  | { type: 'JANUS_BT_AUTHORING_STATE' }
+  | { type: 'JANUS_BT_CAPTURE_DRAFT' }
+  | { type: 'JANUS_BT_SET_APPROVAL' }
+  | { type: 'JANUS_BT_DELETE_DEFINITION' }
+  | { type: 'JANUS_BT_EXPORT_DEFINITION' }
+  | { type: 'JANUS_BT_TEST_DEFINITION' }
 
 function setBadge(tabId: number, recording: boolean) {
   const api = (browser as any).action || (browser as any).browserAction
@@ -77,6 +83,28 @@ export default defineBackground(() => {
       } catch (e) {
         return Promise.resolve({ error: (e as Error).message })
       }
+    }
+    if (msg.type === 'JANUS_BT_AUTHORING_STATE') {
+      return bridge.authoringState()
+    }
+    if (msg.type === 'JANUS_BT_CAPTURE_DRAFT') {
+      return bridge.captureDraft((msg as unknown as { principalId: string }).principalId)
+    }
+    if (msg.type === 'JANUS_BT_SET_APPROVAL') {
+      const m = msg as unknown as { definitionId: string; state: 'enabled' | 'disabled' }
+      return bridge.setApproval(m.definitionId, m.state).then((approval) => ({ approval }))
+    }
+    if (msg.type === 'JANUS_BT_DELETE_DEFINITION') {
+      return bridge.deleteDefinition((msg as unknown as { definitionId: string }).definitionId)
+        .then(() => ({ ok: true }))
+    }
+    if (msg.type === 'JANUS_BT_EXPORT_DEFINITION') {
+      return bridge.exportDefinition((msg as unknown as { definitionId: string }).definitionId)
+        .then((json) => ({ json }))
+    }
+    if (msg.type === 'JANUS_BT_TEST_DEFINITION') {
+      const m = msg as unknown as { definitionId: string; input: Record<string, never> }
+      return bridge.testDefinition(m.definitionId, m.input)
     }
     if (msg.type === 'JANUS_BT_TOOLS_CHANGED') {
       void bridge.refreshTools()

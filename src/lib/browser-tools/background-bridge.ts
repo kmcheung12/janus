@@ -8,7 +8,9 @@
  */
 
 import type { Id, PageDescriptor, PageId, ToolDescriptor, ToolOutcome } from './contract'
+import type { GeneratedDefinition, ToolDraft } from './contract'
 import * as control from './control-client'
+import * as store from './definition-store'
 import { LIMITS } from './limits'
 
 export interface EnabledPage {
@@ -67,6 +69,7 @@ export async function reconnect(): Promise<void> {
     ...pairing,
     execute: executeInTab,
     cancel: cancelInTab,
+    storeDefinition: onDefinitionProposed,
     onStatus: (status) => {
       void browser.runtime.sendMessage({ type: 'JANUS_BT_STATUS', status }).catch(() => {})
     },
@@ -138,6 +141,90 @@ function publishPages(): void {
     nativeCapability: enabled.nativeCapability,
     execution: { state: 'idle' },
   }] : [])
+}
+
+// ── Authoring (M2) ─────────────────────────────────────────────────────────
+
+/** Capture a draft from the enabled page and offer it to the agent. */
+export async function captureDraft(principalId: string): Promise<{ draft?: ToolDraft; unsupported?: unknown; error?: string }> {
+  if (!enabled) return { error: 'No page is enabled' }
+  try {
+    const result = await browser.tabs.sendMessage(enabled.tabId, {
+      type: 'JANUS_BT_SCAN_FORM',
+      principalId,
+      browserSessionId: pairing?.browserSessionId ?? 'browser',
+      pageId: enabled.pageId,
+      documentId: enabled.documentId,
+    }) as { draft: ToolDraft; unsupported: unknown }
+    if (!result?.draft) return { error: 'No supported form found on this page' }
+
+    await store.putDraft(result.draft)
+    control.publishDraft(result.draft)
+    return result
+  } catch (e) {
+    return { error: String((e as Error)?.message ?? e) }
+  }
+}
+
+/**
+ * The daemon compiled a definition and asks us to persist it. We re-check it
+ * against our own copy of the draft: the draft is the authority for what was
+ * actually captured, so a locator we never recorded is refused.
+ */
+async function onDefinitionProposed(
+  draftId: string, draftRevision: number, definition: GeneratedDefinition,
+): Promise<boolean> {
+  const result = await store.storeDefinition(draftId, draftRevision, definition)
+  if (result.ok) await syncDefinitions()
+  return result.ok
+}
+
+/** Push currently enabled definitions to the page and republish its tools. */
+export async function syncDefinitions(): Promise<void> {
+  if (!enabled) return
+  const definitions = await store.enabledDefinitions()
+  try {
+    await browser.tabs.sendMessage(enabled.tabId, { type: 'JANUS_BT_SET_DEFINITIONS', definitions })
+    await refreshTools()
+  } catch {
+    disablePage('closed')
+  }
+}
+
+export async function authoringState() {
+  const [drafts, definitions, approvals] = await Promise.all([
+    store.allDrafts(), store.allDefinitions(), store.allApprovals(),
+  ])
+  return { drafts, definitions, approvals }
+}
+
+export async function setApproval(definitionId: string, state: 'enabled' | 'disabled') {
+  const approval = await store.setApproval(definitionId, state)
+  await syncDefinitions()
+  return approval
+}
+
+export async function deleteDefinition(definitionId: string) {
+  await store.deleteDefinition(definitionId)
+  await syncDefinitions()
+}
+
+export async function exportDefinition(definitionId: string): Promise<string | undefined> {
+  const definitions = await store.allDefinitions()
+  const definition = definitions.find((d) => d.definitionId === definitionId)
+  return definition ? store.exportDefinition(definition) : undefined
+}
+
+/** A test is an explicit human action and runs outside the daemon queue. */
+export async function testDefinition(definitionId: string, input: Record<string, never>) {
+  if (!enabled) return { error: 'No page is enabled' }
+  const definitions = await store.allDefinitions()
+  const definition = definitions.find((d) => d.definitionId === definitionId)
+  if (!definition) return { error: 'No such definition' }
+
+  return browser.tabs.sendMessage(enabled.tabId, {
+    type: 'JANUS_BT_TEST_RUN', definition, input, timeoutMs: LIMITS.invocationDeadlineMs,
+  })
 }
 
 export async function refreshTools(): Promise<void> {

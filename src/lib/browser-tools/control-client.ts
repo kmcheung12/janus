@@ -8,8 +8,8 @@
  */
 
 import type {
-  ControlMessage, DaemonToExtension, ExtensionToDaemon, Id, PageDescriptor,
-  PageId, ToolDescriptor, ToolOutcome,
+  ControlMessage, DaemonToExtension, ExtensionToDaemon, GeneratedDefinition, Id,
+  PageDescriptor, PageId, ToolDescriptor, ToolDraft, ToolOutcome,
 } from './contract'
 import { LIMITS, reconnectDelayMs } from './limits'
 
@@ -21,6 +21,8 @@ export interface ControlClientOptions {
   /** Runs a dispatched invocation and resolves with its terminal outcome. */
   execute: (request: ExecuteRequest) => Promise<ExecuteResponse>
   cancel: (requestId: Id) => void
+  /** Persist a compiled definition; resolves false if we refuse it. */
+  storeDefinition?: (draftId: Id, draftRevision: number, definition: GeneratedDefinition) => Promise<boolean>
   onStatus?: (status: ControlStatus) => void
 }
 
@@ -178,6 +180,59 @@ function handle(message: DaemonToExtension): void {
     void runExecution(message)
     return
   }
+
+  if (message.type === 'definition_proposed') {
+    void storeProposal(message)
+    return
+  }
+}
+
+async function storeProposal(
+  message: Extract<DaemonToExtension, { type: 'definition_proposed' }>,
+): Promise<void> {
+  if (!connectionId) return
+  const saved = await options?.storeDefinition?.(
+    message.draftId, message.draftRevision, message.definition,
+  ) ?? false
+
+  send({
+    protocolVersion: 1,
+    connectionId,
+    type: 'definition_result',
+    requestId: message.requestId,
+    outcome: saved
+      ? {
+          status: 'saved',
+          definitionId: message.definition.definitionId,
+          definitionRevision: message.definition.definitionRevision,
+          state: 'pending',
+        }
+      : {
+          status: 'error',
+          error: {
+            code: 'INVALID_DEFINITION',
+            message: 'The extension refused this definition; it does not match its stored draft',
+            execution: 'not_started',
+          },
+        },
+  })
+}
+
+/** Offer a captured draft to the daemon so an agent can read it. */
+export function publishDraft(draft: ToolDraft): void {
+  if (!connectionId) return
+  send({
+    protocolVersion: 1, connectionId,
+    type: 'draft_upsert', sequence: ++sequence, draft,
+  })
+}
+
+export function removeDraft(draftId: Id, draftRevision: number): void {
+  if (!connectionId) return
+  send({
+    protocolVersion: 1, connectionId,
+    type: 'draft_removed', sequence: ++sequence, draftId, draftRevision,
+  })
 }
 
 async function runExecution(message: Extract<DaemonToExtension, { type: 'execute_tool' }>): Promise<void> {

@@ -3,6 +3,7 @@
   import { loadCaptureConfig, saveCaptureConfig, CAPTURE_CONFIG_LABELS } from '../../lib/capture-config'
   import type { CaptureConfig } from '../../lib/capture-config'
   import BrowserPairingPanel from '../../components/browser-tools/BrowserPairingPanel.svelte'
+  import ToolDraftReviewPanel from '../../components/browser-tools/ToolDraftReviewPanel.svelte'
 
   let section = $state<'capture' | 'connection'>('capture')
 
@@ -45,6 +46,7 @@
       <p class="desc">Pair this browser with the local Janus daemon so a coding agent can run tools on pages you enable.</p>
     </div>
     <BrowserPairingPanel />
+    <ToolDraftReviewPanel />
   </div>
   {:else}
   <div class="main">

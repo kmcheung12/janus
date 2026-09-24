@@ -16,6 +16,8 @@ import type { CaptureConfig } from '../lib/capture-config'
 import { uuid } from '../lib/uuid'
 import * as pageTools from '../lib/browser-tools/page-controller'
 import { attribute } from '../lib/browser-tools/provenance'
+import { scanForm } from '../lib/browser-tools/form-scanner'
+import { run as runRecipe } from '../lib/browser-tools/recipe-runtime'
 
 function sessionEvent(): SessionEvent {
   return {
@@ -214,6 +216,31 @@ export default defineContentScript({
           // runtime decides this, not the transport.
           executionStopped: !(outcome.status === 'error' && outcome.error.execution === 'outcome_unknown'),
         }))
+      }
+      if (msg.type === 'JANUS_BT_SCAN_FORM') {
+        const m = msg as unknown as {
+          principalId: string; browserSessionId: string; pageId: string; documentId: string
+        }
+        // Largest form on the page: a heuristic starting point the user
+        // reviews. Scanning never submits anything.
+        const forms = [...document.querySelectorAll('form')] as HTMLFormElement[]
+        const form = forms.sort((a, b) => b.elements.length - a.elements.length)[0]
+        if (!form) return Promise.resolve({ error: 'No form found' })
+        return Promise.resolve(scanForm({ form, ...m }))
+      }
+      if (msg.type === 'JANUS_BT_SET_DEFINITIONS') {
+        pageTools.setDefinitions((msg as unknown as { definitions: never[] }).definitions)
+        return Promise.resolve({ ok: true })
+      }
+      if (msg.type === 'JANUS_BT_TEST_RUN') {
+        const m = msg as unknown as {
+          definition: Parameters<typeof runRecipe>[0]['definition']
+          input: Record<string, never>; timeoutMs: number
+        }
+        return runRecipe({
+          definition: m.definition, input: m.input,
+          signal: new AbortController().signal, timeoutMs: m.timeoutMs,
+        })
       }
       if (msg.type === 'JANUS_BT_CANCEL') {
         pageTools.cancel((msg as unknown as { requestId: string }).requestId)

@@ -5,6 +5,9 @@ import { createHttpHandler } from './http-server.js'
 import { parseConfig } from './config.js'
 import { openCredentialStore } from './credentials.js'
 import { runCli } from './cli.js'
+import { setSubmitDeps } from './mcp-tools.js'
+import { storeDefinition } from './control/connections.js'
+import { LIMITS } from './contracts/limits.js'
 
 const ADMIN_COMMANDS = new Set(['pair', 'revoke', 'client', 'producer', 'list', 'help'])
 
@@ -19,6 +22,10 @@ async function main(): Promise<number | undefined> {
   const credentials = openCredentialStore(config.dataDir)
 
   wireQueue()
+  setSubmitDeps({
+    store: (pairingId, draft, definition) =>
+      storeDefinition(pairingId, draft, definition, LIMITS.authoringStoreDeadlineMs),
+  })
   const wss = startWsServer({ port: config.wsPort, host: config.bind, credentials })
   const httpServer = createServer(createHttpHandler({ credentials }))
 

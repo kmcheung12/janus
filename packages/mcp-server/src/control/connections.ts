@@ -11,13 +11,15 @@
 import { randomUUID } from 'node:crypto'
 import type { WebSocket } from 'ws'
 import type {
-  DaemonToExtension, Id, PageId, ToolDescriptor, ControlMessage,
+  ControlMessage, DaemonToExtension, GeneratedDefinition, Id, PageId,
+  ToolDescriptor, ToolDraft,
 } from '../contracts/types.js'
 import { LIMITS } from '../contracts/limits.js'
 import { validateControlMessage } from '../contracts/validate.js'
 import type { CredentialStore } from '../credentials.js'
 import * as registry from './registry.js'
 import * as queue from './queue.js'
+import * as drafts from './drafts.js'
 
 export interface ExecutorConnection {
   connectionId: Id
@@ -55,6 +57,9 @@ function drop(connectionId: Id): void {
     if (page.connectionId === connectionId) queue.onExecutorLost(page.descriptor.pageId)
   }
   registry.removeConnection(connectionId)
+  // Never serve a disconnected executor's drafts as current; they are rebuilt
+  // from live resynchronization on reconnect (§17).
+  drafts.clearDraftsForPairing(connection.pairingId)
   connections.delete(connectionId)
   if (byPairing.get(connection.pairingId) === connectionId) byPairing.delete(connection.pairingId)
 }
@@ -239,13 +244,77 @@ function handle(
       })
       return
 
+    case 'draft_upsert':
+      drafts.upsertDraft(connection.pairingId, message.draft)
+      return
+
+    case 'draft_removed':
+      drafts.removeDraft(message.draftId)
+      return
+
+    case 'definition_result':
+      resolveDefinitionStore(message.requestId, message.outcome.status === 'saved')
+      return
+
     default:
-      // M2 authoring frames are validated but not yet actioned.
       return
   }
 }
 
+/**
+ * Storing a compiled definition is a request to the extension, which repeats
+ * the structural and reference checks against its own copy of the draft before
+ * persisting. The daemon only reports success once that lands.
+ */
+const pendingStores = new Map<Id, (ok: boolean) => void>()
+
+export function storeDefinition(
+  pairingId: string,
+  draft: ToolDraft,
+  definition: GeneratedDefinition,
+  timeoutMs: number,
+): Promise<boolean> {
+  const connection = connectionFor(pairingId)
+  if (!connection) return Promise.resolve(false)
+
+  const requestId = randomUUID()
+  return new Promise<boolean>((resolve) => {
+    const timer = setTimeout(() => {
+      pendingStores.delete(requestId)
+      // Timing out leaves the outcome uncertain; an idempotent retry resolves
+      // it rather than us guessing.
+      resolve(false)
+    }, timeoutMs)
+
+    pendingStores.set(requestId, (ok) => { clearTimeout(timer); resolve(ok) })
+
+    const sent = send(connection.connectionId, {
+      protocolVersion: 1,
+      connectionId: connection.connectionId,
+      type: 'definition_proposed',
+      requestId,
+      draftId: draft.id,
+      draftRevision: draft.revision,
+      definition,
+    })
+    if (!sent) {
+      clearTimeout(timer)
+      pendingStores.delete(requestId)
+      resolve(false)
+    }
+  })
+}
+
+function resolveDefinitionStore(requestId: Id, ok: boolean): void {
+  const resolve = pendingStores.get(requestId)
+  if (!resolve) return
+  pendingStores.delete(requestId)
+  resolve(ok)
+}
+
 export function clear(): void {
+  for (const resolve of pendingStores.values()) resolve(false)
+  pendingStores.clear()
   for (const connection of connections.values()) closeWith(connection.socket, 1001, 'shutdown')
   connections.clear()
   byPairing.clear()
