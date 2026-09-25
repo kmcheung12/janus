@@ -61,6 +61,10 @@ function drop(connectionId: Id): void {
   // from live resynchronization on reconnect (§17).
   drafts.clearDraftsForPairing(connection.pairingId)
   connections.delete(connectionId)
+  // The pair of this and the connect line is what tells an operator whether a
+  // browser is flapping, which otherwise only shows up as tools that keep
+  // vanishing.
+  console.error(`[janus-mcp] Browser disconnected: ${connection.pairingId}`)
   if (byPairing.get(connection.pairingId) === connectionId) byPairing.delete(connection.pairingId)
 }
 
@@ -138,7 +142,14 @@ function handle(
     const record = credentials.verifyExecutor(message.pairingId, message.token)
     // Identical response either way: a caller must not be able to probe which
     // pairing IDs exist.
-    if (!record) { closeWith(socket, 4401, 'unauthorized'); return }
+    if (!record) {
+      // Logged, though the reply is not: an operator watching the daemon has
+      // no other way to tell a stale credential from a daemon that never
+      // heard from the browser at all, and those need different fixes.
+      console.error(`[janus-mcp] Refused an executor: unknown or stale pairing (${message.pairingId})`)
+      closeWith(socket, 4401, 'unauthorized')
+      return
+    }
 
     // One live executor per pairing; a reconnect supersedes the old socket.
     disconnectPairing(message.pairingId)
@@ -153,6 +164,10 @@ function handle(
     }
     connections.set(connection.connectionId, connection)
     byPairing.set(connection.pairingId, connection.connectionId)
+    console.error(
+      `[janus-mcp] Browser paired: ${record.label} (${connection.pairingId}), `
+      + `session ${connection.browserSessionId}`,
+    )
     state.authenticated = connection
     if (state.handshakeTimer) clearTimeout(state.handshakeTimer)
 
