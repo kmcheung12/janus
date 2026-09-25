@@ -145,13 +145,18 @@ async function main() {
 
   try {
     await driver.installAddon(BUILD, true)
-    await driver.get(url)
 
-    // The content script answers the background, not the page, so the calls
-    // are issued from an extension page — the same path the daemon uses.
-    const extensionPage = `moz-extension://${ADDON_UUID}/settings.html`
+    // The extension page is opened first, in the tab the session starts with.
+    // Navigating a tab created by switchTo().newWindow() to moz-extension://
+    // is refused as "not allowed in this context".
+    await driver.get(`moz-extension://${ADDON_UUID}/settings.html`)
+
+    // The fixture goes in a second tab; the calls are issued from the
+    // extension page, which is the path the daemon uses.
+    const extensionHandle = await driver.getWindowHandle()
     await driver.switchTo().newWindow('tab')
-    await driver.get(extensionPage)
+    await driver.get(url)
+    await driver.switchTo().window(extensionHandle)
 
     const call = async (toolId, input) => driver.executeAsyncScript(
       // eslint-disable-next-line no-undef
