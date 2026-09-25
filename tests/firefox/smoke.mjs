@@ -16,8 +16,10 @@
  */
 
 import assert from 'node:assert/strict'
+import { cpSync, existsSync, mkdirSync } from 'node:fs'
 import { createServer } from 'node:http'
-import { resolve } from 'node:path'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 import { Builder } from 'selenium-webdriver'
 import firefox from 'selenium-webdriver/firefox.js'
 
@@ -78,6 +80,35 @@ check('list_forms reads form elements', async (call) => {
 
 // ── harness ─────────────────────────────────────────────────────────────────
 
+/**
+ * A copy of Firefox the test owns.
+ *
+ * Launching the installed application applies whatever update it has staged,
+ * and applying an update invokes org.mozilla.updater — a macOS prompt for
+ * admin rights that blocks startup. The staging area is keyed to the
+ * application's path, so a throwaway profile does not avoid it; a copy at a
+ * different path does.
+ *
+ * Kept between runs, since copying ~150MB per test run would be worse than
+ * the problem. FIREFOX_BIN overrides this entirely.
+ */
+function firefoxBinary() {
+  if (process.env.FIREFOX_BIN) return process.env.FIREFOX_BIN
+  if (process.platform !== 'darwin') return undefined
+
+  const source = '/Applications/Firefox.app'
+  if (!existsSync(source)) return undefined
+
+  const cached = join(tmpdir(), 'janus-firefox', 'Firefox.app')
+  const binary = join(cached, 'Contents/MacOS/firefox')
+  if (!existsSync(binary)) {
+    process.stdout.write('  (copying Firefox once, so the test never triggers its updater)\n')
+    mkdirSync(join(tmpdir(), 'janus-firefox'), { recursive: true })
+    cpSync(source, cached, { recursive: true, verbatimSymlinks: true })
+  }
+  return binary
+}
+
 async function main() {
   const server = createServer((_req, res) => {
     res.writeHead(200, { 'content-type': 'text/html' })
@@ -87,6 +118,7 @@ async function main() {
   const url = `http://127.0.0.1:${server.address().port}/`
 
   const options = new firefox.Options()
+  options.setBinary(firefoxBinary())
   if (!process.env.JANUS_HEADED) options.addArguments('-headless')
   // Pin the internal UUID so moz-extension:// pages are addressable. Firefox
   // randomises it per profile otherwise.
