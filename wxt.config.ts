@@ -19,6 +19,13 @@ export default defineConfig({
   },
   manifest: {
     permissions: ['storage', 'tabs', 'scripting', 'webRequest', 'webNavigation'],
+    /*
+     * The daemon is loopback-only and sends no CORS headers, so without this
+     * the browser blocks the extension's fetch before the app sees the
+     * response. Every failure then looks like "could not reach the daemon",
+     * including a daemon that answered and refused.
+     */
+    host_permissions: ['http://127.0.0.1/*', 'http://localhost/*'],
     browser_specific_settings: {
       gecko: {
         data_collection_permissions: {
