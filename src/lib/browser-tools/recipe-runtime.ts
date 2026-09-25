@@ -15,6 +15,7 @@ import type {
   AuthoringBinding, GeneratedDefinition, Json, RecipeStep, ToolError, ToolOutcome, ValueRef,
 } from './contract'
 import { LIMITS, jsonBytes } from './limits'
+import { isVisible } from './visibility'
 import { observeResponses, type ResponseObserver } from './response-observer'
 
 export interface RunOptions {
@@ -279,9 +280,9 @@ function conditionHolds(bindingId: string, state: 'visible' | 'hidden' | 'enable
   const binding = ctx.bindings.get(bindingId)
   if (binding?.kind !== 'control') return false
   const element = document.querySelector(binding.selector) as HTMLElement | null
-  if (state === 'hidden') return !element || element.offsetParent === null
+  if (state === 'hidden') return !element || !isVisible(element)
   if (!element) return false
-  if (state === 'visible') return element.offsetParent !== null
+  if (state === 'visible') return isVisible(element)
   return !(element as HTMLInputElement).disabled
 }
 

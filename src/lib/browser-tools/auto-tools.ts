@@ -21,6 +21,7 @@ import type { GeneratedDefinition, Json, ToolDescriptor, ToolOutcome } from './c
 import { LIMITS } from './limits'
 import { scanForm } from './form-scanner'
 import { sanitizeUrl } from './url-safety'
+import { isVisible } from './visibility'
 
 const READ_PREFIX = 'a_'
 const FORM_PREFIX = 'af_'
@@ -37,17 +38,9 @@ function clamp(text: string, max: number): string {
   return cleaned.length > max ? `${cleaned.slice(0, max - 1)}…` : cleaned
 }
 
-/**
- * Deliberately not `offsetParent !== null`: that is also null for
- * `position: fixed` elements, so it would silently drop fixed headers and
- * navigation — and it depends on layout, which means it reports everything as
- * hidden under jsdom.
- */
+/** Shared visibility, plus Janus's own UI, which is in the DOM but not the page. */
 function visible(element: Element): boolean {
-  if (element.closest(JANUS_UI)) return false
-  const style = window.getComputedStyle(element)
-  if (style.display === 'none' || style.visibility === 'hidden') return false
-  return !element.closest('[hidden], [aria-hidden="true"]')
+  return !element.closest(JANUS_UI) && isVisible(element)
 }
 
 /**
