@@ -43,6 +43,17 @@
   const supported = $derived(origin.startsWith('http'))
 
   /**
+   * The origin without its scheme, for prose.
+   *
+   * A grant is an origin, so the UI has to name one. Saying "this page" while
+   * authorizing a site was the thing worth fixing: the user cannot weigh a
+   * permission whose scope the label understates.
+   */
+  const host = $derived.by(() => {
+    try { return new URL(page?.origin ?? origin).host } catch { return origin }
+  })
+
+  /**
    * §5: an unavailable browser API and a supported page that registers no
    * tools are different things. Saying "available" on a site with zero tools
    * reads as "this site is agent-ready", which is the opposite of the truth.
@@ -175,6 +186,10 @@
     <PageLabelField label={page.label} onsave={saveLabel} />
     <p class="desc cap">{capabilityLabel}</p>
     <p class="desc mono">{page.origin}</p>
+    <p class="desc scope">
+      The agent can read any page on <strong>{host}</strong> and follow links
+      within it. It cannot reach another site.
+    </p>
     {#if usesAutoTools}
       <label class="writes">
         <input
@@ -184,32 +199,36 @@
           disabled={busy}
         />
         <span>
-          Allow form tools
+          Let the agent submit forms as you
           <em>
             {page.allowAutoWrites
-              ? 'The agent can fill and submit forms on this page.'
-              : 'Read-only. Turn on to let the agent fill and submit forms here.'}
+              ? `On any page on ${host}, using your logged-in session.`
+              : `Reading only. Turn on to allow forms anywhere on ${host}.`}
           </em>
         </span>
       </label>
     {/if}
 
     <div class="actions">
-      <button onclick={() => disable()} disabled={busy}>Disable tools on this page</button>
+      <button onclick={() => disable()} disabled={busy}>Turn off for {host}</button>
     </div>
     <p class="desc note">
-      Disabling withdraws the tools immediately and cancels queued work. If a
-      running action cannot be confirmed stopped, its outcome is reported as
-      unknown.
+      This lasts until you turn it off or close the browser. Turning it off
+      withdraws the tools immediately and cancels queued work; if a running
+      action cannot be confirmed stopped, its outcome is reported as unknown.
     </p>
   {:else}
     <p class="desc">
-      Let a connected agent run this page's tools. Off by default.
+      Let a connected agent use this site's tools. Off by default.
     </p>
     <p class="desc mono">{origin}</p>
     <div class="actions">
-      <button class="primary" onclick={enable} disabled={busy}>Enable tools on this page</button>
+      <button class="primary" onclick={enable} disabled={busy}>Enable tools on {host}</button>
     </div>
+    <p class="desc note">
+      This grants the whole site, not just this page — an agent that cannot
+      follow a link cannot finish a task. It does not include other sites.
+    </p>
   {/if}
 
   <label class="writes pref">
@@ -244,6 +263,8 @@
   .desc { color: #888; font-size: 11px; margin: 0 0 8px; line-height: 1.5; }
   .desc.mono { font-family: monospace; }
   .desc.cap { color: #666; }
+  .scope { color: #444; }
+  .scope strong { font-weight: 600; }
   .note { margin-top: 8px; }
   .error { color: #c0392b; font-size: 11px; margin: 8px 0 0; }
   .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }

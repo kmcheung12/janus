@@ -51,10 +51,14 @@ test('a submit that navigates reports its destination, not a scraped result', as
 
   const popup = await extension.popup()
   await enablePageThroughUi(popup)
-  // Form tools submit, so they only publish once the page is opted in.
-  await popup.getByLabel(/Allow form tools/).check()
+  // Form tools submit, so they only publish once the site is opted in.
+  // Located by role rather than label text: the label wraps explanatory prose
+  // that changes with the checkbox state, which made this match flakily.
+  const writes = popup.getByRole('checkbox').first()
+  await writes.check()
+  await expect(writes).toBeChecked()
   await popup.close()
-  await page.waitForTimeout(500)
+  await page.waitForTimeout(750)
 
   const pages = JSON.parse((await client.call('list_pages', {})).text) as Array<{ pageId: string }>
   const listed = JSON.parse(

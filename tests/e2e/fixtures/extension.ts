@@ -27,11 +27,11 @@ export async function launchExtension(): Promise<ExtensionHandle> {
   const profile = mkdtempSync(join(tmpdir(), 'janus-profile-'))
 
   const context = await chromium.launchPersistentContext(profile, {
-    // Chrome's new headless mode loads extensions, unlike the old one, so the
-    // suite does not need to take over the screen. JANUS_HEADED=1 to watch it.
-    headless: false,
+    // Chrome's newer headless mode loads extensions, unlike the old one that
+    // made a headed context necessary. JANUS_HEADED=1 to watch a run.
+    channel: 'chromium',
+    headless: !process.env.JANUS_HEADED,
     args: [
-      ...(process.env.JANUS_HEADED ? [] : ['--headless=new']),
       `--disable-extensions-except=${BUILD}`,
       `--load-extension=${BUILD}`,
       '--no-first-run',
@@ -99,6 +99,6 @@ export async function pairThroughUi(
 }
 
 export async function enablePageThroughUi(popup: Page): Promise<void> {
-  await popup.getByRole('button', { name: /Enable tools on this page/ }).click()
+  await popup.getByRole('button', { name: /^Enable tools on/ }).click()
   await popup.getByText('Enabled').waitFor({ timeout: 15_000 })
 }

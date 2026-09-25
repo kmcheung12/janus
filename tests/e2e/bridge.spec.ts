@@ -168,7 +168,7 @@ test('disabling a page withdraws its tools', async () => {
   const client = await agent('withdraw')
   expect((await client.call('list_pages', {})).text).toContain('pageId')
 
-  await popup.getByRole('button', { name: /Disable tools on this page/ }).click()
+  await popup.getByRole('button', { name: /^Turn off for/ }).click()
   await page.waitForTimeout(1000)
 
   expect((await client.call('list_pages', {})).text).toContain('Enable a page')

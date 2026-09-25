@@ -194,15 +194,25 @@ mcpServers:
 At this point journeys work: record in the extension or wrap a command with
 `janus {cmd}`, then call `list_journeys`.
 
-### 2. Enable a page
+### 2. Enable a site
 
-Open the page, then the Janus popup → **Enable tools on this page**.
+Open a page on it, then the Janus popup → **Enable tools on `<site>`**.
 
 - Off by default. Enabling is what turns Janus from watching a session into
   driving one, so it is always explicit.
-- Several tabs can be enabled at once; each is its own page handle. Calls to
-  different pages run concurrently, calls to one page queue.
-- Navigating away invalidates that page handle — re-enable on the new document.
+- **The grant is the whole origin**, not the one page. An agent that cannot
+  follow a link cannot finish a task. It does not extend to other sites, and
+  `navigate` refuses them.
+- It lasts until you turn it off or close the browser.
+- Each document still gets its own page handle, and navigating mints a new
+  one — a call built against the old handle fails rather than silently acting
+  on a page you never saw. Ask for `list_pages` again after a navigation.
+- Several tabs can be enabled at once. Calls to different pages run
+  concurrently, calls to one page queue.
+
+**Form tools** are a separate tick: *Let the agent submit forms as you*. That
+one is worth reading literally — it applies anywhere on the site, using your
+logged-in session.
 
 ### 3. Invoke
 
