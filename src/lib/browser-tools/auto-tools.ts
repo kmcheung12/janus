@@ -20,6 +20,7 @@
 import type { GeneratedDefinition, Json, ToolDescriptor, ToolOutcome } from './contract'
 import { LIMITS } from './limits'
 import { scanForm } from './form-scanner'
+import { sanitizeUrl } from './url-safety'
 
 const READ_PREFIX = 'a_'
 const FORM_PREFIX = 'af_'
@@ -101,7 +102,7 @@ const READ_TOOLS: Array<{
         .slice(0, MAX_LINKS)
         .map((a) => ({
           text: clamp(a.textContent ?? '', 120),
-          href: (a as HTMLAnchorElement).href,
+          href: sanitizeUrl((a as HTMLAnchorElement).href),
         }))
         .filter((l) => l.text)
 
@@ -109,7 +110,8 @@ const READ_TOOLS: Array<{
 
       return {
         title: document.title,
-        url: window.location.href,
+        // The current URL is as capable of carrying a token as any link on it.
+        url: sanitizeUrl(window.location.href),
         headings,
         links,
         text: clamp(body, MAX_TEXT),
@@ -142,7 +144,10 @@ const READ_TOOLS: Array<{
         const element = node.parentElement
         if (!element || !visible(element)) continue
         const anchor = element.closest('a[href]') as HTMLAnchorElement | null
-        matches.push({ text: clamp(text, SNIPPET), href: anchor?.href ?? null })
+        matches.push({
+          text: clamp(text, SNIPPET),
+          href: anchor ? sanitizeUrl(anchor.href) : null,
+        })
       }
 
       return { query: String(input.query), matches, truncated: matches.length >= MAX_MATCHES } as Json
