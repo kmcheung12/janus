@@ -207,8 +207,8 @@
   .badge[data-state='needs review again'] { background: #fdebd0; color: #b9770e; }
   .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
   textarea { width: 100%; font-family: monospace; font-size: 12px; padding: 6px; border: 1px solid #ddd; border-radius: 4px; }
-  pre { background: #f6f6f6; padding: 8px; border-radius: 4px; font-size: 11px; overflow-x: auto; max-height: 200px; }
-  button { padding: 5px 10px; border: 1px solid #ddd; border-radius: 4px; background: #fff; cursor: pointer; font-size: 11px; }
+  pre { background: #f6f6f6; color: #1a1a1a; padding: 8px; border-radius: 4px; font-size: 11px; overflow-x: auto; max-height: 200px; }
+  button { padding: 5px 10px; border: 1px solid #ddd; border-radius: 4px; background: #fff; color: #1a1a1a; cursor: pointer; font-size: 11px; }
   button.primary { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
   button:disabled { opacity: 0.5; cursor: default; }
 </style>

@@ -274,7 +274,7 @@
   .others { margin-top: 12px; padding-top: 8px; border-top: 1px solid #f0f0f0; }
   .other { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
   .other-label { font-size: 11px; color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  button { padding: 5px 10px; border: 1px solid #ddd; border-radius: 4px; background: #fff; cursor: pointer; font-size: 11px; }
+  button { padding: 5px 10px; border: 1px solid #ddd; border-radius: 4px; background: #fff; color: #1a1a1a; cursor: pointer; font-size: 11px; }
   button.primary { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
   button:disabled { opacity: 0.5; cursor: default; }
 </style>

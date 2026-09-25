@@ -324,11 +324,11 @@
   .status[data-state='connecting'] .dot { background: #f1c40f; }
   .status[data-state='unreachable'] .dot,
   .status[data-state='unauthorized'] .dot { background: #e74c3c; }
-  .handoff { background: #f6f6f6; border-radius: 6px; padding: 12px; margin-bottom: 12px; }
+  .handoff { background: #f6f6f6; color: #1a1a1a; border-radius: 6px; padding: 12px; margin-bottom: 12px; }
   .handoff code { display: block; font-size: 12px; margin-bottom: 8px; }
   .handoff .step2 { margin: 8px 0 0; }
   .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  button { padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background: #fff; cursor: pointer; font-size: 12px; }
+  button { padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background: #fff; color: #1a1a1a; cursor: pointer; font-size: 12px; }
   button.primary { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
   button:disabled { opacity: 0.5; cursor: default; }
 </style>

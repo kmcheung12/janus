@@ -64,7 +64,7 @@
 <style>
   .label-field { display: flex; align-items: center; gap: 8px; }
   input { flex: 1; padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; }
-  input:disabled { background: #f6f6f6; }
+  input:disabled { background: #f6f6f6; color: #666; }
   .hint { font-size: 11px; color: #888; }
   .hint.error { color: #c0392b; }
 </style>
