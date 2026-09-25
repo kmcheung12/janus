@@ -33,6 +33,21 @@ describe('sanitizeUrl', () => {
     expect(sanitizeUrl(href)).toBe(href)
   })
 
+  it('works without a document, as in the background service worker', () => {
+    // Reaching for document.baseURI there throws, gets swallowed, and strips
+    // the query string from every URL — so journey metadata would lose ?id=
+    // along with the token it was meant to lose.
+    const realDocument = globalThis.document
+    // @ts-expect-error — simulating a worker global
+    delete globalThis.document
+    try {
+      expect(sanitizeUrl('https://example.com/x?id=1&auth=secret'))
+        .toBe('https://example.com/x?id=1&auth=REDACTED')
+    } finally {
+      globalThis.document = realDocument
+    }
+  })
+
   it('does not leak a token out of input that barely parses', () => {
     // Resolution against the document base means almost anything parses, so
     // the guarantee that matters is not "rejects junk" but "never returns the

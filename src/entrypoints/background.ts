@@ -1,4 +1,5 @@
 import type { CapturedEvent } from '../lib/event-capture/types'
+import { sanitizeUrl } from '../lib/browser-tools/url-safety'
 import { shortId } from '../lib/short-id'
 import { startJourney, syncEvents, stopJourney, sendFile } from '../lib/mcp/ws-client'
 import * as bridge from '../lib/browser-tools/background-bridge'
@@ -165,7 +166,9 @@ export default defineBackground(() => {
         const journeyId = shortId()
         tabJourneyId.set(tabId, journeyId)
         return browser.tabs.get(tabId).then(tab => {
-          const startUrl = tab.url ?? ''
+          // A tab URL can carry a session token as readily as a link can, and
+          // journey metadata reaches agent context through list_journeys.
+          const startUrl = sanitizeUrl(tab.url ?? '')
           const meta = {
             startTime: Date.now(),
             startUrl,

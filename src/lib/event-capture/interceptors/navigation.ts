@@ -1,5 +1,6 @@
 import type { NavigationEvent, CapturedEvent } from '../types'
 import { uuid } from '../../uuid'
+import { sanitizeUrl } from '../../browser-tools/url-safety'
 
 export function attachNavigationInterceptor(onEvent: (e: CapturedEvent) => void): () => void {
   function emit(url?: string) {
@@ -7,7 +8,9 @@ export function attachNavigationInterceptor(onEvent: (e: CapturedEvent) => void)
       id: uuid(),
       type: 'navigation',
       timestamp: Date.now(),
-      url: url ?? window.location.href,
+      // Same reason as the read tools: a page URL can carry a session token,
+      // and a journey reaches agent context through get_journey_by_id.
+      url: sanitizeUrl(url ?? window.location.href),
       title: document.title,
     }
     onEvent(event)

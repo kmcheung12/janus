@@ -45,7 +45,12 @@ function parse(href: string): URL | null {
   try {
     // Relative hrefs resolve against the document; `a.href` is already
     // absolute, but find_text and authored definitions may pass either.
-    return new URL(href, document.baseURI)
+    //
+    // There is no document in the background service worker, and reaching for
+    // one there would throw, be swallowed, and silently strip the query string
+    // from every URL it handled. Absolute input needs no base anyway.
+    const base = typeof document === 'undefined' ? undefined : document.baseURI
+    return new URL(href, base)
   } catch {
     return null
   }

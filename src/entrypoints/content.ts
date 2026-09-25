@@ -15,6 +15,7 @@ import type { StoredShortcuts } from '../lib/shortcuts.svelte'
 import { loadCaptureConfig, DEFAULTS as CAPTURE_DEFAULTS } from '../lib/capture-config'
 import type { CaptureConfig } from '../lib/capture-config'
 import { uuid } from '../lib/uuid'
+import { sanitizeUrl } from '../lib/browser-tools/url-safety'
 import * as pageTools from '../lib/browser-tools/page-controller'
 import { attribute } from '../lib/browser-tools/provenance'
 import { scanForm } from '../lib/browser-tools/form-scanner'
@@ -107,7 +108,7 @@ export default defineContentScript({
       const detail = JSON.parse((e as CustomEvent<string>).detail)
       const event: ApiEvent = {
         id: uuid(), type: 'api', timestamp: Date.now(),
-        method: detail.method, url: detail.url, status: detail.status,
+        method: detail.method, url: sanitizeUrl(detail.url), status: detail.status,
         requestBody: detail.requestBody, responseBody: detail.responseBody,
         errorDetails: detail.errorDetails, duration: detail.duration,
       }
@@ -165,7 +166,7 @@ export default defineContentScript({
     if (isRecording) {
       addEvent({
         id: uuid(), type: 'navigation', timestamp: Date.now(),
-        url: window.location.href, title: document.title,
+        url: sanitizeUrl(window.location.href), title: document.title,
       })
     }
 
@@ -353,7 +354,7 @@ export default defineContentScript({
           addEvent(sessionEvent())
           addEvent({
             id: uuid(), type: 'navigation', timestamp: Date.now(),
-            url: window.location.href, title: document.title,
+            url: sanitizeUrl(window.location.href), title: document.title,
           })
         }
         return
