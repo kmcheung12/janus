@@ -11,7 +11,7 @@
  * a command-line argument, where it would land in shell history and `ps`.
  */
 
-import { openCredentialStore, TOKEN_PATTERN } from './credentials.js'
+import { inScope, openCredentialStore, TOKEN_PATTERN } from './credentials.js'
 import { defaultDataDir } from './config.js'
 import { resolve } from 'node:path'
 
@@ -31,6 +31,11 @@ const USAGE = `janus-mcp — local admin
       Print one bearer token for an MCP caller. Shown once.
       --all-browsers covers every paired browser, including ones paired
       later, so reloading an extension does not invalidate the token.
+
+  client scope <clientId> (--pairing-id ID... | --all-browsers)
+      Re-point an existing client at other browsers, keeping its token.
+      Use this after re-pairing, when an agent authenticates but sees no
+      pages: its scope still names the pairing the browser abandoned.
 
   producer create --label NAME [--data-dir DIR]
       Print one bearer token for journey capture. No execution rights.
@@ -122,10 +127,23 @@ export async function runCli(argv: string[]): Promise<number> {
       const s = store()
       const existed = s.listExecutors().some((e) => e.pairingId === pairingId)
       s.upsertExecutor(pairingId, token, label)
+
+      // Both of these are consequences of pairing that the user cannot see and
+      // will otherwise read as "pairing did not work": the extension has
+      // already been refused once and has stopped retrying on purpose, and any
+      // client scoped to a single pairing still names the one just superseded.
+      const stranded = s.listClients().filter((c) => !inScope(c.pairingIds, pairingId))
       process.stdout.write(
         `${existed ? 'Replaced' : 'Paired'} browser ${pairingId} (${label}).\n` +
         `Credentials: ${s.path}\n` +
-        (existed ? 'Existing executor connections using the old token will be closed.\n' : ''),
+        (existed ? 'Existing executor connections using the old token will be closed.\n' : '') +
+        'If the extension was already refused with this credential it has stopped\n' +
+        'retrying; click Retry in its Browser connection settings. A reload or a\n' +
+        'service-worker restart reconnects on its own.\n' +
+        (stranded.length
+          ? `\n${stranded.length} client(s) cannot see this browser and will list no pages:\n`
+            + stranded.map((c) => `  janus-mcp client scope ${c.clientId} --all-browsers\n`).join('')
+          : ''),
       )
       return 0
     }
@@ -154,8 +172,25 @@ export async function runCli(argv: string[]): Promise<number> {
     }
 
     case 'client': {
+      if (positional[0] === 'scope') {
+        const clientId = positional[1]
+        if (!clientId) throw new Error('usage: client scope <clientId> (--pairing-id ID... | --all-browsers)')
+        const s = store()
+        const scope = flags['all-browsers'] === true ? ['*'] : requireStrings(flags, 'pairing-id')
+        const record = s.setClientScope(clientId, scope)
+        if (!record) { process.stderr.write(`No client "${clientId}".\n`); return 1 }
+        process.stdout.write(
+          `Client ${record.clientId} (${record.label}) now covers ${record.pairingIds.join(', ')}.\n`
+          + 'Its existing token is unchanged.\n',
+        )
+        return 0
+      }
+
       if (positional[0] !== 'create') {
-        throw new Error('usage: client create (--pairing-id ID... | --all-browsers) --label NAME [--author]')
+        throw new Error(
+          'usage: client create (--pairing-id ID... | --all-browsers) --label NAME [--author]\n'
+          + '   or: client scope <clientId> (--pairing-id ID... | --all-browsers)',
+        )
       }
       const s = store()
       const { record, token } = s.createClient(

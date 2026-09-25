@@ -95,6 +95,8 @@ export interface CredentialStore {
   verifyProducer(token: string): ProducerRecord | undefined
   upsertExecutor(pairingId: string, token: string, label: string): ExecutorRecord
   createClient(pairingIds: string[], label: string, authoring: boolean): { record: ClientRecord; token: string }
+  /** Re-scope a client without reissuing its token; undefined if unknown. */
+  setClientScope(clientId: string, pairingIds: string[]): ClientRecord | undefined
   createProducer(label: string): { record: ProducerRecord; token: string }
   revokePairing(pairingId: string): { executors: number; clients: number }
   revokeClient(clientId: string): boolean
@@ -227,6 +229,34 @@ export function openCredentialStore(dataDir: string): CredentialStore {
       state.clients = [...state.clients, record]
       save()
       return { record, token }
+    },
+
+    /**
+     * Re-point an existing client at other browsers.
+     *
+     * Re-pairing mints a new pairing ID, so a client scoped to the old one
+     * keeps authenticating and sees an empty world — no error anywhere, since
+     * "no pages in your scope" and "no pages enabled" look identical from
+     * outside. Without this the only recovery is a new token, which means
+     * editing every agent's MCP configuration.
+     */
+    setClientScope(clientId, pairingIds) {
+      if (typeof pairingIds === 'string') {
+        throw new Error('setClientScope takes a list of pairing IDs, not a string')
+      }
+      if (!pairingIds.length) throw new Error('A client needs at least one pairing ID')
+      for (const pairingId of pairingIds) {
+        if (pairingId === ALL_PAIRINGS) continue
+        if (!state.executors.some((e) => e.pairingId === pairingId)) {
+          throw new Error(`No paired browser with pairing ID "${pairingId}"`)
+        }
+      }
+      const existing = state.clients.find((c) => c.clientId === clientId)
+      if (!existing) return undefined
+      const record: ClientRecord = { ...existing, pairingIds: [...pairingIds] }
+      state.clients = state.clients.map((c) => (c.clientId === clientId ? record : c))
+      save()
+      return record
     },
 
     createProducer(label) {
