@@ -22,7 +22,12 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['list']] : [['list']],
   use: {
     trace: 'retain-on-failure',
-    // Extensions require a headed persistent context.
+    /*
+     * Playwright's own headless switch cannot be used here: loading an
+     * extension needs launchPersistentContext, which the fixture drives
+     * itself. It passes --headless=new, Chrome's newer mode, which does load
+     * extensions where the old one did not. JANUS_HEADED=1 to watch a run.
+     */
     headless: false,
   },
 })
