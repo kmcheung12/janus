@@ -39,7 +39,7 @@ Janus does two separate things over one daemon:
   `list_journeys`, `get_journey_by_id`, `get_journeys_by_domain`,
   `latest_journey`, `merge_journeys`. No pairing needed.
 - **Act** — the browser command bridge. An agent discovers and invokes tools on
-  pages you explicitly enable: a site's own [WebMCP](https://webmachinelearning.github.io/webmcp/)
+  sites you explicitly enable: a site's own [WebMCP](https://webmachinelearning.github.io/webmcp/)
   tools where it has them, or tools Janus generates automatically where it
   doesn't. Enabling a page is always explicit and off by default.
 
@@ -54,6 +54,8 @@ The `janus` CLI without the daemon is a no-op passthrough.
 - [Run the daemon](#run-the-daemon)
 - [Connect](#connect)
 - [What tools a page gets](#what-tools-a-page-gets)
+- [Seeing what an agent can do](#seeing-what-an-agent-can-do)
+- [Which build am I running?](#which-build-am-i-running)
 - [Manual pairing](#manual-pairing)
 - [`janus-mcp` command reference](#janus-mcp-command-reference)
 - [Install the `janus` CLI](#install-the-janus-cli)
@@ -251,18 +253,47 @@ model involved:
 | `find_text(query)` | Where a phrase appears, with the nearest link |
 | `list_forms()` | What is fillable on the page |
 
-These are read-only and publish the moment a page is enabled.
+These are read-only and publish the moment a site is enabled.
+
+**`navigate(url)`** is published alongside them. Same origin only — another site
+needs its own grant — and it refuses URLs carrying a credential-shaped query
+parameter, since the read tools redact those on the way out. It answers before
+it navigates, so the handle it returns is gone by the time you read it: call
+`list_pages` for the new one.
 
 **Form tools are separate.** They are derived automatically too, but publish only
-once you tick **Allow form tools** for that page, because submitting a form on a
-logged-in session is real authority. They are named from whatever the page says
+once you tick **Let the agent submit forms as you**, because submitting a form
+on a logged-in session is real authority. They are named from whatever the page says
 about itself — Hacker News's search box becomes `search(q)`, Wikipedia's becomes
 `search(search)`. Forms containing a password are skipped entirely, since
 submitting one without it can only fail.
 
+A submit that navigates cannot return a result: the document it would have read
+is already gone. Those report `{navigated, url, sameOrigin}` instead of
+scraping whatever fragment survived.
+
 Bounds worth knowing: `read_page` caps at 8000 characters and reports
 `truncated: true` rather than silently cutting. For a long article, `find_text`
-is the better tool.
+is the better tool. Links come back with credential-shaped query parameters
+redacted — a logged-in Hacker News page puts session tokens in its `logout`,
+`flag` and `fave` hrefs, and a tool marked read-only should not hand those to an
+agent.
+
+### Seeing what an agent can do
+
+Tick **Show tools panel on the page** in the popup for an on-page list of the
+tools a page publishes and the calls Janus has run, with arguments and results.
+Off by default. It is the standing indicator that a grant is live, which matters
+more now that one outlives the page it was granted on.
+
+### Which build am I running?
+
+Every artifact says so, because reloading an extension is manual and a stale
+copy is easy to debug by accident:
+
+- extension — `[janus] background build <sha> <time>` and `[janus] content …`
+- `janus-mcp` — first line of every invocation
+- `janus` — first line, on stderr
 
 ### Authoring a better tool
 
