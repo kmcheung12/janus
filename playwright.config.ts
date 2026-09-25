@@ -23,11 +23,10 @@ export default defineConfig({
   use: {
     trace: 'retain-on-failure',
     /*
-     * Playwright's own headless switch cannot be used here: loading an
-     * extension needs launchPersistentContext, which the fixture drives
-     * itself. It passes --headless=new, Chrome's newer mode, which does load
-     * extensions where the old one did not. JANUS_HEADED=1 to watch a run.
+     * Not honoured here: every lane loads an extension, which needs
+     * launchPersistentContext, and the fixtures launch that themselves. They
+     * use the chromium channel, whose newer headless mode does load
+     * extensions. JANUS_HEADED=1 to watch a run.
      */
-    headless: false,
   },
 })

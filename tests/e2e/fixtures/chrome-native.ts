@@ -46,7 +46,10 @@ export async function launchNativeChrome(options: { extension?: boolean } = {}):
   )
 
   const context = await chromium.launchPersistentContext(profile, {
-    headless: false,
+    // Same as the extension fixture: the chromium channel loads extensions
+    // under Playwright's headless switch. JANUS_HEADED=1 to watch a run.
+    channel: 'chromium',
+    headless: !process.env.JANUS_HEADED,
     args: [
       ...(options.extension === false ? [] : [
         `--disable-extensions-except=${BUILD}`,
