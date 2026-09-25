@@ -99,10 +99,13 @@ async function main() {
    * fails as "could not read marionette port". A test has no business
    * prompting for privileges.
    */
+  // The pref Mozilla's own test infrastructure uses. The app.update.auto and
+  // .enabled pair govern whether to *check* for updates, not whether to
+  // elevate, which is why setting them did not stop the prompt.
+  options.setPreference('app.update.disabledForTesting', true)
   options.setPreference('app.update.auto', false)
-  options.setPreference('app.update.enabled', false)
-  options.setPreference('app.update.service.enabled', false)
-  options.setPreference('app.update.silent', false)
+  options.setPreference('app.update.background.enabled', false)
+  options.setPreference('app.update.staging.enabled', false)
   options.setPreference('browser.shell.checkDefaultBrowser', false)
 
   const driver = await new Builder().forBrowser('firefox').setFirefoxOptions(options).build()
