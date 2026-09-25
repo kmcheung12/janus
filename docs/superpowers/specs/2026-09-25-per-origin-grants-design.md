@@ -118,6 +118,14 @@ Constraints, enforced in the background before the tab is touched:
 
 - Resolved URL must be same-origin with the grant. Cross-origin is rejected,
   not re-prompted; another site needs its own grant.
+
+  This constrains where the *agent* may choose to go. It does not constrain
+  where the browser may end up: a form that posts to another origin is the
+  site deciding where its own form goes, and blocking that would break forms.
+  Cross-origin navigation is permitted and simply ends the grant's reach —
+  the handle withdraws, tools are gone, and the new origin needs its own
+  grant before anything runs there. Where the browser may go and where Janus
+  may run tools are different questions.
 - Rejected outright if it carries a credential-shaped query parameter
   (`hasCredentialParams`). Not stripped — a caller asking for
   `logout?auth=…` is either injected or working from stale output, and quietly
@@ -175,6 +183,27 @@ The on-page panel (`AgentToolsOverlay`) becomes more important, not less. Under
 per-document enablement the click *was* the signal; a grant that follows the
 user across a site needs a standing indicator that it is live, and that is the
 panel's job.
+
+## Navigating form tools return a destination, not a result
+
+Observed: `search(q="jev")` on Hacker News returned `"Search:"` — the form's
+label. Not a bad guess but a category error. `extract_result` reads the
+document after the steps run, and a submit that navigates has replaced that
+document, so the binding reads whatever fragment survived. The results were
+on `hn.algolia.com`, which the tool could not see and had no grant for.
+
+Auto-derived form tools should therefore detect that they navigate and change
+their contract rather than scraping a corpse:
+
+- If a submit commits a navigation, drop the result bindings and return
+  `{ navigated: true, url, sameOrigin }` instead.
+- When `sameOrigin`, the re-minted page handle goes in the result, so the
+  agent can carry on in one step.
+- When not, say so plainly — the agent has landed somewhere it has no tools
+  and should tell the user what to enable rather than retrying blindly.
+
+This is worth doing independently of grants. Today the tool reports success
+with a meaningless payload, which is worse than reporting that it navigated.
 
 ## Unchanged
 
