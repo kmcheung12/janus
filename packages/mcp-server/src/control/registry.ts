@@ -145,6 +145,12 @@ export function pagesForPairing(pairingId: string): LivePage[] {
   return [...pages.values()].filter((p) => p.pairingId === pairingId)
 }
 
+/** Every page a client may reach, across all the pairings it is scoped to. */
+export function pagesForPairings(pairingIds: string[]): LivePage[] {
+  const scope = new Set(pairingIds)
+  return [...pages.values()].filter((p) => scope.has(p.pairingId))
+}
+
 export function setExecutionState(pageId: PageId, execution: PageDescriptor['execution']): void {
   const page = pages.get(pageId)
   if (!page) return

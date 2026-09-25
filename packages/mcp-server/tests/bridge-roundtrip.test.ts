@@ -39,8 +39,8 @@ beforeEach(async () => {
   dataDir = mkdtempSync(join(tmpdir(), 'janus-rt-'))
   credentials = openCredentialStore(dataDir)
   credentials.upsertExecutor(PAIRING, executorToken, 'browser')
-  clientToken = credentials.createClient(PAIRING, 'agent one', false).token
-  secondToken = credentials.createClient(PAIRING, 'agent two', false).token
+  clientToken = credentials.createClient([PAIRING], 'agent one', false).token
+  secondToken = credentials.createClient([PAIRING], 'agent two', false).token
 
   wireQueue()
   wss = startWsServer({ port: 0, host: '127.0.0.1', credentials })
@@ -155,7 +155,7 @@ describe('discovery', () => {
 
   it('does not publish another pairing\'s pages', async () => {
     credentials.upsertExecutor('pair_2', generateToken(), 'other browser')
-    const outsiderToken = credentials.createClient('pair_2', 'outsider', false).token
+    const outsiderToken = credentials.createClient(['pair_2'], 'outsider', false).token
     const executor = await connectExecutor(() => undefined)
 
     const sid = await session(outsiderToken)

@@ -44,7 +44,7 @@ export function clearDraftsForPairing(pairingId: string): void {
 function visible(principal: ClientRecord): StoredDraft[] {
   if (!principal.authoring) return []
   return [...drafts.values()].filter(
-    (d) => d.pairingId === principal.pairingId && d.draft.principalId === principal.clientId,
+    (d) => principal.pairingIds.includes(d.pairingId) && d.draft.principalId === principal.clientId,
   )
 }
 

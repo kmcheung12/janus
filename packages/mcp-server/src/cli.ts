@@ -44,7 +44,7 @@ function readStdin(): Promise<string> {
   })
 }
 
-interface Flags { [key: string]: string | boolean }
+interface Flags { [key: string]: string | boolean | string[] }
 
 function parseFlags(argv: string[]): { positional: string[]; flags: Flags } {
   const positional: string[] = []
@@ -55,7 +55,11 @@ function parseFlags(argv: string[]): { positional: string[]; flags: Flags } {
     const key = arg.slice(2)
     const next = argv[i + 1]
     if (next === undefined || next.startsWith('--')) { flags[key] = true; continue }
-    flags[key] = next
+    // Repeatable: --pairing-id A --pairing-id B scopes one client to both.
+    const existing = flags[key]
+    if (existing === undefined) flags[key] = next
+    else if (Array.isArray(existing)) existing.push(next)
+    else if (typeof existing === 'string') flags[key] = [existing, next]
     i++
   }
   return { positional, flags }
@@ -70,6 +74,17 @@ function requireString(flags: Flags, key: string): string {
   const value = flags[key]
   if (typeof value !== 'string' || !value.trim()) throw new Error(`--${key} is required`)
   return value.trim()
+}
+
+/** For repeatable flags; one occurrence is still a list of one. */
+function requireStrings(flags: Flags, key: string): string[] {
+  const value = flags[key]
+  const list = (Array.isArray(value) ? value : [value])
+    .filter((v): v is string => typeof v === 'string')
+    .map((v) => v.trim())
+    .filter(Boolean)
+  if (!list.length) throw new Error(`--${key} is required`)
+  return list
 }
 
 export async function runCli(argv: string[]): Promise<number> {
@@ -121,10 +136,12 @@ export async function runCli(argv: string[]): Promise<number> {
     }
 
     case 'client': {
-      if (positional[0] !== 'create') throw new Error('usage: client create --pairing-id ID --label NAME [--author]')
+      if (positional[0] !== 'create') {
+        throw new Error('usage: client create --pairing-id ID [--pairing-id ID...] --label NAME [--author]')
+      }
       const s = store()
       const { record, token } = s.createClient(
-        requireString(flags, 'pairing-id'),
+        requireStrings(flags, 'pairing-id'),
         requireString(flags, 'label'),
         flags.author === true,
       )
@@ -156,7 +173,8 @@ export async function runCli(argv: string[]): Promise<number> {
       }
       process.stdout.write(`\nClients (${clients.length}):\n`)
       for (const c of clients) {
-        process.stdout.write(`  ${c.clientId}  ${c.label}  -> ${c.pairingId}${c.authoring ? '  [author]' : ''}\n`)
+        const scope = c.pairingIds.join(', ') || '(no pairing)'
+        process.stdout.write(`  ${c.clientId}  ${c.label}  -> ${scope}${c.authoring ? '  [author]' : ''}\n`)
       }
       return 0
     }

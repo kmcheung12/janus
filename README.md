@@ -284,6 +284,16 @@ janus-mcp list
 janus-mcp client create --pairing-id <id> --label "claude code"
 ```
 
+Running more than one browser? Repeat the flag and one token reaches both:
+
+```bash
+janus-mcp client create --pairing-id <firefox-id> --pairing-id <chrome-id> \
+  --label "claude code"
+```
+
+Revoking a browser narrows such a token rather than deleting it; it is only
+removed once it has no pairing left.
+
 Scope note: `claude mcp add --scope local` (the default) writes
 `~/.claude.json`, mode `0600`, outside git. Avoid `--scope project` — that
 writes `.mcp.json` and would commit the token.
@@ -295,7 +305,7 @@ writes `.mcp.json` and would commit the token.
 ```
 janus-mcp                                   start the daemon
 janus-mcp pair --stdin                      provision a browser (JSON on stdin)
-janus-mcp client create --pairing-id ID --label NAME [--author]
+janus-mcp client create --pairing-id ID [--pairing-id ID...] --label NAME [--author]
 janus-mcp producer create --label NAME      journey capture only, no execution
 janus-mcp revoke <pairingId>                remove a browser and its clients
 janus-mcp list                              show pairings and clients

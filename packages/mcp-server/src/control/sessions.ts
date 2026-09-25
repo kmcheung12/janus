@@ -48,7 +48,7 @@ export function registerSession(sessionId: string, server: Server, principal: Cl
     // Scope check: only notify when the change touches a page this principal
     // can actually see.
     const page = registry.getPage(event.pageId)
-    if (!page || page.pairingId === principal.pairingId) notify()
+    if (!page || principal.pairingIds.includes(page.pairingId)) notify()
   })
 
   const session: McpSession = {

@@ -29,8 +29,14 @@ export interface ClientRecord {
   clientId: string
   tokenHash: string
   label: string
-  /** Scope: the executor pairing whose enabled pages this client may reach. */
-  pairingId: string
+  /**
+   * Scope: the executor pairings whose enabled pages this client may reach.
+   *
+   * A list because one person routinely runs more than one browser, and
+   * making them configure a second MCP server to see the second browser buys
+   * no isolation when both are the same user on the same loopback daemon.
+   */
+  pairingIds: string[]
   authoring: boolean
   createdAt: number
 }
@@ -80,7 +86,7 @@ export interface CredentialStore {
   verifyClient(token: string): ClientRecord | undefined
   verifyProducer(token: string): ProducerRecord | undefined
   upsertExecutor(pairingId: string, token: string, label: string): ExecutorRecord
-  createClient(pairingId: string, label: string, authoring: boolean): { record: ClientRecord; token: string }
+  createClient(pairingIds: string[], label: string, authoring: boolean): { record: ClientRecord; token: string }
   createProducer(label: string): { record: ProducerRecord; token: string }
   revokePairing(pairingId: string): { executors: number; clients: number }
   revokeClient(clientId: string): boolean
@@ -95,7 +101,11 @@ function readFile(path: string): CredentialFile {
     return {
       version: 1,
       executors: parsed.executors ?? [],
-      clients: parsed.clients ?? [],
+      // v1 scoped a client to exactly one pairing. Widening the field rather
+      // than the scope: an existing token keeps reaching exactly what it did.
+      clients: (parsed.clients ?? []).map((c: ClientRecord & { pairingId?: string }) => (
+        c.pairingIds ? c : { ...c, pairingIds: c.pairingId ? [c.pairingId] : [] }
+      )),
       producers: parsed.producers ?? [],
     }
   } catch (e) {
@@ -183,16 +193,24 @@ export function openCredentialStore(dataDir: string): CredentialStore {
       return record
     },
 
-    createClient(pairingId, label, authoring) {
-      if (!state.executors.some((e) => e.pairingId === pairingId)) {
-        throw new Error(`No paired browser with pairing ID "${pairingId}"`)
+    createClient(pairingIds, label, authoring) {
+      // A bare string is iterable, so it would silently become one "pairing"
+      // per character and fail with a nonsense message about a single letter.
+      if (typeof pairingIds === 'string') {
+        throw new Error('createClient takes a list of pairing IDs, not a string')
+      }
+      if (!pairingIds.length) throw new Error('A client needs at least one pairing ID')
+      for (const pairingId of pairingIds) {
+        if (!state.executors.some((e) => e.pairingId === pairingId)) {
+          throw new Error(`No paired browser with pairing ID "${pairingId}"`)
+        }
       }
       const token = generateToken()
       const record: ClientRecord = {
         clientId: generateId('client'),
         tokenHash: hashToken(token),
         label,
-        pairingId,
+        pairingIds: [...pairingIds],
         authoring,
         createdAt: Date.now(),
       }
@@ -216,11 +234,17 @@ export function openCredentialStore(dataDir: string): CredentialStore {
 
     revokePairing(pairingId) {
       const executors = state.executors.filter((e) => e.pairingId === pairingId).length
-      const clients = state.clients.filter((c) => c.pairingId === pairingId).length
-      // Revoking a browser also revokes every client scoped to it; leaving
-      // those live would grant access to pages that can no longer be enabled.
+      // Narrow every client, then drop the ones left with no scope at all.
+      // A client scoped to two browsers must survive losing one; a client
+      // scoped only to this browser must not, because it would otherwise hold
+      // a credential for pages that can no longer be enabled.
+      const narrowed = state.clients.map((c) => ({
+        ...c,
+        pairingIds: c.pairingIds.filter((id) => id !== pairingId),
+      }))
+      const clients = narrowed.filter((c) => !c.pairingIds.length).length
       state.executors = state.executors.filter((e) => e.pairingId !== pairingId)
-      state.clients = state.clients.filter((c) => c.pairingId !== pairingId)
+      state.clients = narrowed.filter((c) => c.pairingIds.length)
       save()
       return { executors, clients }
     },

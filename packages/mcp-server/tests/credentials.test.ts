@@ -68,13 +68,13 @@ describe('executor pairing', () => {
 
 describe('client credentials', () => {
   it('cannot be created without a paired browser', () => {
-    expect(() => store.createClient('missing', 'cli', false)).toThrow(/No paired browser/)
+    expect(() => store.createClient(['missing'], 'cli', false)).toThrow(/No paired browser/)
   })
 
   it('is separate from the executor credential', () => {
     const executorToken = generateToken()
     store.upsertExecutor('pair_1', executorToken, 'laptop')
-    const { token: clientToken } = store.createClient('pair_1', 'cli', false)
+    const { token: clientToken } = store.createClient(['pair_1'], 'cli', false)
 
     // An executor token must not authorize MCP calls, and vice versa.
     expect(store.verifyClient(executorToken)).toBeUndefined()
@@ -84,15 +84,15 @@ describe('client credentials', () => {
 
   it('records authoring scope explicitly', () => {
     store.upsertExecutor('pair_1', generateToken(), 'laptop')
-    const plain = store.createClient('pair_1', 'reader', false)
-    const author = store.createClient('pair_1', 'writer', true)
+    const plain = store.createClient(['pair_1'], 'reader', false)
+    const author = store.createClient(['pair_1'], 'writer', true)
     expect(store.verifyClient(plain.token)?.authoring).toBe(false)
     expect(store.verifyClient(author.token)?.authoring).toBe(true)
   })
 
   it('revoking a pairing revokes its scoped clients', () => {
     store.upsertExecutor('pair_1', generateToken(), 'laptop')
-    const { token } = store.createClient('pair_1', 'cli', false)
+    const { token } = store.createClient(['pair_1'], 'cli', false)
     expect(store.revokePairing('pair_1')).toEqual({ executors: 1, clients: 1 })
     expect(store.verifyClient(token)).toBeUndefined()
   })
@@ -127,5 +127,47 @@ describe('daemon config', () => {
   it('rejects unknown options and bad ports', () => {
     expect(() => parseConfig(['--wat'])).toThrow(/Unknown option/)
     expect(() => parseConfig(['--mcp-port', '99999'])).toThrow(/0-65535/)
+  })
+})
+
+describe('multi-pairing clients', () => {
+  it('reaches pages from every pairing it is scoped to', () => {
+    store.upsertExecutor('pair_1', generateToken(), 'firefox')
+    store.upsertExecutor('pair_2', generateToken(), 'chrome')
+
+    const { token } = store.createClient(['pair_1', 'pair_2'], 'both browsers', false)
+    expect(store.verifyClient(token)!.pairingIds).toEqual(['pair_1', 'pair_2'])
+  })
+
+  it('narrows a multi-pairing client when one browser is revoked', () => {
+    store.upsertExecutor('pair_1', generateToken(), 'firefox')
+    store.upsertExecutor('pair_2', generateToken(), 'chrome')
+    const { token } = store.createClient(['pair_1', 'pair_2'], 'both', false)
+
+    const { clients } = store.revokePairing('pair_1')
+
+    // Still usable for the browser it can still reach, so it is not counted
+    // as revoked.
+    expect(clients).toBe(0)
+    expect(store.verifyClient(token)!.pairingIds).toEqual(['pair_2'])
+  })
+
+  it('revokes a client left with no pairing at all', () => {
+    store.upsertExecutor('pair_1', generateToken(), 'firefox')
+    const { token } = store.createClient(['pair_1'], 'one', false)
+
+    const { clients } = store.revokePairing('pair_1')
+
+    // Leaving it live would be a credential for pages that can no longer be
+    // enabled, which is what the single-pairing version deleted it to avoid.
+    expect(clients).toBe(1)
+    expect(store.verifyClient(token)).toBeUndefined()
+  })
+
+  it('refuses a string, which would become one pairing per character', () => {
+    store.upsertExecutor('pair_1', generateToken(), 'firefox')
+    expect(() => (store.createClient as unknown as (
+      p: string, l: string, a: boolean,
+    ) => unknown)('pair_1', 'cli', false)).toThrow(/list of pairing IDs/)
   })
 })

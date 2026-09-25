@@ -94,7 +94,7 @@ export function forgetPageNames(pageId: PageId): void {
 /** Every tool this principal may see, as published MCP tools. */
 export function publishedToolsFor(principal: ClientRecord): PublishedTool[] {
   const published: PublishedTool[] = []
-  for (const page of registry.pagesForPairing(principal.pairingId)) {
+  for (const page of registry.pagesForPairings(principal.pairingIds)) {
     for (const descriptor of page.tools.values()) {
       let mcpName: string
       try {
@@ -199,7 +199,7 @@ function errorText(message: string) {
 }
 
 export function listPages(principal: ClientRecord) {
-  const pages = registry.pagesForPairing(principal.pairingId).map((p) => ({
+  const pages = registry.pagesForPairings(principal.pairingIds).map((p) => ({
     pageId: p.descriptor.pageId,
     label: p.descriptor.label,
     title: p.descriptor.title,
@@ -215,7 +215,7 @@ export function listPages(principal: ClientRecord) {
 
 export function listBrowserTools(principal: ClientRecord, pageId: string) {
   const page = registry.getPage(pageId)
-  if (!page || page.pairingId !== principal.pairingId) return errorText(`No enabled page "${pageId}"`)
+  if (!page || !principal.pairingIds.includes(page.pairingId)) return errorText(`No enabled page "${pageId}"`)
   return text({
     pageId,
     label: page.descriptor.label,
@@ -243,7 +243,7 @@ export interface InvokeArgs {
 
 export async function callBrowserTool(principal: ClientRecord, args: InvokeArgs) {
   const page = registry.getPage(args.pageId)
-  if (!page || page.pairingId !== principal.pairingId) {
+  if (!page || !principal.pairingIds.includes(page.pairingId)) {
     return errorText(`UNAUTHORIZED: no enabled page "${args.pageId}" for this client`)
   }
 

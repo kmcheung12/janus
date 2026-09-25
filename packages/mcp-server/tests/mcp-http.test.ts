@@ -15,7 +15,7 @@ beforeAll(async () => {
   dataDir = mkdtempSync(join(tmpdir(), 'janus-http-'))
   const credentials = openCredentialStore(dataDir)
   credentials.upsertExecutor('pair_1', generateToken(), 'test browser')
-  clientToken = credentials.createClient('pair_1', 'test client', false).token
+  clientToken = credentials.createClient(['pair_1'], 'test client', false).token
 
   server = createServer(createHttpHandler({ credentials }))
   await new Promise<void>(resolve => server.listen(0, resolve))

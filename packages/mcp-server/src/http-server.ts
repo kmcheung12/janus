@@ -65,7 +65,7 @@ export function createHttpHandler(options: HttpHandlerOptions) {
 
       // An agent token is issued alongside it, because minting that separately
       // was the other half of the setup cost.
-      const client = credentials.createClient(pairingId, 'local agent', true)
+      const client = credentials.createClient([pairingId], 'local agent', true)
       const port = req.socket.localPort ?? 3456
 
       console.error(

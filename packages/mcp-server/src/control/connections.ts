@@ -165,7 +165,7 @@ function handle(
       inactivityTimeoutMs: LIMITS.inactivityTimeoutMs,
       authoringPrincipals: credentials
         .listClients()
-        .filter((c) => c.pairingId === connection.pairingId && c.authoring)
+        .filter((c) => c.pairingIds.includes(connection.pairingId) && c.authoring)
         .slice(0, LIMITS.authoringPrincipalsMax)
         .map((c) => ({ id: c.clientId, label: c.label })),
     })
