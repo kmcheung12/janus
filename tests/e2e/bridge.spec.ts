@@ -59,6 +59,33 @@ test('discovery and invocation work with recording off', async () => {
   await page.close()
 })
 
+test('a reconnect does not withdraw pages that are still enabled', async () => {
+  /*
+   * Reconnecting drops the control client's published snapshot along with the
+   * credential it was published under. The background's map of enabled pages
+   * is untouched, so the popup kept listing them while the daemon — handed an
+   * empty pages_sync, which is a complete snapshot and therefore a withdrawal
+   * — had none. Nothing republished until a page was enabled by hand again.
+   */
+  const page = await extension.context.newPage()
+  await page.goto(site.url)
+
+  const popup = await extension.popup()
+  await enablePageThroughUi(popup)
+  await popup.close()
+
+  const settings = await extension.settings()
+  await settings.evaluate(() => chrome.runtime.sendMessage({ type: 'JANUS_BT_RECONNECT' }))
+  await settings.close()
+
+  const client = await agent('reader after reconnect')
+  await expect.poll(
+    async () => (await client.call('list_pages', {})).text,
+    { timeout: 15_000 },
+  ).toContain('127.0.0.1')
+  await page.close()
+})
+
 test('an unauthenticated MCP caller is refused', async () => {
   const response = await fetch(daemon.mcpUrl, {
     method: 'POST',

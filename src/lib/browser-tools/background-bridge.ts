@@ -112,6 +112,19 @@ export async function reconnect(): Promise<void> {
       void browser.runtime.sendMessage({ type: 'JANUS_BT_STATUS', status }).catch(() => {})
     },
   })
+
+  /*
+   * Re-seed the snapshot the handshake will republish.
+   *
+   * `stop()` drops the published pages along with the credential they were
+   * published under, which is right — but this map, not the control client's
+   * copy, is what is actually enabled. Without this, re-pairing hands the
+   * daemon an empty pages_sync, and a snapshot is complete by definition: it
+   * withdraws every page. The popup still lists them, the daemon has none, and
+   * nothing republishes until someone enables or disables a page by hand.
+   */
+  publishPages()
+  await refreshTools()
 }
 
 /** Resolve the tab's real top-level document before claiming success (§19). */
