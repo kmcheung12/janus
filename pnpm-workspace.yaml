@@ -3,6 +3,5 @@ packages:
 
 allowBuilds:
   esbuild: true
-  # Downloads the geckodriver binary on install; the Firefox lane needs it.
-  geckodriver: true
+  geckodriver: set this to true or false
   spawn-sync: true

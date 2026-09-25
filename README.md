@@ -83,8 +83,7 @@ That builds all four artifacts:
 
 Individually: `pnpm build:chrome`, `build:firefox`, `build:server`, `build:cli`.
 
-Tests: `pnpm test:run` (unit), `pnpm test:e2e` (Chromium), `pnpm test:firefox`
-(Firefox smoke; needs a real desktop session).
+Tests: `pnpm test:run` (unit) and `pnpm test:e2e` (Chromium).
 
 ### Extension
 
@@ -420,7 +419,6 @@ pnpm dev             # extension hot-reload (Chrome)
 pnpm dev:firefox     # extension hot-reload (Firefox)
 pnpm test            # extension unit tests (vitest/jsdom)
 pnpm test:e2e        # builds, then Playwright against a real browser
-pnpm test:firefox    # Firefox smoke lane (needs a desktop session)
 ```
 
 Daemon tests live in their own workspace:
