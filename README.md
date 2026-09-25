@@ -66,18 +66,27 @@ The `janus` CLI without the daemon is a no-op passthrough.
 
 ```bash
 npm install
-npm run build          # extension  -> output/chrome-mv3/
-npm run build:server   # daemon     -> packages/mcp-server/dist/
+npm run build          # everything
 ```
+
+That builds all four artifacts:
+
+| | |
+| --- | --- |
+| `output/chrome-mv3/` | Chrome extension |
+| `output/firefox-mv2/` | Firefox extension |
+| `packages/mcp-server/dist/` | daemon and `janus-mcp` |
+| `packages/janus-cli/dist/` | the `janus` CLI |
+
+Individually: `build:chrome`, `build:firefox`, `build:server`, `build:cli`.
 
 ### Extension
 
 **Chrome** — `chrome://extensions` → enable Developer Mode → **Load unpacked** →
 select `output/chrome-mv3/`.
 
-**Firefox** — `npm run build:firefox`, then
-`about:debugging#/runtime/this-firefox` → **Load Temporary Add-on** → select any
-file inside `output/firefox-mv2/`.
+**Firefox** — `about:debugging#/runtime/this-firefox` → **Load Temporary
+Add-on** → select any file inside `output/firefox-mv2/`.
 
 Reload the extension from that page after every rebuild. The MV3 service worker
 holds the control connection, so a stale worker keeps reporting "Connected"
@@ -85,11 +94,10 @@ while running old code.
 
 ### Daemon and the `janus-mcp` command
 
+Already built by `npm run build`. To put `janus-mcp` on your PATH:
+
 ```bash
-cd packages/mcp-server
-npm install
-npm run build
-npm link               # puts `janus-mcp` on your PATH
+npm --prefix packages/mcp-server link
 ```
 
 `npm link` is optional — every command below also works as
@@ -320,16 +328,13 @@ The `janus` CLI wraps any command and streams its output as a journey to the MCP
 
 ### 1. Build and install
 
-> Run from **`packages/janus-cli`**
+> Run from the **repo root**
+
+Already built by `npm run build`. To put `janus` on your PATH:
 
 ```bash
-cd packages/janus-cli
-npm install
-npm run build
-npm link
+npm --prefix packages/janus-cli link
 ```
-
-This makes `janus` available on your PATH.
 
 ### Development (no build step)
 

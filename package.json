@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox",
-    "build": "wxt build",
+    "build": "npm run build:chrome && npm run build:firefox && npm run build:server && npm run build:cli",
+    "build:chrome": "wxt build",
     "build:firefox": "wxt build -b firefox",
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
@@ -15,8 +16,9 @@
     "postinstall": "wxt prepare",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:e2e": "npm run build && npm run build:server && playwright test",
-    "build:server": "npm --prefix packages/mcp-server run build"
+    "test:e2e": "npm run build:chrome && npm run build:server && playwright test",
+    "build:server": "npm --prefix packages/mcp-server run build",
+    "build:cli": "npm --prefix packages/janus-cli run build"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
