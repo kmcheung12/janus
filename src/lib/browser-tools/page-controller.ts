@@ -24,6 +24,8 @@ let liveInstances: BrowserLiveInstance[] = []
 let definitions: GeneratedDefinition[] = []
 let documentId = crypto.randomUUID()
 let onToolsChanged: (() => void) | null = null
+/** Signature of the last announced set; `null` so the first publish announces. */
+let lastSignature: string | null = null
 /** Auto-generated form tools publish only when the user opts this page in. */
 let allowAutoWrites = false
 let autoPageId = ''
@@ -42,6 +44,9 @@ export function currentDocumentId(): string {
 export function resetDocument(): void {
   documentId = crypto.randomUUID()
   withdrawAll()
+  // A new document must announce its set even if it happens to match the old
+  // one, because the daemon dropped the previous handle's tools entirely.
+  lastSignature = null
 }
 
 export function setDefinitions(next: GeneratedDefinition[]): void {
@@ -102,8 +107,34 @@ export async function publish(): Promise<ToolDescriptor[]> {
 
   registerGenerated(generated)
   const tools = [...nativeTools, ...generated, ...automatic]
+
+  /*
+   * Announce only a real change.
+   *
+   * The background republishes by asking the page for its tools, and this
+   * function is what answers. Announcing unconditionally therefore closes a
+   * cycle: LIST_TOOLS -> publish -> TOOLS_CHANGED -> refreshTools ->
+   * LIST_TOOLS, running as fast as message passing allows and amplified
+   * across every enabled page, because refreshTools() without a tab id hits
+   * all of them.
+   *
+   * Chrome's service worker is torn down between wakeups often enough to hide
+   * it. Firefox's persistent background page is not, so it pins a core.
+   *
+   * Comparing the published set breaks the cycle at the first steady state and
+   * costs one small string per publish.
+   */
+  const signature = toolSignature(tools)
+  if (signature === lastSignature) return tools
+  lastSignature = signature
+
   onToolsChanged?.()
   return tools
+}
+
+/** Identity, revision and name: everything a consumer keys off. */
+function toolSignature(tools: ToolDescriptor[]): string {
+  return tools.map((t) => `${t.toolId}@${t.toolRevision}:${t.name}`).join('|')
 }
 
 /**
