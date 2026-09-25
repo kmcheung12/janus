@@ -22,6 +22,7 @@ import { LIMITS } from './limits'
 import { scanForm } from './form-scanner'
 import { sanitizeUrl } from './url-safety'
 import { isVisible } from './visibility'
+import { handleFor, isActionable, snapshot } from './a11y-snapshot'
 
 const READ_PREFIX = 'a_'
 const FORM_PREFIX = 'af_'
@@ -31,6 +32,7 @@ const MAX_LINKS = 100
 const MAX_HEADINGS = 60
 const MAX_TEXT = 8_000
 const MAX_MATCHES = 30
+const MAX_CONTROLS = 80
 const SNIPPET = 240
 
 function clamp(text: string, max: number): string {
@@ -89,7 +91,8 @@ const READ_TOOLS: Array<{
     id: 'read_page',
     name: 'read_page',
     description:
-      'Read the visible content of this page as structured data: title, headings, main text and links. '
+      'Read this page as structured data: title, headings, main text, links, and the controls it '
+      + 'offers with their roles and states, named the way a screen reader would announce them. '
       + 'Use this instead of asking for a DOM dump.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     run: () => {
@@ -110,15 +113,35 @@ const READ_TOOLS: Array<{
 
       const body = mainText()
 
+      /*
+       * What the page offers, as a screen reader would announce it.
+       *
+       * Prose tells an agent what a page says; this tells it what the page
+       * can do, and in what state. The handles are the strings an agent will
+       * be able to pass back, so what it reads and what it can name are the
+       * same — a name it never saw in output is a name it guessed.
+       */
+      const tree = snapshot({ ignoreSelector: JANUS_UI })
+      const controls = tree
+        .filter(isActionable)
+        .slice(0, MAX_CONTROLS)
+        .map((node) => ({
+          role: node.role,
+          target: handleFor(node),
+          ...(node.state ? { state: node.state } : {}),
+          ...(node.value ? { value: clamp(node.value, 80) } : {}),
+        }))
+
       return {
         title: document.title,
         // The current URL is as capable of carrying a token as any link on it.
         url: sanitizeUrl(window.location.href),
         headings,
         links,
+        controls,
         text: clamp(body, MAX_TEXT),
         truncated: body.length > MAX_TEXT,
-      } as Json
+      } as unknown as Json
     },
   },
   {
