@@ -21,6 +21,13 @@ export default defineConfig({
     permissions: ['storage', 'tabs', 'scripting', 'webRequest', 'webNavigation'],
     browser_specific_settings: {
       gecko: {
+        /*
+         * Explicit so the add-on's internal moz-extension:// UUID can be
+         * pinned by a profile pref. Firefox assigns a random one per profile
+         * otherwise, and the Firefox smoke lane has to address an extension
+         * page to reach the content script the way the daemon does.
+         */
+        id: 'janus@local',
         data_collection_permissions: {
           required: ['none'],
         },

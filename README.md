@@ -65,9 +65,12 @@ The `janus` CLI without the daemon is a no-op passthrough.
 > Run from the **repo root** unless noted.
 
 ```bash
-npm install
-npm run build          # everything
+pnpm install
+pnpm build             # everything
 ```
+
+> The root is a pnpm workspace. `npm install` here fails against pnpm's
+> symlinked `node_modules`.
 
 That builds all four artifacts:
 
@@ -78,7 +81,10 @@ That builds all four artifacts:
 | `packages/mcp-server/dist/` | daemon and `janus-mcp` |
 | `packages/janus-cli/dist/` | the `janus` CLI |
 
-Individually: `build:chrome`, `build:firefox`, `build:server`, `build:cli`.
+Individually: `pnpm build:chrome`, `build:firefox`, `build:server`, `build:cli`.
+
+Tests: `pnpm test:run` (unit), `pnpm test:e2e` (Chromium), `pnpm test:firefox`
+(Firefox smoke; needs a real desktop session).
 
 ### Extension
 
@@ -94,10 +100,10 @@ while running old code.
 
 ### Daemon and the `janus-mcp` command
 
-Already built by `npm run build`. To put `janus-mcp` on your PATH:
+Already built by `pnpm build`. To put `janus-mcp` on your PATH:
 
 ```bash
-npm --prefix packages/mcp-server link
+pnpm --filter @janus/mcp-server link --global
 ```
 
 `npm link` is optional — every command below also works as
@@ -350,10 +356,10 @@ The `janus` CLI wraps any command and streams its output as a journey to the MCP
 
 > Run from the **repo root**
 
-Already built by `npm run build`. To put `janus` on your PATH:
+Already built by `pnpm build`. To put `janus` on your PATH:
 
 ```bash
-npm --prefix packages/janus-cli link
+pnpm --filter @janus/cli link --global
 ```
 
 ### Development (no build step)
@@ -410,16 +416,17 @@ Use that ID with `get_journey_by_id` or combine multiple journeys with `merge_jo
 > Run from the **repo root** (`/path/to/janus`)
 
 ```bash
-npm run dev          # extension hot-reload (Chrome)
-npm run dev:firefox  # extension hot-reload (Firefox)
-npm test             # extension unit tests (vitest/jsdom)
-npm run test:e2e     # builds both, then Playwright against a real browser
+pnpm dev             # extension hot-reload (Chrome)
+pnpm dev:firefox     # extension hot-reload (Firefox)
+pnpm test            # extension unit tests (vitest/jsdom)
+pnpm test:e2e        # builds, then Playwright against a real browser
+pnpm test:firefox    # Firefox smoke lane (needs a desktop session)
 ```
 
 Daemon tests live in their own workspace:
 
 ```bash
-cd packages/mcp-server && npm test
+pnpm --filter @janus/mcp-server test
 ```
 
 The end-to-end suite launches a real browser with the built extension and its
