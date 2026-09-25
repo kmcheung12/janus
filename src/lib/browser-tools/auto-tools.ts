@@ -96,14 +96,14 @@ const READ_TOOLS: Array<{
       + 'Use this instead of asking for a DOM dump.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     run: () => {
-      const headings = [...document.querySelectorAll('h1, h2, h3')]
-        .filter(visible)
+      const allHeadings = [...document.querySelectorAll('h1, h2, h3')].filter(visible)
+      const headings = allHeadings
         .slice(0, MAX_HEADINGS)
         .map((h) => ({ level: Number(h.tagName[1]), text: clamp(h.textContent ?? '', 200) }))
         .filter((h) => h.text)
 
-      const links = [...document.querySelectorAll('a[href]')]
-        .filter(visible)
+      const allLinks = [...document.querySelectorAll('a[href]')].filter(visible)
+      const links = allLinks
         .slice(0, MAX_LINKS)
         .map((a) => ({
           text: clamp(a.textContent ?? '', 120),
@@ -122,8 +122,8 @@ const READ_TOOLS: Array<{
        * same — a name it never saw in output is a name it guessed.
        */
       const tree = snapshot({ ignoreSelector: JANUS_UI })
-      const controls = tree
-        .filter(isActionable)
+      const actionable = tree.filter(isActionable)
+      const controls = actionable
         .slice(0, MAX_CONTROLS)
         .map((node) => ({
           role: node.role,
@@ -131,6 +131,27 @@ const READ_TOOLS: Array<{
           ...(node.state ? { state: node.state } : {}),
           ...(node.value ? { value: clamp(node.value, 80) } : {}),
         }))
+
+      /*
+       * Every list here is capped, and `truncated` used to describe only the
+       * prose — so a page with 150 links reported 100 of them under
+       * `truncated: false`, and an agent that believed it was looking at all
+       * of them would conclude the link it wanted did not exist. Say which
+       * list was cut and how much of it is missing, so the answer is to call
+       * find_text or find_control rather than to give up.
+       */
+      const incomplete: Record<string, { shown: number; total: number }> = {}
+      if (allHeadings.length > MAX_HEADINGS) {
+        incomplete.headings = { shown: headings.length, total: allHeadings.length }
+      }
+      if (allLinks.length > MAX_LINKS) {
+        incomplete.links = { shown: links.length, total: allLinks.length }
+      }
+      if (actionable.length > MAX_CONTROLS) {
+        incomplete.controls = { shown: controls.length, total: actionable.length }
+      }
+      const textTruncated = body.length > MAX_TEXT
+      const cut = Object.keys(incomplete)
 
       return {
         title: document.title,
@@ -140,7 +161,16 @@ const READ_TOOLS: Array<{
         links,
         controls,
         text: clamp(body, MAX_TEXT),
-        truncated: body.length > MAX_TEXT,
+        truncated: textTruncated || cut.length > 0,
+        ...(cut.length || textTruncated
+          ? {
+              incomplete: { ...incomplete, ...(textTruncated ? { text: true } : {}) },
+              note:
+                `This page is larger than one read returns${cut.length
+                  ? `; ${cut.join(' and ')} are partial` : ''}. `
+                + 'Use find_text or find_control to reach what is not listed here.',
+            }
+          : {}),
       } as unknown as Json
     },
   },

@@ -57,6 +57,28 @@ describe('read tools', () => {
     expect(result.truncated).toBe(true)
   })
 
+  it('says which list was cut, not just that the prose was', () => {
+    // 150 links, capped at 100. This reported `truncated: false`, because only
+    // the body text was ever checked — so an agent reading 100 of 150 links
+    // had no way to know the one it wanted was among the 50 it never saw.
+    markup(`<main>${
+      Array.from({ length: 150 }, (_, i) => `<a href="https://example.com/${i}">Link ${i}</a>`).join('')
+    }</main>`)
+    const result = read('read_page')
+
+    expect((result.links as unknown[]).length).toBe(100)
+    expect(result.truncated).toBe(true)
+    expect(result.incomplete).toMatchObject({ links: { shown: 100, total: 150 } })
+    expect(String(result.note)).toContain('find_text')
+  })
+
+  it('claims nothing is missing when nothing is', () => {
+    markup('<main><h1>Small</h1><a href="https://example.com/a">One</a><p>Short.</p></main>')
+    const result = read('read_page')
+    expect(result.truncated).toBe(false)
+    expect(result.incomplete).toBeUndefined()
+  })
+
   it('finds text and its nearest link', () => {
     markup('<main><a href="https://example.com/x"><span>Rust is fast</span></a></main>')
     const result = read('find_text', { query: 'rust' })
