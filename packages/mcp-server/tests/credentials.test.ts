@@ -195,3 +195,23 @@ describe('all-browsers clients', () => {
     expect(inScope(record.pairingIds, 'pair_2')).toBe(false)
   })
 })
+
+describe('revoke all', () => {
+  it('leaves nothing usable', () => {
+    store.upsertExecutor('pair_1', generateToken(), 'firefox')
+    store.upsertExecutor('pair_2', generateToken(), 'chrome')
+    const { token: wildcard } = store.createClient(['*'], 'every browser', true)
+    const { token: scoped } = store.createClient(['pair_1'], 'one', false)
+    const { token: producer } = store.createProducer('cli')
+
+    const counts = store.revokeAll()
+
+    expect(counts).toEqual({ executors: 2, clients: 2, producers: 1 })
+    // A wildcard client is the one most likely to survive a partial cleanup,
+    // since it is not scoped to any pairing being removed.
+    expect(store.verifyClient(wildcard)).toBeUndefined()
+    expect(store.verifyClient(scoped)).toBeUndefined()
+    expect(store.verifyProducer(producer)).toBeUndefined()
+    expect(store.listExecutors()).toEqual([])
+  })
+})

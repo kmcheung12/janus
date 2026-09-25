@@ -98,6 +98,7 @@ export interface CredentialStore {
   createProducer(label: string): { record: ProducerRecord; token: string }
   revokePairing(pairingId: string): { executors: number; clients: number }
   revokeClient(clientId: string): boolean
+  revokeAll(): { executors: number; clients: number; producers: number }
   listExecutors(): ExecutorRecord[]
   listClients(): ClientRecord[]
 }
@@ -256,6 +257,27 @@ export function openCredentialStore(dataDir: string): CredentialStore {
       state.clients = narrowed.filter((c) => c.pairingIds.length)
       save()
       return { executors, clients }
+    },
+
+    /**
+     * Everything, in one step.
+     *
+     * Revoking record by record leaves whatever was missed still valid, and
+     * the thing a person reaches for this to fix is usually not knowing what
+     * exists any more. Producers go too: a journey-capture token is a
+     * credential like the others.
+     */
+    revokeAll() {
+      const counts = {
+        executors: state.executors.length,
+        clients: state.clients.length,
+        producers: state.producers.length,
+      }
+      state.executors = []
+      state.clients = []
+      state.producers = []
+      save()
+      return counts
     },
 
     revokeClient(clientId) {

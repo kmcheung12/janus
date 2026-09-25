@@ -24,6 +24,9 @@ const USAGE = `janus-mcp — local admin
   revoke <pairingId> [--data-dir DIR]
       Remove that browser and every MCP client scoped to it.
 
+  revoke all [--data-dir DIR]
+      Remove every pairing, client and producer. Start from nothing.
+
   client create (--pairing-id ID... | --all-browsers) --label NAME [--author]
       Print one bearer token for an MCP caller. Shown once.
       --all-browsers covers every paired browser, including ones paired
@@ -128,8 +131,21 @@ export async function runCli(argv: string[]): Promise<number> {
     }
 
     case 'revoke': {
+      if (positional[0] === 'all' || flags.all === true) {
+        const s = store()
+        const { executors, clients, producers } = s.revokeAll()
+        // Loud about the consequence, because the recovery is manual: every
+        // browser re-pairs and every agent needs a new token.
+        process.stdout.write(
+          `Revoked everything: ${executors} pairing(s), ${clients} client(s), `
+          + `${producers} producer(s).\n`
+          + `Every browser must pair again, and every agent needs a new token.\n`,
+        )
+        return 0
+      }
+
       const pairingId = positional[0]
-      if (!pairingId) throw new Error('revoke requires a pairing ID')
+      if (!pairingId) throw new Error('revoke requires a pairing ID, or "all"')
       const s = store()
       const { executors, clients } = s.revokePairing(pairingId)
       if (!executors) { process.stderr.write(`No pairing "${pairingId}".\n`); return 1 }

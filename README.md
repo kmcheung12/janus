@@ -354,6 +354,7 @@ janus-mcp pair --stdin                      provision a browser (JSON on stdin)
 janus-mcp client create --pairing-id ID [--pairing-id ID...] --label NAME [--author]
 janus-mcp producer create --label NAME      journey capture only, no execution
 janus-mcp revoke <pairingId>                remove a browser and its clients
+janus-mcp revoke all                        remove every credential, start over
 janus-mcp list                              show pairings and clients
 ```
 
