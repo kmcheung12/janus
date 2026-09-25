@@ -42,6 +42,17 @@ function page(options: SiteOptions): string {
     <button id="go" type="submit">Search</button>
   </form>
   <div id="results" role="status">no results</div>
+  <!--
+    A classic form that actually navigates, unlike #search above, which is
+    AJAX and preventDefault()s. Janus derives tools from forms it did not
+    write, so this is the case WebMCP never has to handle: submitting replaces
+    the document, and with it anything a result binding could have read.
+  -->
+  <form id="lookup" method="get" action="/landed">
+    <label for="ref">Reference</label>
+    <input id="ref" name="ref" type="text">
+    <button id="lookup-go" type="submit">Look up</button>
+  </form>
   <button id="counter-btn">Increment</button>
   <div id="counter">0</div>
   <button id="slow-btn">Slow action</button>
@@ -125,6 +136,15 @@ export async function startSite(options: SiteOptions = {}): Promise<SiteHandle> 
         items: query === 'poll' ? ['background'] : [`${query} pro`, `${query} lite`],
         total: 2,
       }))
+      return
+    }
+
+    if (url.pathname === '/landed') {
+      // Where #lookup navigates to. A different document, so nothing the
+      // submitting page could have read still exists.
+      res.writeHead(200, { 'content-type': 'text/html' })
+      res.end(`<!doctype html><title>Landed</title><h1>Landed</h1>
+        <p>ref: ${url.searchParams.get('ref') ?? ''}</p>`)
       return
     }
 

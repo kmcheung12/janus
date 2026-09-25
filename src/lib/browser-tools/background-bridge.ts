@@ -8,6 +8,7 @@
  */
 
 import type { Id, PageDescriptor, PageId, ToolDescriptor, ToolOutcome } from './contract'
+import { sanitizeUrl } from './url-safety'
 import type { GeneratedDefinition, ToolDraft } from './contract'
 import * as control from './control-client'
 import * as store from './definition-store'
@@ -389,8 +390,49 @@ export async function refreshTools(tabId?: number): Promise<void> {
   }))
 }
 
+interface Navigation { url: string }
+
+/**
+ * Invocations waiting to learn that their tab navigated.
+ *
+ * A navigation destroys the content script, and the pending
+ * `tabs.sendMessage` promise then neither resolves nor rejects — it simply
+ * hangs until the daemon's deadline. Waiting for the rejection is therefore
+ * not enough; the navigation has to be raced against the call.
+ */
+const navigationWaiters = new Map<number, Set<(nav: Navigation) => void>>()
+
+function whenNavigated(tabId: number): { promise: Promise<Navigation>; cancel: () => void } {
+  let settle: (nav: Navigation) => void = () => {}
+  const promise = new Promise<Navigation>((resolve) => { settle = resolve })
+  const waiters = navigationWaiters.get(tabId) ?? new Set()
+  waiters.add(settle)
+  navigationWaiters.set(tabId, waiters)
+  return {
+    promise,
+    cancel: () => {
+      waiters.delete(settle)
+      if (!waiters.size) navigationWaiters.delete(tabId)
+    },
+  }
+}
+
 /** Navigation replaces the document, which invalidates that page handle (§7). */
 export async function onNavigated(tabId: number): Promise<void> {
+  let url = ''
+  try {
+    const tab = await browser.tabs.get(tabId)
+    url = sanitizeUrl(tab.url ?? '')
+  } catch {
+    // The tab is gone, which is the unknown-outcome case, not this one.
+  }
+
+  const waiters = navigationWaiters.get(tabId)
+  if (waiters) {
+    navigationWaiters.delete(tabId)
+    for (const settle of waiters) settle({ url })
+  }
+
   disablePage(tabId, 'navigation')
 }
 
@@ -403,16 +445,34 @@ async function executeInTab(request: control.ExecuteRequest): Promise<control.Ex
     return unknownPage('The document changed before dispatch')
   }
 
+  const origin = page.origin
+  const navigation = whenNavigated(page.tabId)
+
   try {
-    const outcome = await browser.tabs.sendMessage(page.tabId, {
-      type: 'JANUS_BT_INVOKE',
-      requestId: request.requestId,
-      toolId: request.toolId,
-      input: request.arguments,
-      timeoutMs: request.timeoutMs,
-    }) as control.ExecuteResponse
-    return outcome
+    const raced = await Promise.race([
+      browser.tabs.sendMessage(page.tabId, {
+        type: 'JANUS_BT_INVOKE',
+        requestId: request.requestId,
+        toolId: request.toolId,
+        input: request.arguments,
+        timeoutMs: request.timeoutMs,
+      }).then((outcome) => ({ kind: 'outcome' as const, outcome: outcome as control.ExecuteResponse })),
+      navigation.promise.then((nav) => ({ kind: 'navigated' as const, nav })),
+    ])
+
+    if (raced.kind === 'outcome') return raced.outcome
+    return navigatedResult(raced.nav, origin)
   } catch (e) {
+    /*
+     * A submit that navigates is not a lost page.
+     *
+     * The document is replaced, so the content script — and any result
+     * binding it was about to read — is gone. Nothing can extract a result
+     * from a page that no longer exists, in Janus or in WebMCP, whose
+     * handlers are in-page functions with the same fate. Reporting the
+     * destination is the honest ceiling; reporting success with whatever
+     * fragment survived is how search(q) came back as "Search:".
+     */
     // The tab vanished mid-call. It may already have acted, so the outcome is
     // genuinely unknown and the daemon must keep the page locked.
     return {
@@ -426,6 +486,36 @@ async function executeInTab(request: control.ExecuteRequest): Promise<control.Ex
       },
       executionStopped: false,
     }
+  } finally {
+    navigation.cancel()
+  }
+}
+
+/**
+ * A submit that navigates is not a lost page.
+ *
+ * The document is replaced, so the content script — and any result binding it
+ * was about to read — is gone. Nothing can extract a result from a page that
+ * no longer exists, in Janus or in WebMCP, whose handlers are in-page
+ * functions with the same fate. Reporting the destination is the honest
+ * ceiling; reporting success with whatever fragment survived is how
+ * search(q="jev") came back as "Search:".
+ */
+function navigatedResult(nav: Navigation, origin: string): control.ExecuteResponse {
+  const sameOrigin = nav.url === origin || nav.url.startsWith(`${origin}/`)
+  return {
+    outcome: {
+      status: 'completed',
+      result: {
+        navigated: true,
+        url: nav.url,
+        sameOrigin,
+        note: sameOrigin
+          ? 'The submit navigated, so this document and its tools were withdrawn. Re-enable the page to continue.'
+          : 'The submit went to another origin. Janus has no tools there until that site is enabled.',
+      },
+    },
+    executionStopped: true,
   }
 }
 
