@@ -105,12 +105,12 @@ test('page workloads are not measurably slowed', async () => {
         return performance.now() - t
       })
     },
-    async readPage() {
-      return page.evaluate(async () => {
+    // Recording is off here, so the MAIN-world console patch should be
+    // rejecting these before it stringifies anything or builds a stack.
+    async consoleError() {
+      return page.evaluate(() => {
         const t = performance.now()
-        for (let i = 0; i < 20; i++) {
-          await chrome.runtime.sendMessage?.({ type: 'noop' }).catch(() => {})
-        }
+        for (let i = 0; i < 3000; i++) console.error('bench error', i)
         return performance.now() - t
       })
     },

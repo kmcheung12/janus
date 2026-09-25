@@ -56,6 +56,24 @@ export default defineContentScript({
     let currentJourneyId: string | null = null
     let updateSidebarJourneyId: ((id: string | null) => void) | null = null
 
+    /**
+     * Tell the MAIN-world console patch what to bother collecting.
+     *
+     * It cannot see the capture config or the recording state, so without this
+     * it pays full cost — stringify, stack trace, serialize, dispatch — for
+     * every console call on every page, including results this side throws
+     * away a moment later.
+     */
+    function pushConsoleLevels() {
+      document.dispatchEvent(new CustomEvent('janus:console-levels', {
+        detail: JSON.stringify({
+          error: isRecording && captureConfig.console_error,
+          warn: isRecording && captureConfig.console_warn,
+          log: isRecording && captureConfig.console_log,
+        }),
+      }))
+    }
+
     function filteredAddEvent(event: CapturedEvent) {
       if (!isRecording) return
       // Tag provenance before any filtering, so agent effects stay
@@ -104,9 +122,13 @@ export default defineContentScript({
     await loadPersistedEvents()
     let shortcuts: StoredShortcuts = await loadShortcuts()
     captureConfig = await loadCaptureConfig()
+    pushConsoleLevels()
     browser.storage.onChanged.addListener((changes) => {
       if ('janus_shortcuts' in changes) shortcuts = changes['janus_shortcuts'].newValue
-      if ('janus_capture_config' in changes) captureConfig = { ...CAPTURE_DEFAULTS, ...(changes['janus_capture_config'].newValue as Partial<CaptureConfig>) }
+      if ('janus_capture_config' in changes) {
+        captureConfig = { ...CAPTURE_DEFAULTS, ...(changes['janus_capture_config'].newValue as Partial<CaptureConfig>) }
+        pushConsoleLevels()
+      }
       if (OVERLAY_KEY in changes) {
         if (changes[OVERLAY_KEY].newValue) openToolsOverlay()
         else closeToolsOverlay()
@@ -126,6 +148,7 @@ export default defineContentScript({
     try {
       const res = await browser.runtime.sendMessage({ type: 'JANUS_GET_RECORDING_STATE' })
       isRecording = res?.recording ?? false
+      pushConsoleLevels()
       currentJourneyId = res?.journeyId ?? null
       if (res?.sidebarOpen) openEventsSidebar()
     } catch (e) {
@@ -322,6 +345,7 @@ export default defineContentScript({
 
       if (msg.type === 'JANUS_RECORDING_CHANGED') {
         isRecording = msg.recording ?? false
+        pushConsoleLevels()
         if (isRecording) {
           currentJourneyId = msg.journeyId ?? null
           updateSidebarJourneyId?.(currentJourneyId)

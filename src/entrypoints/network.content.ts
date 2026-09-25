@@ -142,6 +142,37 @@ export default defineContentScript({
   // ── console ──────────────────────────────────────────────────────────────
   const CONSOLE_MARKER = '__janusConsole__'
 
+  /**
+   * Which levels the isolated world currently wants.
+   *
+   * This script runs in the MAIN world on every page, so it cannot read the
+   * capture config or the recording state directly. Without being told, it did
+   * the full cost — stringify every argument, build a stack trace, serialize,
+   * dispatch — on every console call on every page, including levels the user
+   * had switched off and pages that were not being recorded, where the
+   * isolated world discards the result immediately.
+   *
+   * Defaults to on so nothing is missed in the window before the first update
+   * arrives; the isolated world sends one as soon as it has the config.
+   */
+  const wanted = { error: true, warn: true, log: true }
+  document.addEventListener('janus:console-levels', (e: Event) => {
+    const detail = (e as CustomEvent<string>).detail
+    try {
+      Object.assign(wanted, JSON.parse(detail) as Partial<typeof wanted>)
+    } catch { /* keep the previous setting rather than going silent */ }
+  })
+
+  /**
+   * Repeat suppression, bounded.
+   *
+   * A page that logs unique messages in a loop would otherwise grow this for
+   * the life of the document. Clearing wholesale rather than evicting one
+   * entry keeps it O(1) and costs only that a long-suppressed message can
+   * reappear once — which is better than the leak.
+   */
+  const SEEN_MAX = 500
+
   // Guard against double-patching if the script is injected more than once
   if (!(console.error as unknown as Record<string, unknown>)[CONSOLE_MARKER]) {
     const seen = new Set<string>()
@@ -152,11 +183,16 @@ export default defineContentScript({
     type EmitSource = 'console.error' | 'console.warn' | 'console.log' | 'error' | 'unhandledrejection'
 
     function emitConsole(level: 'error' | 'warn' | 'log', args: unknown[], emitSource: EmitSource) {
+      // Before any work: stringifying arguments and building a stack trace are
+      // the expensive parts, and both are wasted if nobody wants this level.
+      if (!wanted[level]) return
+
       const message = args
         .map((a) => (a instanceof Error ? a.message : String(a)))
         .join(' ')
       const key = `${emitSource}:${message}`
       if (seen.has(key)) return
+      if (seen.size >= SEEN_MAX) seen.clear()
       seen.add(key)
 
       let source: string | null = null
