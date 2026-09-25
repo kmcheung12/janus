@@ -212,6 +212,18 @@ function registerJanusTools(descriptors: ToolDescriptor[]): void {
         name: descriptor.name,
         description: descriptor.description,
         inputSchema: descriptor.inputSchema,
+        /*
+         * Without these a consumer cannot tell a read from an act, so every
+         * Janus tool looks equally safe to call unattended — the one thing the
+         * hints exist to prevent. Both spellings are emitted: the WebMCP draft
+         * says `consequential`, Chrome's own tools carry `consequentialHint`,
+         * and a consumer reading only the other one would see neither.
+         */
+        annotations: {
+          readOnlyHint: descriptor.readOnlyHint,
+          consequential: descriptor.consequentialHint,
+          consequentialHint: descriptor.consequentialHint,
+        },
         signal: controller.signal,
         execute: async (input: Record<string, Json>) => {
           const outcome = await invoke(
@@ -235,6 +247,15 @@ function registerJanusTools(descriptors: ToolDescriptor[]): void {
       // owns this tool. Defer to it rather than competing.
     }
   }
+
+  // Exactly what is registered right now, so discover() can tell our tools
+  // from the site's. A name we failed to register is deliberately absent: the
+  // site owns it, and it must keep coming back as native.
+  native.markOwnRegistrations(
+    liveInstances
+      .filter((i) => i.registrationController)
+      .map((i) => i.descriptor.name),
+  )
 }
 
 function withdrawAll(): void {

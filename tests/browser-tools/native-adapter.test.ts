@@ -252,3 +252,37 @@ describe('Chrome calling conventions', () => {
     expect(JSON.stringify(outcome)).toContain('choose_store')
   })
 })
+
+describe('Janus own registrations', () => {
+  beforeEach(() => native.markOwnRegistrations([]))
+  afterEach(() => native.markOwnRegistrations([]))
+
+  it('does not rediscover the tools Janus registered as the site\'s own', async () => {
+    /*
+     * registerTool() and getTools() are the same registry, so our auto tools
+     * come back indistinguishable from the page's. publish() would read that
+     * as "this page has native tools", suppress the auto tools it had just
+     * registered, withdraw them, and find nothing on the next round — a tool
+     * list oscillating between two sets, with our tools credited to the site.
+     */
+    install([
+      { name: 'read_page', description: 'ours', inputSchema: schema },
+      { name: 'find_text', description: 'ours', inputSchema: schema },
+      { name: 'add_to_basket', description: 'the site\'s', inputSchema: schema },
+    ])
+    native.markOwnRegistrations(['read_page', 'find_text'])
+
+    const discovered = await native.discover()
+    expect(discovered.map((t) => t.name)).toEqual(['add_to_basket'])
+  })
+
+  it('keeps a name the site owns, which we never registered', async () => {
+    // registerTool throws on a duplicate, so a clash means the site won and
+    // its tool must keep being published as native.
+    install([{ name: 'search', description: 'the site\'s', inputSchema: schema }])
+    native.markOwnRegistrations([])
+
+    const discovered = await native.discover()
+    expect(discovered.map((t) => t.name)).toEqual(['search'])
+  })
+})

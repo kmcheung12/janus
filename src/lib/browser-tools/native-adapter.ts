@@ -96,6 +96,22 @@ function ownedByThisDocument(tool: NativeTool): boolean {
   return tool.origin === window.location.origin
 }
 
+/**
+ * Tool names Janus itself registered into this document's ModelContext.
+ *
+ * `getTools()` hands them back like any other, and nothing on the returned
+ * object says who registered it — so without this, our own auto tools come
+ * back looking like the site's. `publish()` would then see a page that "has
+ * native tools", suppress the auto tools it just registered, withdraw them,
+ * and on the next round find nothing again: a tool list that flickers between
+ * two sets forever, and an agent that sees our tools attributed to the site.
+ */
+let ownRegistrations = new Set<string>()
+
+export function markOwnRegistrations(names: Iterable<string>): void {
+  ownRegistrations = new Set(names)
+}
+
 let cache: NativeTool[] = []
 
 export async function discover(): Promise<ToolDescriptor[]> {
@@ -116,7 +132,9 @@ export async function discover(): Promise<ToolDescriptor[]> {
     }
   }
 
-  const owned = (tools ?? []).filter(ownedByThisDocument)
+  const owned = (tools ?? [])
+    .filter((tool) => !ownRegistrations.has(tool.name))
+    .filter(ownedByThisDocument)
   cache = owned
 
   if (owned.length > LIMITS.nativeToolsPerPage) {
