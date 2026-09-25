@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { RECIPE_OPS, M1_MESSAGE_TYPES, M2_MESSAGE_TYPES } from '../src/contracts/types.js'
+import { LIMITS } from '../src/contracts/limits.js'
 import { contractSchema, validateAs, validateControlMessage } from '../src/contracts/validate.js'
 
 function helloAck(overrides: Record<string, unknown> = {}) {
@@ -27,6 +28,18 @@ describe('schema document', () => {
     const variants = schema.definitions.RecipeStep.oneOf ?? []
     expect(variants).toHaveLength(RECIPE_OPS.length)
     expect(RECIPE_OPS).toHaveLength(7)
+  })
+
+  it('lets a pages_sync carry as many pages as a session may enable', () => {
+    // These two bounds are the same number stated twice. When the session limit
+    // rose from 1 to 8 and this one did not, every snapshot past the first page
+    // was a protocol error, which closes the socket — the extension reconnected,
+    // republished the same snapshot and was closed again, forever.
+    const schema = contractSchema() as {
+      definitions: { PagesSync: { properties: { pages: { maxItems: number } } } }
+    }
+    expect(schema.definitions.PagesSync.properties.pages.maxItems)
+      .toBe(LIMITS.enabledPagesPerSession)
   })
 
   it('covers every message type in one of the milestone gates', () => {

@@ -1591,7 +1591,7 @@
             "$ref": "#/definitions/PageDescriptor"
           },
           "minItems": 0,
-          "maxItems": 1
+          "maxItems": 8
         }
       },
       "required": [
