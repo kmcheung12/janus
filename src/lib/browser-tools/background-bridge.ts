@@ -168,6 +168,12 @@ export function disablePage(
   if (!page) return
   control.removePage(page.pageId, page.documentId, reason)
   enabledPages.delete(tabId)
+  // Tell the document it is no longer enabled. Withdrawal from the daemon is
+  // already done above; this is so anything rendering in the page stops
+  // claiming the tools are reachable. A closed or navigated tab cannot
+  // receive it, which is harmless — that document is gone either way.
+  browser.tabs.sendMessage(tabId, { type: 'JANUS_BT_SET_ENABLED', enabled: false })
+    .catch(() => {})
   publishPages()
 }
 

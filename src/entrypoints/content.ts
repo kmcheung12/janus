@@ -9,6 +9,7 @@ import { NETWORK_EVENT_NAME } from '../lib/event-capture/interceptors/network'
 import type { ApiEvent, CapturedEvent, ConsoleEvent, SessionEvent } from '../lib/event-capture/types'
 import { mount, unmount } from 'svelte'
 import Sidebar from '../components/sidebar/Sidebar.svelte'
+import AgentToolsOverlay from '../components/browser-tools/AgentToolsOverlay.svelte'
 import { loadShortcuts, matchesShortcut } from '../lib/shortcuts.svelte'
 import type { StoredShortcuts } from '../lib/shortcuts.svelte'
 import { loadCaptureConfig, DEFAULTS as CAPTURE_DEFAULTS } from '../lib/capture-config'
@@ -19,6 +20,9 @@ import { attribute } from '../lib/browser-tools/provenance'
 import { scanForm } from '../lib/browser-tools/form-scanner'
 import { run as runRecipe } from '../lib/browser-tools/recipe-runtime'
 import * as demo from '../lib/browser-tools/demonstration-recorder'
+
+/** Display preference for the on-page agent tools panel. Off unless set. */
+const OVERLAY_KEY = 'janus_tools_overlay'
 
 function sessionEvent(): SessionEvent {
   return {
@@ -98,9 +102,15 @@ export default defineContentScript({
     browser.storage.onChanged.addListener((changes) => {
       if ('janus_shortcuts' in changes) shortcuts = changes['janus_shortcuts'].newValue
       if ('janus_capture_config' in changes) captureConfig = { ...CAPTURE_DEFAULTS, ...(changes['janus_capture_config'].newValue as Partial<CaptureConfig>) }
+      if (OVERLAY_KEY in changes) {
+        if (changes[OVERLAY_KEY].newValue) openToolsOverlay()
+        else closeToolsOverlay()
+      }
     })
 
     // Sidebar
+    let overlayHost: HTMLElement | null = null
+    let overlayInstance: Record<string, unknown> | null = null
     let sidebarHost: HTMLElement | null = null
     let sidebarInstance: Record<string, unknown> | null = null
     let enterPickingMode: (() => void) | null = null
@@ -116,6 +126,10 @@ export default defineContentScript({
     } catch (e) {
       console.error('Failed to restore state from background:', e)
     }
+
+    // The panel is a persistent preference rather than per-tab state, so a
+    // navigation or a new tab keeps showing it without being re-asked.
+    if ((await browser.storage.local.get(OVERLAY_KEY))[OVERLAY_KEY]) openToolsOverlay()
 
     // Anchor the current page in the event log when recording is already active.
     // Only a navigation event is added here — session events are only emitted
@@ -171,6 +185,34 @@ export default defineContentScript({
 
     function openAnnotationSidebar() { openSidebar('picking') }
     function openEventsSidebar() { openSidebar('sidebar') }
+
+    // ── Agent tools overlay ────────────────────────────────────────────────
+    // Off by default and purely informational: it reports the published tool
+    // set and the calls Janus ran, and cannot enable, disable or invoke
+    // anything. Its visibility is a display preference, not an access control.
+    function openToolsOverlay() {
+      if (overlayHost?.isConnected) return
+      if (overlayInstance) { unmount(overlayInstance); overlayInstance = null }
+      if (!document.body) {
+        document.addEventListener('DOMContentLoaded', openToolsOverlay, { once: true })
+        return
+      }
+      overlayHost = document.createElement('div')
+      overlayHost.id = 'janus-agent-tools-root'
+      document.body.appendChild(overlayHost)
+      overlayInstance = mount(AgentToolsOverlay, {
+        target: overlayHost,
+        // Dismissing from the page turns the preference off, so it does not
+        // reappear on the next navigation as if the click had not happened.
+        props: { onClose: () => { void browser.storage.local.set({ [OVERLAY_KEY]: false }) } },
+      })
+    }
+
+    function closeToolsOverlay() {
+      if (overlayInstance) { unmount(overlayInstance); overlayInstance = null }
+      overlayHost?.remove()
+      overlayHost = null
+    }
 
     function closeSidebar() {
       if (sidebarInstance) {
@@ -248,6 +290,10 @@ export default defineContentScript({
       if (msg.type === 'JANUS_BT_SET_AUTO_OPTIONS') {
         const m = msg as unknown as { pageId: string; allowWrites: boolean }
         pageTools.setAutoOptions({ pageId: m.pageId, allowWrites: m.allowWrites })
+        return Promise.resolve({ ok: true })
+      }
+      if (msg.type === 'JANUS_BT_SET_ENABLED') {
+        pageTools.setPageEnabled((msg as unknown as { enabled: boolean }).enabled)
         return Promise.resolve({ ok: true })
       }
       if (msg.type === 'JANUS_BT_SET_DEFINITIONS') {

@@ -44,16 +44,25 @@ function clamp(text: string, max: number): string {
  * hidden under jsdom.
  */
 function visible(element: Element): boolean {
+  if (element.closest(JANUS_UI)) return false
   const style = window.getComputedStyle(element)
   if (style.display === 'none' || style.visibility === 'hidden') return false
   return !element.closest('[hidden], [aria-hidden="true"]')
 }
+
+/**
+ * Janus's own injected UI. It is in the DOM but it is not the page, and an
+ * agent reading its own tool list back as page content would be both a wasted
+ * budget and a feedback loop.
+ */
+const JANUS_UI = '#janus-root, #janus-agent-tools-root'
 
 /** Chrome that is navigation, not content. Including it wastes most of the budget. */
 const CHROME_SELECTORS = [
   'nav', 'header', 'footer', 'aside', 'script', 'style', 'noscript', 'template',
   '[role="navigation"]', '[role="banner"]', '[role="contentinfo"]', '[role="search"]',
   '[role="complementary"]', '[aria-hidden="true"]', '[hidden]',
+  JANUS_UI,
 ].join(', ')
 
 /**
@@ -161,16 +170,19 @@ const READ_TOOLS: Array<{
       + 'are currently enabled for this page.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     run: () => {
-      const forms = [...document.querySelectorAll('form')].slice(0, 20).map((form, index) => ({
-        index,
-        label: formLabel(form, index),
-        fields: [...form.elements]
-          .map((el) => ({
-            name: (el as HTMLInputElement).name || (el as HTMLElement).id || null,
-            type: (el as HTMLInputElement).type ?? el.tagName.toLowerCase(),
-          }))
-          .filter((f) => f.name && f.type !== 'hidden'),
-      }))
+      const forms = [...document.querySelectorAll('form')]
+        .filter((form) => !form.closest(JANUS_UI))
+        .slice(0, 20)
+        .map((form, index) => ({
+          index,
+          label: formLabel(form, index),
+          fields: [...form.elements]
+            .map((el) => ({
+              name: (el as HTMLInputElement).name || (el as HTMLElement).id || null,
+              type: (el as HTMLInputElement).type ?? el.tagName.toLowerCase(),
+            }))
+            .filter((f) => f.name && f.type !== 'hidden'),
+        }))
       return { forms } as Json
     },
   },
@@ -341,7 +353,9 @@ function slug(text: string): string {
  */
 export function autoFormDefinitions(pageId: string, documentId: string): GeneratedDefinition[] {
   const definitions: GeneratedDefinition[] = []
-  const forms = [...document.querySelectorAll('form')].slice(0, 16) as HTMLFormElement[]
+  const forms = ([...document.querySelectorAll('form')] as HTMLFormElement[])
+    .filter((form) => !form.closest(JANUS_UI))
+    .slice(0, 16)
   const seenSignature = new Set<string>()
   const usedNames = new Set<string>()
 

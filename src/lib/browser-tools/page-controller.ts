@@ -10,6 +10,7 @@ import type { GeneratedDefinition, Json, ToolDescriptor, ToolOutcome } from './c
 import type { BrowserLiveInstance } from './contract'
 import * as native from './native-adapter'
 import * as auto from './auto-tools'
+import * as activity from './activity-log'
 import { run } from './recipe-runtime'
 import { setInvocationActor } from './provenance'
 
@@ -24,8 +25,18 @@ let liveInstances: BrowserLiveInstance[] = []
 let definitions: GeneratedDefinition[] = []
 let documentId = crypto.randomUUID()
 let onToolsChanged: (() => void) | null = null
+/** Last published snapshot, so an invocation can name the tool it is running. */
+let lastTools: ToolDescriptor[] = []
+/**
+ * Whether the user has enabled this page. `publish()` computes the tool set a
+ * page *would* expose and is called on pages nobody enabled, so this is the
+ * only thing that distinguishes "these tools are reachable" from "these tools
+ * would exist if you turned this page on".
+ */
+let pageEnabled = false
 /** Signature of the last announced set; `null` so the first publish announces. */
 let lastSignature: string | null = null
+const toolListeners = new Set<(tools: ToolDescriptor[], enabled: boolean) => void>()
 /** Auto-generated form tools publish only when the user opts this page in. */
 let allowAutoWrites = false
 let autoPageId = ''
@@ -34,6 +45,19 @@ let autoForms: GeneratedDefinition[] = []
 export function setAutoOptions(options: { pageId: string; allowWrites: boolean }): void {
   autoPageId = options.pageId
   allowAutoWrites = options.allowWrites
+  // Only an enabled page is sent these, so this doubles as the enable signal.
+  setPageEnabled(true)
+}
+
+/** Enablement is the background's to decide; the page only reflects it. */
+export function setPageEnabled(next: boolean): void {
+  if (pageEnabled === next) return
+  pageEnabled = next
+  for (const listener of toolListeners) listener([...lastTools], pageEnabled)
+}
+
+export function isPageEnabled(): boolean {
+  return pageEnabled
 }
 
 export function currentDocumentId(): string {
@@ -44,9 +68,25 @@ export function currentDocumentId(): string {
 export function resetDocument(): void {
   documentId = crypto.randomUUID()
   withdrawAll()
+  activity.reset()
   // A new document must announce its set even if it happens to match the old
   // one, because the daemon dropped the previous handle's tools entirely.
   lastSignature = null
+  // A new document is not an enabled one until the background says so (§7).
+  setPageEnabled(false)
+}
+
+/**
+ * Watch the published tool set. Separate from `observeToolChanges`, which is
+ * the single background-facing republish hook — the on-page panel is another
+ * reader and must not displace it.
+ */
+export function subscribeTools(
+  listener: (tools: ToolDescriptor[], enabled: boolean) => void,
+): () => void {
+  toolListeners.add(listener)
+  listener([...lastTools], pageEnabled)
+  return () => { toolListeners.delete(listener) }
 }
 
 export function setDefinitions(next: GeneratedDefinition[]): void {
@@ -105,8 +145,13 @@ export async function publish(): Promise<ToolDescriptor[]> {
     }
   }
 
-  registerGenerated(generated)
-  const tools = [...nativeTools, ...generated, ...automatic]
+  // One scoped set, one policy: what this page publishes to the daemon is
+  // exactly what it registers through WebMCP. Native tools are excluded — the
+  // site already owns those registrations.
+  const janusTools = [...generated, ...automatic]
+  registerJanusTools(janusTools)
+  const tools = [...nativeTools, ...janusTools]
+  lastTools = tools
 
   /*
    * Announce only a real change.
@@ -125,9 +170,11 @@ export async function publish(): Promise<ToolDescriptor[]> {
    * costs one small string per publish.
    */
   const signature = toolSignature(tools)
-  if (signature === lastSignature) return tools
+  const changed = signature !== lastSignature
   lastSignature = signature
+  if (!changed) return tools
 
+  for (const listener of toolListeners) listener([...tools], pageEnabled)
   onToolsChanged?.()
   return tools
 }
@@ -138,11 +185,17 @@ function toolSignature(tools: ToolDescriptor[]): string {
 }
 
 /**
- * Publish generated handlers through WebMCP where the browser supports it, so
- * the site's own agent can use them too. Purely additive: Janus MCP exposes
- * them regardless, which is why the generated path has no WebMCP dependency.
+ * Publish the tools this page scopes to Janus through WebMCP where the browser
+ * supports it, so the site's own agent can use them too. Purely additive:
+ * Janus MCP exposes the same set regardless, which is why this path is not a
+ * dependency of publishing.
+ *
+ * The argument is the same list sent to the daemon, minus the site's own
+ * tools. Registration scope is the only control here — WebMCP has no per-call
+ * authorization, so a tool the user has not scoped to this page must not reach
+ * this function at all.
  */
-function registerGenerated(descriptors: ToolDescriptor[]): void {
+function registerJanusTools(descriptors: ToolDescriptor[]): void {
   const context = (document as unknown as {
     modelContext?: { registerTool?: (tool: unknown) => void }
   }).modelContext
@@ -159,7 +212,9 @@ function registerGenerated(descriptors: ToolDescriptor[]): void {
         inputSchema: descriptor.inputSchema,
         signal: controller.signal,
         execute: async (input: Record<string, Json>) => {
-          const outcome = await invoke(descriptor.toolId, input)
+          const outcome = await invoke(
+            descriptor.toolId, input, crypto.randomUUID(), 30_000, 'webmcp',
+          )
           if (outcome.status === 'completed') return outcome.result
           return { success: false, reason: outcome.error.code }
         },
@@ -185,11 +240,34 @@ function withdrawAll(): void {
   liveInstances = []
 }
 
+/**
+ * The one path every served call takes, whichever consumer asked — so it is
+ * also the only place activity has to be recorded for the panel to be
+ * complete with respect to what Janus runs.
+ */
 export async function invoke(
   toolId: string,
   input: Record<string, Json>,
   requestId: string = crypto.randomUUID(),
   timeoutMs = 30_000,
+  caller: activity.Caller = 'daemon',
+): Promise<ToolOutcome> {
+  activity.began(requestId, toolId, displayName(toolId), caller, input)
+  const outcome = await execute(toolId, input, requestId, timeoutMs)
+  activity.ended(requestId, outcome)
+  return outcome
+}
+
+/** Falls back to the raw id: a tool can be invoked before any publish lands. */
+function displayName(toolId: string): string {
+  return lastTools.find((t) => t.toolId === toolId)?.name ?? toolId
+}
+
+async function execute(
+  toolId: string,
+  input: Record<string, Json>,
+  requestId: string,
+  timeoutMs: number,
 ): Promise<ToolOutcome> {
   const controller = new AbortController()
   running.set(requestId, controller)

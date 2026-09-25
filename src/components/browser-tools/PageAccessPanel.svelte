@@ -28,6 +28,10 @@
   let currentTab = $state<{ id?: number; title?: string; url?: string } | null>(null)
   let error = $state('')
   let busy = $state(false)
+  let showOverlay = $state(false)
+
+  /** Display preference for the on-page panel; mirrors content.ts. */
+  const OVERLAY_KEY = 'janus_tools_overlay'
 
   const connected = $derived(status.state === 'connected')
   const isThisTab = $derived(!!page)
@@ -74,6 +78,7 @@
   onMount(async () => {
     const tab = await resolveTargetTab()
     currentTab = tab ? { id: tab.id, title: tab.title, url: tab.url } : null
+    showOverlay = !!(await browser.storage.local.get(OVERLAY_KEY))[OVERLAY_KEY]
     await refresh()
 
     browser.runtime.onMessage.addListener((msg: { type: string; status?: Status }) => {
@@ -130,6 +135,15 @@
       if (result?.page) page = result.page
       await refresh()
     } finally { busy = false }
+  }
+
+  /**
+   * Content scripts pick this up from storage, so the panel follows across
+   * navigation and tabs without the popup having to message each one.
+   */
+  async function toggleOverlay() {
+    showOverlay = !showOverlay
+    await browser.storage.local.set({ [OVERLAY_KEY]: showOverlay })
   }
 
   async function saveLabel(next: string): Promise<string | null> {
@@ -198,6 +212,14 @@
     </div>
   {/if}
 
+  <label class="writes pref">
+    <input type="checkbox" checked={showOverlay} onchange={toggleOverlay} />
+    <span>
+      Show tools panel on the page
+      <em>An on-page list of the available tools and the calls Janus ran.</em>
+    </span>
+  </label>
+
   {#if others.length}
     <div class="others">
       <p class="desc">Also enabled ({others.length}):</p>
@@ -227,6 +249,7 @@
   .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
   .writes { display: flex; gap: 6px; align-items: flex-start; font-size: 11px; margin: 8px 0; color: #444; }
   .writes em { display: block; font-style: normal; color: #888; margin-top: 2px; }
+  .pref { margin-top: 12px; padding-top: 10px; border-top: 1px solid #f0f0f0; }
   .others { margin-top: 12px; padding-top: 8px; border-top: 1px solid #f0f0f0; }
   .other { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
   .other-label { font-size: 11px; color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
