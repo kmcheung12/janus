@@ -44,6 +44,10 @@ function setBadge(tabId: number, recording: boolean) {
 }
 
 export default defineBackground(() => {
+  // Reloading an extension is manual, and a stale background context keeps
+  // reporting "Connected" while running old code. Say which build this is.
+  console.log(`[janus] background ${__JANUS_BUILD__}`)
+
   // The control connection's lifetime is the pairing credential, not a
   // recording: discovery and invocation must work with recording off (§14).
   void bridge.loadPairing().then(() => bridge.reconnect())

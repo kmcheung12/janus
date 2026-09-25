@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc && node scripts/copy-assets.mjs",
+    "build": "tsc && node scripts/copy-assets.mjs && node ../../scripts/build-stamp.mjs dist",
     "dev": "tsc --watch",
     "test": "vitest run",
     "start": "node dist/index.js"

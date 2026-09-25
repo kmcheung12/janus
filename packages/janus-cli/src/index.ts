@@ -4,6 +4,7 @@ import { createInterface } from 'node:readline'
 import { randomBytes } from 'node:crypto'
 import { RingBuffer } from './buffer.js'
 import { JanusWsClient } from './ws-client.js'
+import { buildLine } from './build-info.js'
 
 function generateId(): string {
   return randomBytes(3).toString('hex')
@@ -37,6 +38,10 @@ function makeMeta(title: string, status: 'recording' | 'stopped'): {
 }
 
 async function main() {
+  // stderr, not stdout: this command is a passthrough wrapper, and anything we
+  // put on stdout lands in the middle of the wrapped command's output.
+  process.stderr.write(`${buildLine('janus')}\n`)
+
   const { n, cmd, isPipe } = parseArgs(process.argv)
 
   const journeyId = generateId()

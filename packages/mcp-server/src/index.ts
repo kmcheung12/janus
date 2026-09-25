@@ -6,6 +6,7 @@ import { createHttpHandler } from './http-server.js'
 import { parseConfig } from './config.js'
 import { openCredentialStore } from './credentials.js'
 import { runCli } from './cli.js'
+import { buildLine } from './build-info.js'
 import { setSubmitDeps } from './mcp-tools.js'
 import { storeDefinition } from './control/connections.js'
 import { LIMITS } from './contracts/limits.js'
@@ -14,6 +15,10 @@ const ADMIN_COMMANDS = new Set(['pair', 'revoke', 'client', 'producer', 'list', 
 
 async function main(): Promise<number | undefined> {
   const argv = process.argv.slice(2)
+
+  // First line of every invocation, admin commands included, so a report of
+  // daemon behaviour can always be tied to a build.
+  process.stdout.write(`${buildLine('janus-mcp')}\n`)
 
   if (argv[0] && ADMIN_COMMANDS.has(argv[0])) {
     return runCli(argv)
