@@ -22,7 +22,7 @@ import { LIMITS } from './limits'
 import { scanForm } from './form-scanner'
 import { sanitizeUrl } from './url-safety'
 import { isVisible } from './visibility'
-import { handleFor, isActionable, snapshot } from './a11y-snapshot'
+import { handleFor, isActionable, resolveHandle, search, snapshot } from './a11y-snapshot'
 
 const READ_PREFIX = 'a_'
 const FORM_PREFIX = 'af_'
@@ -204,8 +204,105 @@ const READ_TOOLS: Array<{
   },
 ]
 
+/**
+ * Discovery and action for controls, as one tool each.
+ *
+ * Not one tool per button: a tool list is a context cost paid every turn by
+ * every connected agent, and a page of three hundred buttons would make it
+ * unusable. Not an enum of targets either — three hundred strings in a schema
+ * is the same cost wearing a different hat. A free string, resolved against
+ * the accessibility tree at call time, is what stays flat.
+ *
+ * find_control exists because enumeration does not scale. read_page reports a
+ * bounded sample; this reaches the three hundredth button.
+ */
+const CONTROL_TOOLS: typeof READ_TOOLS = [
+  {
+    id: 'find_control',
+    name: 'find_control',
+    description:
+      'Find controls on this page by name — buttons, links, fields, checkboxes — with their role, '
+      + 'state and the exact target string click() expects. Use this instead of guessing a name, '
+      + 'and on a page too large for read_page to list in full.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Part of the control\'s label, case-insensitive.' },
+      },
+      required: ['query'],
+      additionalProperties: false,
+    },
+    run: (input) => {
+      const found = search(String(input.query ?? ''), { ignoreSelector: JANUS_UI })
+      return {
+        matches: found.slice(0, MAX_CONTROLS).map((node) => ({
+          role: node.role,
+          target: handleFor(node),
+          ...(node.state ? { state: node.state } : {}),
+        })),
+        truncated: found.length > MAX_CONTROLS,
+      } as unknown as Json
+    },
+  },
+]
+
+const CLICK_TOOL = {
+  id: 'click',
+  name: 'click',
+  description:
+    'Click a control on this page, named exactly as read_page or find_control reported it. '
+    + 'Fails rather than guessing when a name matches more than one control.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      target: {
+        type: 'string',
+        description: 'The target string from read_page or find_control.',
+        maxLength: 200,
+      },
+    },
+    required: ['target'],
+    additionalProperties: false,
+  },
+}
+
+export function clickToolDescriptor(): ToolDescriptor {
+  return {
+    toolId: `${READ_PREFIX}${CLICK_TOOL.id}`,
+    toolRevision: 1,
+    source: { kind: 'generated', definitionId: 'builtin_click', definitionRevision: 1 },
+    name: CLICK_TOOL.name,
+    description: CLICK_TOOL.description,
+    inputSchema: CLICK_TOOL.inputSchema as ToolDescriptor['inputSchema'],
+    readOnlyHint: false,
+    consequentialHint: true,
+  }
+}
+
+/** Clicking is a write, so it runs only where form tools are allowed. */
+export function invokeClick(input: Record<string, Json>): ToolOutcome {
+  const target = String(input.target ?? '')
+  const found = resolveHandle(target, { ignoreSelector: JANUS_UI })
+
+  if ('error' in found) {
+    return {
+      status: 'error',
+      error: {
+        code: found.error === 'ambiguous' ? 'TARGET_AMBIGUOUS' : 'TARGET_MISSING',
+        message: found.error === 'ambiguous'
+          ? `"${target}" matches ${found.matches.length} controls. Use one of: ${found.matches.slice(0, 8).join(' | ')}`
+          : `No control named "${target}". Use find_control to see what this page offers.`,
+        execution: 'not_started',
+      },
+    }
+  }
+
+  found.element.click()
+  return { status: 'completed', result: { clicked: target } as unknown as Json }
+}
+
 export function readToolDescriptors(): ToolDescriptor[] {
-  return READ_TOOLS.map((tool) => ({
+  return [...READ_TOOLS, ...CONTROL_TOOLS].map((tool) => ({
     toolId: `${READ_PREFIX}${tool.id}`,
     toolRevision: 1,
     source: { kind: 'generated', definitionId: `builtin_${tool.id}`, definitionRevision: 1 },
@@ -222,7 +319,8 @@ export function isAutoToolId(toolId: string): boolean {
 }
 
 export function invokeReadTool(toolId: string, input: Record<string, Json>): ToolOutcome {
-  const tool = READ_TOOLS.find((t) => `${READ_PREFIX}${t.id}` === toolId)
+  if (toolId === `${READ_PREFIX}${CLICK_TOOL.id}`) return invokeClick(input)
+  const tool = [...READ_TOOLS, ...CONTROL_TOOLS].find((t) => `${READ_PREFIX}${t.id}` === toolId)
   if (!tool) {
     return {
       status: 'error',

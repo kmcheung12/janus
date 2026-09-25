@@ -75,3 +75,54 @@ describe('published tool count', () => {
     expect(snapshot().length).toBeLessThanOrEqual(200)
   })
 })
+
+describe('reaching control 300 of 300', () => {
+  beforeEach(() => {
+    pageTools.resetDocument()
+    document.body.innerHTML = ''
+  })
+
+  it('resolves a named button on a page of three hundred', () => {
+    document.body.innerHTML = Array.from(
+      { length: 300 }, (_, i) => `<button>Action ${i}</button>`,
+    ).join('')
+
+    // The point of the whole design: one call, a human-readable name, and the
+    // three hundredth button is as reachable as the first.
+    const outcome = invokeReadTool('a_click', { target: 'Action 299' })
+    expect(outcome.status, JSON.stringify(outcome)).toBe('completed')
+  })
+
+  it('finds controls that read_page could never have listed', () => {
+    document.body.innerHTML = Array.from(
+      { length: 300 }, (_, i) => `<button>Action ${i}</button>`,
+    ).join('')
+
+    const outcome = invokeReadTool('a_find_control', { query: 'Action 250' })
+    expect(outcome.status).toBe('completed')
+    const result = outcome.status === 'completed'
+      ? outcome.result as unknown as { matches: Array<{ target: string }> }
+      : { matches: [] }
+    expect(result.matches.map((m) => m.target)).toContain('Action 250')
+  })
+
+  it('refuses rather than guessing when a name is ambiguous', () => {
+    // Three identical bare buttons with no distinguishing context. Acting on
+    // the first would act on something the caller never saw.
+    document.body.innerHTML = '<button>Go</button><button>Go</button><button>Go</button>'
+
+    const outcome = invokeReadTool('a_click', { target: 'Go' })
+    expect(outcome.status).toBe('error')
+    if (outcome.status === 'error') expect(outcome.error.code).toBe('TARGET_AMBIGUOUS')
+  })
+
+  it('still publishes a flat tool list with click enabled', async () => {
+    document.body.innerHTML = manyButtons(300)
+    pageTools.setAutoOptions({ pageId: 'p', allowWrites: true })
+
+    const tools = await pageTools.publish()
+    // read_page, find_text, list_forms, find_control, click.
+    expect(tools.length).toBeLessThanOrEqual(6)
+    expect(tools.map((t) => t.name)).toContain('click')
+  })
+})

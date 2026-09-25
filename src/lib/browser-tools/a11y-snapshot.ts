@@ -157,6 +157,50 @@ export function handleFor(node: A11yNode): string {
   return node.context ? `${node.name} — ${node.context}` : node.name
 }
 
+/** Every element the snapshot would name, paired with its element. */
+export function locate(options: SnapshotOptions = {}): Array<{ node: A11yNode; element: HTMLElement }> {
+  return collect(options)
+}
+
+/**
+ * Resolve a handle back to the one element it names.
+ *
+ * The inverse of handleFor(), and the reason handles carry context: on a page
+ * of three hundred buttons a bare accessible name matches dozens, and acting
+ * on the first would act on something the caller never saw. Ambiguity is an
+ * error, never a guess.
+ */
+export function resolveHandle(
+  handle: string, options: SnapshotOptions = {},
+): { element: HTMLElement } | { error: 'missing' | 'ambiguous'; matches: string[] } {
+  const wanted = handle.trim().toLowerCase()
+  const all = collect({ ...options, maxNodes: Number.MAX_SAFE_INTEGER })
+
+  const exact = all.filter((c) => handleFor(c.node).toLowerCase() === wanted)
+  if (exact.length === 1) return { element: exact[0].element }
+  if (exact.length > 1) return { error: 'ambiguous', matches: exact.map((c) => handleFor(c.node)) }
+
+  // Fall back to the bare name, so a caller that passed "Delete" on a page
+  // with exactly one Delete is not made to guess at context it never needed.
+  const byName = all.filter((c) => c.node.name.toLowerCase() === wanted)
+  if (byName.length === 1) return { element: byName[0].element }
+  if (byName.length > 1) {
+    return { error: 'ambiguous', matches: byName.slice(0, 20).map((c) => handleFor(c.node)) }
+  }
+
+  return { error: 'missing', matches: [] }
+}
+
+/** Handles whose name or context contains the query, for discovery at scale. */
+export function search(query: string, options: SnapshotOptions = {}): A11yNode[] {
+  const needle = query.trim().toLowerCase()
+  if (!needle) return []
+  return collect({ ...options, maxNodes: Number.MAX_SAFE_INTEGER })
+    .map((c) => c.node)
+    .filter((n) => isActionable(n)
+      && (n.name.toLowerCase().includes(needle) || (n.context ?? '').toLowerCase().includes(needle)))
+}
+
 export interface SnapshotOptions {
   /** Excluded from the page's own account of itself. */
   ignoreSelector?: string
@@ -165,8 +209,12 @@ export interface SnapshotOptions {
 
 /** Every perceivable, named element that carries meaning for an agent. */
 export function snapshot(options: SnapshotOptions = {}): A11yNode[] {
+  return collect(options).map((c) => c.node)
+}
+
+function collect(options: SnapshotOptions): Array<{ node: A11yNode; element: HTMLElement }> {
   const { ignoreSelector, maxNodes = 200 } = options
-  const nodes: A11yNode[] = []
+  const nodes: Array<{ node: A11yNode; element: HTMLElement }> = []
 
   const candidates = document.querySelectorAll<HTMLElement>(
     'a,button,input,select,textarea,summary,h1,h2,h3,h4,h5,h6,'
@@ -196,7 +244,7 @@ export function snapshot(options: SnapshotOptions = {}): A11yNode[] {
     const context = contextOf(element, name)
     if (context) node.context = context
 
-    nodes.push(node)
+    nodes.push({ node, element })
   }
 
   return nodes

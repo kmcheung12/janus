@@ -140,6 +140,8 @@ export async function publish(): Promise<ToolDescriptor[]> {
   if (!hasNative) {
     automatic.push(...auto.readToolDescriptors())
     if (allowAutoWrites) {
+      // Clicking is a write: it can do anything the page's own buttons do.
+      automatic.push(auto.clickToolDescriptor())
       autoForms = auto.autoFormDefinitions(autoPageId || documentId, documentId)
       automatic.push(...autoForms.map(auto.formToolDescriptor))
     }
