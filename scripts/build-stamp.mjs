@@ -13,7 +13,7 @@
  */
 
 import { execSync } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -60,5 +60,15 @@ if (invokedDirectly) {
   const stamp = buildStamp()
   mkdirSync(target, { recursive: true })
   writeFileSync(resolve(target, 'build-info.json'), `${JSON.stringify(stamp, null, 2)}\n`)
+
+  /*
+   * tsc writes 0644 even for a file declared in "bin", so a shebang alone is
+   * not enough to run it. This went unnoticed while a package-manager link
+   * existed, because linking sets the bit on the target; running dist/index.js
+   * directly is what exposes it, and a rebuild would strip it again.
+   */
+  const entry = resolve(target, 'index.js')
+  if (existsSync(entry)) chmodSync(entry, 0o755)
+
   process.stdout.write(`${formatStamp(stamp)}\n`)
 }
