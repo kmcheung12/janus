@@ -140,6 +140,17 @@ export function isTombstoned(pageId: PageId, toolId: Id): boolean {
   return pages.get(pageId)?.tombstones.has(toolId) ?? false
 }
 
+/**
+ * A client scoped to every browser, including ones paired later.
+ *
+ * Re-pairing a browser mints a new pairing ID, so a token enumerating them
+ * goes stale the moment one is reloaded — which during development is
+ * constant. §12 already concedes this design does not defend against a
+ * process able to read the account's credentials, so enumerating pairings
+ * buys little against the cost of re-minting a bearer token by hand.
+ */
+export { ALL_PAIRINGS } from '../credentials.js'
+
 /** Pages visible to one MCP client, scoped by its pairing (§12). */
 export function pagesForPairing(pairingId: string): LivePage[] {
   return [...pages.values()].filter((p) => p.pairingId === pairingId)
@@ -147,6 +158,7 @@ export function pagesForPairing(pairingId: string): LivePage[] {
 
 /** Every page a client may reach, across all the pairings it is scoped to. */
 export function pagesForPairings(pairingIds: string[]): LivePage[] {
+  if (pairingIds.includes('*')) return [...pages.values()]
   const scope = new Set(pairingIds)
   return [...pages.values()].filter((p) => scope.has(p.pairingId))
 }

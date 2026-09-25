@@ -28,6 +28,14 @@ export default defineConfig({
     host_permissions: ['http://127.0.0.1/*', 'http://localhost/*'],
     browser_specific_settings: {
       gecko: {
+        /*
+         * Without an explicit id, Firefox gives a temporary add-on a fresh
+         * identity on every reload: new storage, lost pairing, and a new
+         * pairing ID that every existing agent token is out of scope for.
+         * Reloading is routine during development, so that is a new bearer
+         * token per reload.
+         */
+        id: 'janus@local',
         data_collection_permissions: {
           required: ['none'],
         },

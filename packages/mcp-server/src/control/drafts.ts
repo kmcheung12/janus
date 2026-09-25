@@ -8,6 +8,7 @@
  */
 
 import type { Tool } from '@modelcontextprotocol/sdk/types.js'
+import { inScope } from '../credentials.js'
 import type { DefinitionProposal, GeneratedDefinition, Id, ToolDraft } from '../contracts/types.js'
 import { LIMITS } from '../contracts/limits.js'
 import { validateAs } from '../contracts/validate.js'
@@ -44,7 +45,7 @@ export function clearDraftsForPairing(pairingId: string): void {
 function visible(principal: ClientRecord): StoredDraft[] {
   if (!principal.authoring) return []
   return [...drafts.values()].filter(
-    (d) => principal.pairingIds.includes(d.pairingId) && d.draft.principalId === principal.clientId,
+    (d) => inScope(principal.pairingIds, d.pairingId) && d.draft.principalId === principal.clientId,
   )
 }
 

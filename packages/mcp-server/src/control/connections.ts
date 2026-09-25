@@ -9,6 +9,7 @@
  */
 
 import { randomUUID } from 'node:crypto'
+import { inScope } from '../credentials.js'
 import type { WebSocket } from 'ws'
 import type {
   ControlMessage, DaemonToExtension, GeneratedDefinition, Id, PageId,
@@ -180,7 +181,7 @@ function handle(
       inactivityTimeoutMs: LIMITS.inactivityTimeoutMs,
       authoringPrincipals: credentials
         .listClients()
-        .filter((c) => c.pairingIds.includes(connection.pairingId) && c.authoring)
+        .filter((c) => inScope(c.pairingIds, connection.pairingId) && c.authoring)
         .slice(0, LIMITS.authoringPrincipalsMax)
         .map((c) => ({ id: c.clientId, label: c.label })),
     })

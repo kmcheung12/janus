@@ -11,6 +11,7 @@
  */
 
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js'
+import { inScope } from '../credentials.js'
 import type { ClientRecord } from '../credentials.js'
 import { LIMITS } from '../contracts/limits.js'
 import * as registry from './registry.js'
@@ -48,7 +49,7 @@ export function registerSession(sessionId: string, server: Server, principal: Cl
     // Scope check: only notify when the change touches a page this principal
     // can actually see.
     const page = registry.getPage(event.pageId)
-    if (!page || principal.pairingIds.includes(page.pairingId)) notify()
+    if (!page || inScope(principal.pairingIds, page.pairingId)) notify()
   })
 
   const session: McpSession = {

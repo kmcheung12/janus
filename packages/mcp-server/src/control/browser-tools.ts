@@ -13,6 +13,7 @@
  */
 
 import type { Tool } from '@modelcontextprotocol/sdk/types.js'
+import { inScope } from '../credentials.js'
 import type {
   Id, Json, JsonSchema, PageId, ToolDescriptor, ToolOutcome,
 } from '../contracts/types.js'
@@ -215,7 +216,7 @@ export function listPages(principal: ClientRecord) {
 
 export function listBrowserTools(principal: ClientRecord, pageId: string) {
   const page = registry.getPage(pageId)
-  if (!page || !principal.pairingIds.includes(page.pairingId)) return errorText(`No enabled page "${pageId}"`)
+  if (!page || !inScope(principal.pairingIds, page.pairingId)) return errorText(`No enabled page "${pageId}"`)
   return text({
     pageId,
     label: page.descriptor.label,
@@ -243,7 +244,7 @@ export interface InvokeArgs {
 
 export async function callBrowserTool(principal: ClientRecord, args: InvokeArgs) {
   const page = registry.getPage(args.pageId)
-  if (!page || !principal.pairingIds.includes(page.pairingId)) {
+  if (!page || !inScope(principal.pairingIds, page.pairingId)) {
     return errorText(`UNAUTHORIZED: no enabled page "${args.pageId}" for this client`)
   }
 

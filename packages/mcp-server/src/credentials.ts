@@ -18,6 +18,14 @@ import { dirname, join } from 'node:path'
 
 export type Role = 'executor' | 'client' | 'producer'
 
+/** Scope covering every browser, including ones paired after the token. */
+export const ALL_PAIRINGS = '*'
+
+/** The one place scope is decided, so no call site can forget the wildcard. */
+export function inScope(pairingIds: string[], pairingId: string): boolean {
+  return pairingIds.includes(ALL_PAIRINGS) || pairingIds.includes(pairingId)
+}
+
 export interface ExecutorRecord {
   pairingId: string
   tokenHash: string
@@ -201,6 +209,7 @@ export function openCredentialStore(dataDir: string): CredentialStore {
       }
       if (!pairingIds.length) throw new Error('A client needs at least one pairing ID')
       for (const pairingId of pairingIds) {
+        if (pairingId === ALL_PAIRINGS) continue
         if (!state.executors.some((e) => e.pairingId === pairingId)) {
           throw new Error(`No paired browser with pairing ID "${pairingId}"`)
         }

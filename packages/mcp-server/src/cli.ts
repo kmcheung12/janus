@@ -24,8 +24,10 @@ const USAGE = `janus-mcp — local admin
   revoke <pairingId> [--data-dir DIR]
       Remove that browser and every MCP client scoped to it.
 
-  client create --pairing-id ID --label NAME [--author] [--data-dir DIR]
+  client create (--pairing-id ID... | --all-browsers) --label NAME [--author]
       Print one bearer token for an MCP caller. Shown once.
+      --all-browsers covers every paired browser, including ones paired
+      later, so reloading an extension does not invalidate the token.
 
   producer create --label NAME [--data-dir DIR]
       Print one bearer token for journey capture. No execution rights.
@@ -137,11 +139,11 @@ export async function runCli(argv: string[]): Promise<number> {
 
     case 'client': {
       if (positional[0] !== 'create') {
-        throw new Error('usage: client create --pairing-id ID [--pairing-id ID...] --label NAME [--author]')
+        throw new Error('usage: client create (--pairing-id ID... | --all-browsers) --label NAME [--author]')
       }
       const s = store()
       const { record, token } = s.createClient(
-        requireStrings(flags, 'pairing-id'),
+        flags['all-browsers'] === true ? ['*'] : requireStrings(flags, 'pairing-id'),
         requireString(flags, 'label'),
         flags.author === true,
       )

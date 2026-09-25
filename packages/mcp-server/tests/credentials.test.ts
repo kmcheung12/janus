@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { generateToken, hashToken, openCredentialStore, type CredentialStore } from '../src/credentials.js'
+import { generateToken, hashToken, inScope, openCredentialStore, type CredentialStore } from '../src/credentials.js'
 import { parseConfig, DEFAULT_MCP_PORT } from '../src/config.js'
 
 let dir: string
@@ -169,5 +169,29 @@ describe('multi-pairing clients', () => {
     expect(() => (store.createClient as unknown as (
       p: string, l: string, a: boolean,
     ) => unknown)('pair_1', 'cli', false)).toThrow(/list of pairing IDs/)
+  })
+})
+
+describe('all-browsers clients', () => {
+  it('covers a browser paired after the token was issued', () => {
+    store.upsertExecutor('pair_1', generateToken(), 'firefox')
+    const { token } = store.createClient(['*'], 'every browser', false)
+
+    // The case that made re-minting constant: reloading a Firefox temporary
+    // add-on mints a new pairing ID, and a token enumerating the old one is
+    // immediately out of scope for every page in that browser.
+    store.upsertExecutor('pair_later', generateToken(), 'firefox reloaded')
+
+    const record = store.verifyClient(token)!
+    expect(inScope(record.pairingIds, 'pair_later')).toBe(true)
+    expect(inScope(record.pairingIds, 'pair_1')).toBe(true)
+  })
+
+  it('still confines an enumerated client', () => {
+    store.upsertExecutor('pair_1', generateToken(), 'one')
+    const { token } = store.createClient(['pair_1'], 'just one', false)
+    const record = store.verifyClient(token)!
+    expect(inScope(record.pairingIds, 'pair_1')).toBe(true)
+    expect(inScope(record.pairingIds, 'pair_2')).toBe(false)
   })
 })
