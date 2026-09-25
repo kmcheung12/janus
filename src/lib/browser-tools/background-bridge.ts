@@ -47,6 +47,8 @@ const STORAGE_KEY = 'janus_browser_tools'
  * different pages run concurrently while calls to one page still queue.
  */
 const enabledPages = new Map<number, EnabledPage>()
+/** Read-only tool IDs per page, from the last published snapshot. */
+const readOnlyTools = new Map<PageId, Set<Id>>()
 let pairing: PairingConfig | null = null
 
 function pageById(pageId: PageId): EnabledPage | undefined {
@@ -186,6 +188,7 @@ export function disablePage(
   if (!page) return
   control.removePage(page.pageId, page.documentId, reason)
   enabledPages.delete(tabId)
+  readOnlyTools.delete(page.pageId)
 
   // Only an explicit disable revokes the grant. Otherwise "Disable tools on
   // this page" would mean nothing: the next navigation would re-mint a handle
@@ -506,10 +509,13 @@ export async function refreshTools(tabId?: number): Promise<void> {
   await Promise.all(targets.map(async (page) => {
     try {
       const tools = await browser.tabs.sendMessage(page.tabId, { type: 'JANUS_BT_LIST_TOOLS' }) as ToolDescriptor[]
-      control.publishTools(page.pageId, page.documentId, [
-        ...(tools ?? []),
-        navigateDescriptor(page.origin),
-      ])
+      const published = [...(tools ?? []), navigateDescriptor(page.origin)]
+      // Kept so dispatch can tell a read from an act without asking the page
+      // again — see the navigation settle in executeInTab.
+      readOnlyTools.set(page.pageId, new Set(
+        published.filter((t) => t.readOnlyHint).map((t) => t.toolId),
+      ))
+      control.publishTools(page.pageId, page.documentId, published)
     } catch {
       // The content script is gone, so the document is effectively destroyed.
       disablePage(page.tabId, 'closed')
@@ -586,6 +592,14 @@ export async function onNavigated(tabId: number): Promise<void> {
  * that has already gone — the outcome_unknown case. Fail fast down, settle up.
  */
 const REMINT_SETTLE_MS = 250
+
+/**
+ * How long a tool that can act waits to see whether it navigated.
+ *
+ * Long enough for the browser to commit a same-document click, short enough
+ * that it is not felt on a click that goes nowhere — which is most of them.
+ */
+const NAVIGATION_SETTLE_MS = 400
 const remintTimers = new Map<number, ReturnType<typeof setTimeout>>()
 
 function scheduleRemint(tabId: number): void {
@@ -637,8 +651,26 @@ async function executeInTab(request: control.ExecuteRequest): Promise<control.Ex
       navigation.promise.then((nav) => ({ kind: 'navigated' as const, nav })),
     ])
 
-    if (raced.kind === 'outcome') return raced.outcome
-    return navigatedResult(raced.nav, origin)
+    if (raced.kind !== 'outcome') return navigatedResult(raced.nav, origin)
+
+    /*
+     * A click answers before the navigation it started.
+     *
+     * The page resolves the moment the click dispatches, so it wins this race
+     * and the agent is told `{clicked: "..."}` and nothing else — while the
+     * document it was holding is being replaced underneath. A submit loses the
+     * same race and is told exactly what happened, which is the behaviour that
+     * made link-following debuggable. The difference was timing, not intent.
+     *
+     * So give the navigation a moment to commit before answering, and only for
+     * tools that can act: a read cannot navigate, and must not pay for this.
+     */
+    if (readOnlyTools.get(request.pageId)?.has(request.toolId)) return raced.outcome
+    const nav = await Promise.race([
+      navigation.promise,
+      new Promise<null>((r) => setTimeout(() => r(null), NAVIGATION_SETTLE_MS)),
+    ])
+    return nav ? withNavigation(raced.outcome, nav, origin) : raced.outcome
   } catch (e) {
     /*
      * A submit that navigates is not a lost page.
@@ -678,8 +710,46 @@ async function executeInTab(request: control.ExecuteRequest): Promise<control.Ex
  * ceiling; reporting success with whatever fragment survived is how
  * search(q="jev") came back as "Search:".
  */
+function isSameOrigin(nav: Navigation, origin: string): boolean {
+  return nav.url === origin || nav.url.startsWith(`${origin}/`)
+}
+
+/**
+ * Same-origin no longer means "re-enable by hand": the grant re-mints a handle
+ * on its own, so telling the agent to go and click something was both wrong
+ * and the reason a navigation looked like a dead end.
+ */
+function navigationNote(sameOrigin: boolean): string {
+  return sameOrigin
+    ? 'This document and its tools were withdrawn. The grant re-mints a handle for the new page; call list_pages for it.'
+    : 'That went to another origin. Janus has no tools there until that site is enabled.'
+}
+
+/** Keep what the tool returned and say where the page went. */
+function withNavigation(
+  response: control.ExecuteResponse, nav: Navigation, origin: string,
+): control.ExecuteResponse {
+  // An error already describes its own failure; navigation is not the story.
+  if (response.outcome.status !== 'completed') return response
+  const sameOrigin = isSameOrigin(nav, origin)
+  const result = response.outcome.result
+  return {
+    outcome: {
+      status: 'completed',
+      result: {
+        ...(result && typeof result === 'object' && !Array.isArray(result) ? result : { result }),
+        navigated: true,
+        url: nav.url,
+        sameOrigin,
+        note: navigationNote(sameOrigin),
+      },
+    },
+    executionStopped: true,
+  }
+}
+
 function navigatedResult(nav: Navigation, origin: string): control.ExecuteResponse {
-  const sameOrigin = nav.url === origin || nav.url.startsWith(`${origin}/`)
+  const sameOrigin = isSameOrigin(nav, origin)
   return {
     outcome: {
       status: 'completed',
@@ -687,9 +757,7 @@ function navigatedResult(nav: Navigation, origin: string): control.ExecuteRespon
         navigated: true,
         url: nav.url,
         sameOrigin,
-        note: sameOrigin
-          ? 'The submit navigated, so this document and its tools were withdrawn. Re-enable the page to continue.'
-          : 'The submit went to another origin. Janus has no tools there until that site is enabled.',
+        note: navigationNote(sameOrigin),
       },
     },
     executionStopped: true,

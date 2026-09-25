@@ -117,3 +117,47 @@ test('navigate refuses another origin and a URL carrying a token', async () => {
 
   await page.close()
 })
+
+test('a click that navigates reports where the page went', async () => {
+  /*
+   * The click resolves when it dispatches, so the page wins the race against
+   * its own navigation and used to answer `{clicked: "..."}` with no hint that
+   * the document — and every handle the agent held — had just been replaced.
+   * A submit loses that race and was told; a link click won it and was not.
+   */
+  const page = await extension.context.newPage()
+  await page.goto(site.url)
+  const popup = await extension.popup()
+  await enablePageThroughUi(popup)
+  // click is a write — it can do anything the page's own buttons can.
+  const writes = popup.getByRole('checkbox').first()
+  await writes.check()
+  await expect(writes).toBeChecked()
+  await popup.close()
+
+  const before = (await pageIds())[0]
+  const listed = JSON.parse((await client.call('list_page_tools', { pageId: before.pageId })).text) as {
+    tools: Array<{ name: string; toolId: string; revision: number }>
+  }
+  const click = listed.tools.find((t) => t.name === 'click')!
+  expect(click, 'click was not published').toBeTruthy()
+
+  const result = await client.call('call_page_tool', {
+    pageId: before.pageId,
+    toolId: click.toolId,
+    revision: click.revision,
+    input: { target: 'Open the landing page' },
+  })
+  expect(result.isError, result.text).toBe(false)
+
+  const outcome = JSON.parse(result.text) as {
+    clicked?: string; navigated?: boolean; url?: string; sameOrigin?: boolean
+  }
+  // What the tool did is still reported; the navigation is added, not swapped in.
+  expect(outcome.clicked).toBeTruthy()
+  expect(outcome.navigated).toBe(true)
+  expect(outcome.url).toContain('/landed')
+  expect(outcome.sameOrigin).toBe(true)
+
+  await page.close()
+})

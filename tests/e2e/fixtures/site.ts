@@ -53,6 +53,12 @@ function page(options: SiteOptions): string {
     <input id="ref" name="ref" type="text">
     <button id="lookup-go" type="submit">Look up</button>
   </form>
+  <!--
+    A plain link. Clicking it navigates, but the click handler returns the
+    instant it dispatches — so unlike #lookup above, the page answers before
+    the document is replaced.
+  -->
+  <a id="to-landed" href="/landed?ref=link">Open the landing page</a>
   <button id="counter-btn">Increment</button>
   <div id="counter">0</div>
   <button id="slow-btn">Slow action</button>
