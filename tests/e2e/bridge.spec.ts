@@ -127,7 +127,7 @@ test('two sessions each see only their own pairing\'s pages', async () => {
   await page.close()
 })
 
-test('navigation invalidates the page handle rather than following the user', async () => {
+test('navigation mints a new page handle rather than reusing the old one', async () => {
   const page = await extension.context.newPage()
   await page.goto(site.url)
   const popup = await extension.popup()
@@ -135,15 +135,27 @@ test('navigation invalidates the page handle rather than following the user', as
   await popup.close()
 
   const client = await agent('nav')
-  const before = await client.call('list_pages', {})
-  expect(before.text).toContain('pageId')
+  const before = JSON.parse((await client.call('list_pages', {})).text) as Array<{ pageId: string }>
+  expect(before[0]?.pageId).toBeTruthy()
 
   await page.goto(`${site.url}/?other=1`)
-  await page.waitForTimeout(1000)
+  await page.waitForTimeout(1500)
 
-  // The new document is a different page; execution must not silently move to it.
-  const after = await client.call('list_pages', {})
-  expect(after.text).toContain('Enable a page')
+  /*
+   * Enablement now grants the origin, so the handle is re-minted rather than
+   * waiting for another click — otherwise a task spanning two URLs on one site
+   * is not expressible at all.
+   *
+   * §7 is unchanged and is what this asserts: the new document gets a new
+   * random handle, so a call built against the old one still fails loudly
+   * instead of silently acting on a page the caller never saw.
+   */
+  const parsed = JSON.parse((await client.call('list_pages', {})).text)
+  const after = (Array.isArray(parsed) ? parsed : []) as Array<{ pageId: string; url: string }>
+  expect(after.length).toBe(1)
+  expect(after[0].pageId).not.toBe(before[0].pageId)
+  expect(after[0].url).toContain('other=1')
+
   await page.close()
 })
 

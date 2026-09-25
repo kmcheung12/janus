@@ -8,7 +8,8 @@
  */
 
 import type { Id, PageDescriptor, PageId, ToolDescriptor, ToolOutcome } from './contract'
-import { sanitizeUrl } from './url-safety'
+import { sanitizeUrl, hasCredentialParams } from './url-safety'
+import * as grants from './grants'
 import type { GeneratedDefinition, ToolDraft } from './contract'
 import * as control from './control-client'
 import * as store from './definition-store'
@@ -153,6 +154,9 @@ export async function enablePage(
     allowAutoWrites: previous?.allowAutoWrites ?? allowAutoWrites,
   }
   enabledPages.set(tabId, enabled)
+  // Enabling a page authorizes its origin, so a navigation within that origin
+  // re-mints a handle instead of waiting for another click.
+  await grants.grant(origin, enabled.allowAutoWrites)
 
   await pushAutoOptions(enabled)
   publishPages()
@@ -169,6 +173,12 @@ export function disablePage(
   if (!page) return
   control.removePage(page.pageId, page.documentId, reason)
   enabledPages.delete(tabId)
+
+  // Only an explicit disable revokes the grant. Otherwise "Disable tools on
+  // this page" would mean nothing: the next navigation would re-mint a handle
+  // for the origin the user had just withdrawn. Navigation and tab closure
+  // withdraw the document, which is not the same as withdrawing authority.
+  if (reason === 'disabled') void grants.revoke(page.origin)
   // Tell the document it is no longer enabled. Withdrawal from the daemon is
   // already done above; this is so anything rendering in the page stops
   // claiming the tools are reachable. A closed or navigated tab cannot
@@ -213,6 +223,9 @@ export async function setAutoWrites(tabId: number, allow: boolean): Promise<Enab
   if (!page) return null
   const updated = { ...page, allowAutoWrites: allow }
   enabledPages.set(tabId, updated)
+  // The grant carries the write opt-in, so it survives navigation with the
+  // rest of the authorization rather than silently resetting on the next page.
+  await grants.setWrites(page.origin, allow)
   await pushAutoOptions(updated)
   await refreshTools(tabId)
   return updated
@@ -374,6 +387,104 @@ export async function buildDemoDraft(
   return result
 }
 
+export /**
+ * `navigate` is served here, not by the content script.
+ *
+ * A page-served version would have to reply through the handle its own
+ * navigation destroys, which is the outcome_unknown case again. The background
+ * outlives the document and answers once the new handle exists.
+ */
+const NAVIGATE_TOOL_ID = 'bg_navigate'
+
+function navigateDescriptor(origin: string): ToolDescriptor {
+  return {
+    toolId: NAVIGATE_TOOL_ID,
+    toolRevision: 1,
+    source: { kind: 'generated', definitionId: 'builtin_navigate', definitionRevision: 1 },
+    name: 'navigate',
+    description:
+      `Go to another page on ${origin}. Same origin only — another site needs its own `
+      + 'grant. Returns the new page handle, which replaces the one you called this with.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: `Absolute or root-relative URL on ${origin}.` },
+      },
+      required: ['url'],
+      additionalProperties: false,
+    } as unknown as ToolDescriptor['inputSchema'],
+    readOnlyHint: false,
+    consequentialHint: true,
+  }
+}
+
+async function runNavigate(
+  page: EnabledPage, input: Record<string, unknown>,
+): Promise<control.ExecuteResponse> {
+  const requested = String(input.url ?? '')
+  let target: URL
+  try {
+    target = new URL(requested, `${page.origin}/`)
+  } catch {
+    return toolError('INVALID_INPUT', `"${requested}" is not a URL`)
+  }
+
+  if (target.origin !== page.origin) {
+    return toolError(
+      'UNAUTHORIZED',
+      `${target.origin} is outside this grant. Enable that site to reach it.`,
+    )
+  }
+
+  /*
+   * Rejected, not stripped. A caller asking for logout?auth=... is either
+   * working from stale output or has been injected, and quietly visiting
+   * /logout instead would be worse than refusing. Read tools redact these on
+   * the way out, so a URL that still carries one did not come from us.
+   */
+  if (hasCredentialParams(target.href)) {
+    return toolError('INVALID_INPUT', 'That URL carries a session token and was refused.')
+  }
+
+  /*
+   * Answer first, then navigate.
+   *
+   * Committing the navigation withdraws this page handle, and the daemon
+   * fails anything still in flight for a withdrawn page as DISCONNECTED —
+   * correctly, since it cannot know whether a lost call took effect. Awaiting
+   * our own navigation would therefore guarantee an unknown outcome for the
+   * one case that is entirely expected.
+   *
+   * So the new handle cannot ride along in this result; the agent calls
+   * list_pages once the grant has re-minted it.
+   */
+  setTimeout(() => {
+    void browser.tabs.update(page.tabId, { url: target.href }).catch(() => {})
+  }, 0)
+
+  return {
+    outcome: {
+      status: 'completed',
+      result: {
+        navigating: true,
+        url: sanitizeUrl(target.href),
+        note: 'This page handle is now gone. Call list_pages for the new one.',
+      },
+    },
+    executionStopped: true,
+  }
+}
+
+function toolError(code: string, message: string): control.ExecuteResponse {
+  return {
+    outcome: {
+      status: 'error',
+      error: { code, message, execution: 'not_started' } as ToolOutcome extends { error: infer E } ? E : never,
+    } as ToolOutcome,
+    executionStopped: true,
+  }
+}
+
 export async function refreshTools(tabId?: number): Promise<void> {
   const targets = tabId !== undefined
     ? [enabledPages.get(tabId)].filter(Boolean) as EnabledPage[]
@@ -382,7 +493,10 @@ export async function refreshTools(tabId?: number): Promise<void> {
   await Promise.all(targets.map(async (page) => {
     try {
       const tools = await browser.tabs.sendMessage(page.tabId, { type: 'JANUS_BT_LIST_TOOLS' }) as ToolDescriptor[]
-      control.publishTools(page.pageId, page.documentId, tools ?? [])
+      control.publishTools(page.pageId, page.documentId, [
+        ...(tools ?? []),
+        navigateDescriptor(page.origin),
+      ])
     } catch {
       // The content script is gone, so the document is effectively destroyed.
       disablePage(page.tabId, 'closed')
@@ -433,7 +547,53 @@ export async function onNavigated(tabId: number): Promise<void> {
     for (const settle of waiters) settle({ url })
   }
 
+  /*
+   * Let a waiting invocation answer before the handle is withdrawn.
+   *
+   * Settling above only queues a microtask; disabling synchronously would
+   * withdraw the page first, and the daemon fails anything still in flight for
+   * a withdrawn page as DISCONNECTED. The call would then report an unknown
+   * outcome for an ordinary form submit — the one case we can describe
+   * precisely. One turn of the event loop is enough for the response to be
+   * on its way, and the document is already gone regardless.
+   */
+  if (waiters?.size) await new Promise((r) => setTimeout(r, 0))
+
   disablePage(tabId, 'navigation')
+  scheduleRemint(tabId)
+}
+
+/**
+ * Re-minting is deferred; withdrawal above is not.
+ *
+ * A redirect chain (/ -> /login -> /home) commits three times and would
+ * otherwise mint three handles and three pages_sync rounds for documents no
+ * agent will ever address. Dropping the old handle late, on the other hand,
+ * would leave a window in which a call could be dispatched into a document
+ * that has already gone — the outcome_unknown case. Fail fast down, settle up.
+ */
+const REMINT_SETTLE_MS = 250
+const remintTimers = new Map<number, ReturnType<typeof setTimeout>>()
+
+function scheduleRemint(tabId: number): void {
+  const existing = remintTimers.get(tabId)
+  if (existing !== undefined) clearTimeout(existing)
+  remintTimers.set(tabId, setTimeout(() => {
+    remintTimers.delete(tabId)
+    void remintIfGranted(tabId)
+  }, REMINT_SETTLE_MS))
+}
+
+async function remintIfGranted(tabId: number): Promise<void> {
+  if (enabledPages.has(tabId)) return
+  try {
+    const tab = await browser.tabs.get(tabId)
+    const granted = await grants.grantFor(tab.url ?? '')
+    if (!granted) return
+    await enablePage(tabId, tab.title, granted.allowWrites)
+  } catch {
+    // The tab closed, or the document is not ready. Nothing to re-mint.
+  }
 }
 
 async function executeInTab(request: control.ExecuteRequest): Promise<control.ExecuteResponse> {
@@ -443,6 +603,10 @@ async function executeInTab(request: control.ExecuteRequest): Promise<control.Ex
   if (!page) return unknownPage('The page is no longer enabled')
   if (page.documentId !== request.documentId) {
     return unknownPage('The document changed before dispatch')
+  }
+
+  if (request.toolId === NAVIGATE_TOOL_ID) {
+    return runNavigate(page, request.arguments as Record<string, unknown>)
   }
 
   const origin = page.origin
