@@ -211,7 +211,21 @@ export function listPages(principal: ClientRecord) {
     execution: p.descriptor.execution,
     toolCount: p.tools.size,
   }))
-  return text(pages.length ? pages : { pages: [], hint: 'Enable a page in the Janus extension popup.' })
+  if (pages.length) return text(pages)
+
+  // "Enable a page" is the wrong instruction when pages are enabled and simply
+  // belong to a browser this client is not scoped to — which is what re-pairing
+  // produces, since it mints a new pairing ID the old client scope never names.
+  const elsewhere = registry.pageCount()
+  return text({
+    pages: [],
+    hint: elsewhere
+      ? `${elsewhere} page(s) are enabled, but none are in this client's scope `
+        + `(${principal.pairingIds.join(', ')}). The browser has probably re-paired since this `
+        + 'token was issued; re-scope it with: janus-mcp client scope '
+        + `${principal.clientId} --all-browsers`
+      : 'Enable a page in the Janus extension popup.',
+  })
 }
 
 export function listBrowserTools(principal: ClientRecord, pageId: string) {

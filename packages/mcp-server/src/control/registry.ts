@@ -163,6 +163,14 @@ export function pagesForPairings(pairingIds: string[]): LivePage[] {
   return [...pages.values()].filter((p) => scope.has(p.pairingId))
 }
 
+/**
+ * How many pages exist regardless of scope. Only for telling "nothing is
+ * enabled" apart from "nothing you are scoped to" — never for serving a page.
+ */
+export function pageCount(): number {
+  return pages.size
+}
+
 export function setExecutionState(pageId: PageId, execution: PageDescriptor['execution']): void {
   const page = pages.get(pageId)
   if (!page) return

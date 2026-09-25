@@ -51,7 +51,7 @@ function closeWith(socket: WebSocket, code: number, reason: string): void {
   try { socket.close(code, reason) } catch { /* already closing */ }
 }
 
-function drop(connectionId: Id): void {
+function drop(connectionId: Id, why = ''): void {
   const connection = connections.get(connectionId)
   if (!connection) return
   for (const page of registry.pagesForPairing(connection.pairingId)) {
@@ -65,7 +65,9 @@ function drop(connectionId: Id): void {
   // The pair of this and the connect line is what tells an operator whether a
   // browser is flapping, which otherwise only shows up as tools that keep
   // vanishing.
-  console.error(`[janus-mcp] Browser disconnected: ${connection.pairingId}`)
+  // The close code says whose fault it was: a code we chose is a rejection the
+  // extension cannot see, and its absence means the browser hung up on us.
+  console.error(`[janus-mcp] Browser disconnected: ${connection.pairingId}${why}`)
   if (byPairing.get(connection.pairingId) === connectionId) byPairing.delete(connection.pairingId)
 }
 
@@ -83,23 +85,28 @@ interface SocketState {
   bytesBeforeAuth: number
   heartbeatTimer?: NodeJS.Timeout
   lastSeen: number
+  /** How long a connection survived, which is what distinguishes the failures. */
+  openedAt: number
 }
 
 export function attachControlSocket(socket: WebSocket, credentials: CredentialStore): void {
-  const state: SocketState = { bytesBeforeAuth: 0, lastSeen: Date.now() }
+  const state: SocketState = { bytesBeforeAuth: 0, lastSeen: Date.now(), openedAt: Date.now() }
 
   state.handshakeTimer = setTimeout(() => {
     if (!state.authenticated) closeWith(socket, 4408, 'handshake timeout')
   }, LIMITS.pairingHandshakeMs)
 
-  const teardown = () => {
+  const teardown = (why = '') => {
     if (state.handshakeTimer) clearTimeout(state.handshakeTimer)
     if (state.heartbeatTimer) clearInterval(state.heartbeatTimer)
-    if (state.authenticated) drop(state.authenticated.connectionId)
+    if (state.authenticated) drop(state.authenticated.connectionId, why)
   }
 
-  socket.on('close', teardown)
-  socket.on('error', teardown)
+  socket.on('close', (code: number, reason: Buffer) => {
+    const text = reason?.toString() ?? ''
+    teardown(` (close ${code}${text ? `: ${text}` : ''}, up ${Date.now() - state.openedAt}ms)`)
+  })
+  socket.on('error', (err: Error) => teardown(` (socket error: ${err.message})`))
 
   socket.on('message', (data: Buffer | ArrayBuffer | Buffer[], isBinary: boolean) => {
     // Binary frames are journey file uploads and are never part of the
@@ -124,7 +131,17 @@ export function attachControlSocket(socket: WebSocket, credentials: CredentialSt
     try { parsed = JSON.parse(raw.toString('utf8')) } catch { closeWith(socket, 1007, 'malformed frame'); return }
 
     const result = validateControlMessage(parsed)
-    if (!result.valid) { closeWith(socket, 1008, 'protocol error'); return }
+    if (!result.valid) {
+      // The wire reply stays opaque, but a frame the daemon cannot parse is a
+      // version skew or a contract bug, and nothing else records which field.
+      const kind = (parsed as { type?: unknown })?.type
+      console.error(
+        `[janus-mcp] Rejected a ${typeof kind === 'string' ? kind : 'malformed'} frame: `
+        + result.errors.join('; '),
+      )
+      closeWith(socket, 1008, 'protocol error')
+      return
+    }
 
     state.lastSeen = Date.now()
     handle(socket, state, result.value, credentials)
